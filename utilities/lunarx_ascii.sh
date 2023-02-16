@@ -1,53 +1,18 @@
 #!/bin/sh
 
-echo -e "\033[1;97m---------------------------------------------------------------------------------------------------------------------" 
-echo -e "\033[1;97m                                                      Welcome!"
-echo -e "\033[1;97m                               Project - Lunar Autonomous Regolith Excavator [ LunAR-X ]"
-echo -e "\033[1;97m  " 
-echo -e "\x1B[01;93m          XXXXXXXXXXXXXXXXXXXX               XXXXXXXXXXXXXXXXXXXX\x1B[00;91m                   &&&&&& "
-echo -e "\x1B[01;93m           XXXXXXXXXXXXXXXXXXXX            XXXXXXXXXXXXXXXXXXXX\x1B[00;91m             &&&&&&&&&&&&&&&&&&&&&" 
-echo -e "\x1B[01;93m            XXXXXXXXXXXXXXXXXXXX         XXXXXXXXXXXXXXXXXXXXX\x1B[00;91m          &&&&&&&&&&&&&&&&&&&&&&&&&&&&& " 
-echo -e "\x1B[01;93m             XXXXXXXXXXXXXXXXXXXX       XXXXXXXXXXXXXXXXXXXX\x1B[00;91m          &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& " 
-echo -e "\x1B[01;93m              XXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXX\x1B[00;91m          &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-echo -e "\x1B[01;93m               XXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXXXXXX\x1B[00;91m           &&&&&&&&&&&&&&&&&&    &&&&&&&&&&&&&&&&&"
-echo -e "\x1B[01;93m                XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m           &&&&&&&&&&&&&&             &&&&&&&&&&&&&&"
-echo -e "\x1B[01;93m                 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m            &&&&&&&&&&&&&                 &&&&&&&&&&&&&"
-echo -e "\x1B[01;93m                  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m              &&&&&&&&&&&&                   &&&&    &&&&"
-echo -e "\x1B[01;93m                   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m               &&&&&&&&&&&&                   &&  &&&&  &&"
-echo -e "\033[1;97m          00        00    00  00    00      00      00000\x1B[00;91m        &&&&&&&&&&&&                     &&&&&&&&"
-echo -e "\033[1;97m          00        00    00  000   00     0000     00  00\x1B[00;91m       &&&&&&&&&&&&                     &&&&&&&&"
-echo -e "\033[1;97m          00        00    00  00 0  00    00  00    00000\x1B[00;91m        &&&&&&&&&&&&             &&&&&&   &&&&&&  &&&&&&&"
-echo -e "\033[1;97m          00        00    00  00  0 00   00000000   00  00\x1B[00;91m       &&&&&&&&&&&&              &&&&&&&&      &&&&&&&&"
-echo -e "\033[1;97m          00000000   000000   00   000  00      00  00   00\x1B[00;91m      &&&&&&&&&&&&               &&&&&&&&&&&&&&&&&&&&" 
-echo -e "\x1B[01;93m                  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m                 &&&&&&&&&&&&                  &&&&&&&&&&&&&&" 
-echo -e "\x1B[01;93m                XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m                &&&&&&&&&&&&                   &&&&&&&&&&&&"
-echo -e "\x1B[01;93m              XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m               &&&&&&&&&&&&                   &&&&&&&&&&&&" 
-echo -e "\x1B[01;93m            XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\x1B[00;91m              &&&&&&&&&&&&                   &&&&&&&&&&&&"
-echo -e "\x1B[01;93m           XXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXXXXXXX\x1B[00;91m             &&&&&&&&&&&&                   &&&&&&&&&&&&" 
-echo -e "\x1B[01;93m         XXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXX\x1B[00;91m            &&&&&&&&&&&&                   &&&&&&&&&&&&"
-echo -e "\x1B[01;93m       XXXXXXXXXXXXXXXXXXXX       XXXXXXXXXXXXXXXXXXXX\x1B[00;91m           &&&&&&&&&&&&                   &&&&&&&&&&&&" 
-echo -e "\x1B[01;93m      XXXXXXXXXXXXXXXXXXXX         XXXXXXXXXXXXXXXXXXXX\x1B[00;91m          &&&&&&&&&&&&                   &&&&&&&&&&&&"
-echo -e "\x1B[01;93m    XXXXXXXXXXXXXXXXXXXX            XXXXXXXXXXXXXXXXXXXX\x1B[00;91m                    " 
-echo -e "\x1B[01;93m  XXXXXXXXXXXXXXXXXXXX               XXXXXXXXXXXXXXXXXXXX\x1B[00;91m                   THE ROBOTICS INSTITUTE"
+echo -e "\x1B[01;93m___________________________________________________________________" 
+echo -e "\033[1;97m                            Welcome!"
+echo -e "\033[1;97m     Project - Lunar Autonomous Regolith Excavator [ LunAR-X ]"
+echo -e ""
+echo -e "\x1B[01;93m                                          XXXXX        XXXXX"
+echo -e "\033[1;97m       _                          _____   \x1B[01;93m X:::X     X:::X"
+echo -e "\033[1;97m      | |                   /\   |  __ \  \x1B[01;93m  X:::X  X:::X"
+echo -e "\033[1;97m      | |    _   _ _ __    /  \  | |__) | \x1B[01;93m   X:::X:::X"
+echo -e "\033[1;97m      | |   | | | | '_ \  / /\ \ |  _  /  \x1B[01;93m    X:::::X"
+echo -e "\033[1;97m      | |___| |_| | | | |/ ____ \| | \ \  \x1B[01;93m  X:::XX:::X"
+echo -e "\033[1;97m      |______\__,_|_| |_/_/    \_\_|  \_\ \x1B[01;93mX:::X   X:::X"
+echo -e "\x1B[01;93m                                        X:::X      X:::X"
+echo -e "\x1B[01;93m                                      XXXXX         XXXXX"
 echo -e " "
-echo -e "\033[1;97m                                                • Reshape The Moon •"
-echo -e "\033[1;97m---------------------------------------------------------------------------------------------------------------------"
-
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+echo -e "\033[1;97m                      • Reshape The Moon •"
+echo -e "\x1B[01;93m___________________________________________________________________"
