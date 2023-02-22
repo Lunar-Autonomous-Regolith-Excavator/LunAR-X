@@ -1,0 +1,19 @@
+version: "3.9"
+
+services: 
+  lx_autonomy:
+    build:
+      context: ./
+      dockerfile: ./docker/lx_autonomy.Dockerfile
+
+    container_name: lx_autonomy
+
+    privileged: true
+
+    volumes:
+      - ./src/lx_autonomy/src/:/home/lx_autonomy/lx_autonomy_ws/src/
+      - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
+      - /dev/:/dev/
+
+    tty: true
+    stdin_open: true
