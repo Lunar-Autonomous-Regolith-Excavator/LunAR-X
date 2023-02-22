@@ -8,8 +8,12 @@ RUN sudo apt-get update && sudo apt-get upgrade -y
 ### Expose required ports
 # TODO
 
-### Install VNC
+### Install required applications
+# VNC
 # TODO
+
+# Nano
+RUN sudo apt-get install nano
 
 ### Copy source code
 COPY ../src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/
@@ -20,5 +24,3 @@ COPY ../utilities/ /home/lx_autonomy/lx_autonomy_ws/utilities/
 
 # Add ascii script to bashrc (make sure to keep >> instead of > to avoid overwriting file)
 RUN echo 'source /home/lx_autonomy/lx_autonomy_ws/utilities/lunarx_ascii.sh' >> ~/.bashrc
-
-
