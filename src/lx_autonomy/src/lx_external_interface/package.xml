@@ -4,7 +4,7 @@
   <name>lx_external_interface</name>
   <version>0.0.0</version>
   <description>LunAR-X Project - External Interface package for the rover's onboard compute</description>
-  <maintainer email="dhruv.tya@gmail.com">root</maintainer>
+  <maintainer email="dhruv.tya@gmail.com">Dhruv Tyagi</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
