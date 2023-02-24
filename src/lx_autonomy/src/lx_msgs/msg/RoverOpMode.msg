@@ -1,4 +1,5 @@
 # Operation modes:
-# 0 = Teleoperated
-# 1 = Autonomous
-uint16 op_mode
+# 0 = Standby
+# 1 = Teleoperated
+# 2 = Autonomous
+uint16 data

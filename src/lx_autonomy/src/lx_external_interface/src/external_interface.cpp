@@ -1,22 +1,25 @@
 #include "lx_external_interface/external_interface.hpp"
 
-// Constructor
 ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     // Lock movement at system start
     rover_soft_lock_.mobility_lock = true;
     rover_soft_lock_.actuation_lock = true;
+    // Set rover to standby at system start
+    current_rover_op_mode_ = OpModeEnum::STANDBY;
     
+    // Set up subscriptions & publishers
     setupCommunications();
+
+    // Publish rover lock
+    lockRover();
 
     RCLCPP_INFO(this->get_logger(), "External Interface initialized");
 }
 
-// Set up subscription
 void ExternalInterface::setupCommunications(){
     // Subscribers
-    joy_subscriber_ = this->create_subscription<sensor_msgs::msg::Joy>(
-                                    "joy", 10 , 
-                                    std::bind(&ExternalInterface::joyCallBack, this, std::placeholders::_1));
+    joy_subscriber_ = this->create_subscription<sensor_msgs::msg::Joy>("joy", 10 , 
+                            std::bind(&ExternalInterface::joyCallBack, this, std::placeholders::_1));
 
     // Publishers
     rover_mode_publisher_ = this->create_publisher<lx_msgs::msg::RoverOpMode>("rover_op_mode", 1);
@@ -24,11 +27,11 @@ void ExternalInterface::setupCommunications(){
     rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverTeleop>("rover_teleop_cmd", 10);
 }
 
-// Joystick subscriber callback
 void ExternalInterface::joyCallBack(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
 
     // Publisher given information to publish rover-op-mode and teleop commands 
     rover_control_pub_thread_ = std::thread(std::bind(&ExternalInterface::roverControlPublish, this, joy_msg));
+
     // Have to detach thread before it goes out of scope
     rover_control_pub_thread_.detach(); 
 
@@ -36,14 +39,70 @@ void ExternalInterface::joyCallBack(const sensor_msgs::msg::Joy::SharedPtr joy_m
 
 void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
 
-    // Publish rover-lock-status
+    // Guide button rising-edge controls locking of actuation & mobility 
+    if(joy_msg->buttons[int(JoyButtons::GUIDE)] && !joy_last_state_.buttons[int(JoyButtons::GUIDE)]){
+        // Change lock status
+        rover_soft_lock_.mobility_lock = !rover_soft_lock_.mobility_lock;
+        rover_soft_lock_.actuation_lock = !rover_soft_lock_.actuation_lock;
+        // Publish lock status change
+        switchRoverLockStatus();
+    }
+
+    // Start button rising-edge cycles through the operating modes of the rover
+    if(joy_msg->buttons[int(JoyButtons::START)] && !joy_last_state_.buttons[int(JoyButtons::START)]){
+        switch(current_rover_op_mode_){
+            case OpModeEnum::STANDBY:
+                current_rover_op_mode_ = OpModeEnum::TELEOP;
+            break;
+
+            case OpModeEnum::TELEOP:
+                current_rover_op_mode_ = OpModeEnum::AUTONOMOUS;
+            break;
+
+            case OpModeEnum::AUTONOMOUS:
+                current_rover_op_mode_ = OpModeEnum::STANDBY;
+            break;
+
+            default:
+                current_rover_op_mode_ = OpModeEnum::STANDBY;
+                RCLCPP_ERROR(this->get_logger(), "Current rover mode invalid, setting to STANDBY");
+        }
+        switchRoverOpMode();
+    }
+
+    // Publish rover-teleop-cmd
+    auto rover_teleop_msg = lx_msgs::msg::RoverTeleop();
+
+    // Store last received joystick state
+    setLastJoyState(joy_msg);
+
+}
+
+void ExternalInterface::switchRoverLockStatus(){
     auto rover_lock_msg = lx_msgs::msg::RoverLock();
     rover_lock_msg.mobility_lock = rover_soft_lock_.mobility_lock;
     rover_lock_msg.actuation_lock = rover_soft_lock_.actuation_lock;
     rover_lock_publisher_->publish(rover_lock_msg);
+}
 
-    // Publish rover-op-mode
+void ExternalInterface::lockRover(){
+    rover_soft_lock_.mobility_lock = true;
+    rover_soft_lock_.actuation_lock = true;
+    switchRoverLockStatus();
+}
 
-    // Publish rover-teleop-cmd
+void ExternalInterface::unlockRover(){
+    rover_soft_lock_.mobility_lock = false;
+    rover_soft_lock_.actuation_lock = false;
+    switchRoverLockStatus();
+}
 
+void ExternalInterface::switchRoverOpMode(){
+    auto rover_op_mode_msg = lx_msgs::msg::RoverOpMode();
+    rover_op_mode_msg.data = uint16_t(current_rover_op_mode_);
+    rover_mode_publisher_->publish(rover_op_mode_msg);
+}
+
+void ExternalInterface::setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
+    joy_last_state_ = *joy_msg;
 }
