@@ -75,8 +75,8 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
         switchRoverOpMode();
     }
 
-    // Publish rover-teleop-cmd
-    auto rover_teleop_msg = lx_msgs::msg::RoverTeleop();
+    // Pass through rover teleop commands
+    passRoverTeleopCmd(joy_msg);
 
     // Store last received joystick state
     setLastJoyState(joy_msg);
@@ -117,4 +117,8 @@ void ExternalInterface::activeLock(){
         lockRover();
         RCLCPP_WARN(this->get_logger(), "Rover LOCKED - Lost communication with joystick/control station");
     }
+}
+
+void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
+    // TODO
 }

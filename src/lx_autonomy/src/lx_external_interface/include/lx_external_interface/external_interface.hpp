@@ -30,6 +30,7 @@ class ExternalInterface: public rclcpp::Node
         void setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr );
         void switchRoverLockStatus();
         void activeLock();
+        void passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr );
 
     public:
         // Functions
