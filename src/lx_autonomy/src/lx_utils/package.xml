@@ -3,8 +3,8 @@
 <package format="3">
   <name>lx_utils</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="dhruv.tya@gmail.com">dhruv</maintainer>
+  <description>LunAR-X Project - Utilities required for proper functioning of the nodes</description>
+  <maintainer email="dhruv.tya@gmail.com">Dhruv Tyagi</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

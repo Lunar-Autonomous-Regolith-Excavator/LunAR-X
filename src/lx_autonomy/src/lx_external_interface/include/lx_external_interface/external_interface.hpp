@@ -1,3 +1,6 @@
+#ifndef EXTERNAL_INTERFACE_H
+#define EXTERNAL_INTERFACE_H
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "lx_msgs/msg/rover_lock.hpp"
@@ -21,19 +24,78 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
 
         // Functions
+
+        /*
+        * Set up subscribers and publishers of the node
+        * */
         void setupCommunications();
+
+        /*
+        * Argument(s): 
+        *   - joystick message
+        * 
+        * Callback function for /joy topic published by the joystick
+        * */
         void joyCallBack(const sensor_msgs::msg::Joy::SharedPtr );
+
+        /*
+        * Argument(s):
+        *   - joystick message
+        * 
+        * Handle co-ordinating the publishing of any changes to rover mode/lock status
+        * */
         void roverControlPublish(const sensor_msgs::msg::Joy::SharedPtr );
+
+        /*
+        * Set rover lock status to true and call to publish
+        * */
         void lockRover();
+
+        /*
+        * Set rover lock status to false and call to publish
+        * */
         void unlockRover();
-        void switchRoverOpMode();
-        void setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr );
+
+        /*
+        * Publish required lock status
+        * */
         void switchRoverLockStatus();
+
+        /*
+        * Automatically set rover lock status to true if no communication
+        * received from the joystick for 3 seconds
+        * */
         void activeLock();
+
+        /*
+        * Publish required rover operation mode
+        * */
+        void switchRoverOpMode();
+
+        /*
+        * Argument(s):
+        *   - joystick message
+        * 
+        * Save last received joystick state. Required to know changes in state.
+        * */
+        void setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr );
+
+        /*
+        * TODO
+        * */
         void passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr );
 
     public:
         // Functions
+        /*
+        * Constructor
+        * */
         ExternalInterface();
+
+        /*
+        * Destructor
+        * */
         ~ExternalInterface(){}
 };
+
+#endif
