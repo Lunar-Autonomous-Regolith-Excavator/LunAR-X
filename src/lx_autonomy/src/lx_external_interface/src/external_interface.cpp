@@ -84,10 +84,17 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 }
 
 void ExternalInterface::switchRoverLockStatus(){
+    // Publish lock status
     auto rover_lock_msg = lx_msgs::msg::RoverLock();
     rover_lock_msg.mobility_lock = rover_soft_lock_.mobility_lock;
     rover_lock_msg.actuation_lock = rover_soft_lock_.actuation_lock;
     rover_lock_publisher_->publish(rover_lock_msg);
+
+    // Display lock status
+    std::string mob_display,act_display;
+    rover_soft_lock_.mobility_lock? (mob_display = "LOCKED") : (mob_display = "UNLOCKED");
+    rover_soft_lock_.actuation_lock? (act_display = "LOCKED") : (act_display = "UNLOCKED");
+    RCLCPP_WARN(this->get_logger(), "Rover lock status: Mobility %s, Actuation %s", mob_display, act_display);
 }
 
 void ExternalInterface::lockRover(){
@@ -103,9 +110,25 @@ void ExternalInterface::unlockRover(){
 }
 
 void ExternalInterface::switchRoverOpMode(){
+    // Publish operation mode
     auto rover_op_mode_msg = lx_msgs::msg::RoverOpMode();
     rover_op_mode_msg.data = uint16_t(current_rover_op_mode_);
     rover_mode_publisher_->publish(rover_op_mode_msg);
+
+    // Display operation mode
+    std::string display_string;
+    switch(current_rover_op_mode_){
+        case OpModeEnum::STANDBY:
+            display_string = "STANDBY";
+        break;
+        case OpModeEnum::TELEOP:
+            display_string = "TELEOP";
+        break;
+        case OpModeEnum::AUTONOMOUS:
+            display_string = "AUTONOMOUS";
+        break;
+    }
+    RCLCPP_WARN(this->get_logger(), "Rover operation mode set to %s", display_string);
 }
 
 void ExternalInterface::setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
@@ -114,8 +137,12 @@ void ExternalInterface::setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr j
 
 void ExternalInterface::activeLock(){
     if(!rover_soft_lock_.mobility_lock || !rover_soft_lock_.actuation_lock){
+        // Lock rover if no /joy message received for 3 seconds
         lockRover();
-        RCLCPP_WARN(this->get_logger(), "Rover LOCKED - Lost communication with joystick/control station");
+        // Set to standby
+        current_rover_op_mode_ = OpModeEnum::STANDBY;
+        switchRoverOpMode();
+        RCLCPP_WARN(this->get_logger(), "Lost communication with joystick/control station");
     }
 }
 
