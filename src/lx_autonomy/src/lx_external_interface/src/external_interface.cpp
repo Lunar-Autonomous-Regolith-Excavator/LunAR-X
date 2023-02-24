@@ -42,7 +42,7 @@ void ExternalInterface::joyCallBack(const sensor_msgs::msg::Joy::SharedPtr joy_m
 
 void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
     // Active lock timer reset
-    rover_lock_timer_.reset();
+    rover_lock_timer_->reset();
 
     // Guide button rising-edge controls locking of actuation & mobility 
     if(joy_msg->buttons[int(JoyButtons::GUIDE)] && !joy_last_state_.buttons[int(JoyButtons::GUIDE)]){
@@ -94,7 +94,7 @@ void ExternalInterface::switchRoverLockStatus(){
     std::string mob_display,act_display;
     rover_soft_lock_.mobility_lock? (mob_display = "LOCKED") : (mob_display = "UNLOCKED");
     rover_soft_lock_.actuation_lock? (act_display = "LOCKED") : (act_display = "UNLOCKED");
-    RCLCPP_WARN(this->get_logger(), "Rover lock status: Mobility %s, Actuation %s", mob_display, act_display);
+    RCLCPP_WARN(this->get_logger(), "Rover lock status: Mobility %s, Actuation %s", mob_display.c_str(), act_display.c_str());
 }
 
 void ExternalInterface::lockRover(){
@@ -128,7 +128,7 @@ void ExternalInterface::switchRoverOpMode(){
             display_string = "AUTONOMOUS";
         break;
     }
-    RCLCPP_WARN(this->get_logger(), "Rover operation mode set to %s", display_string);
+    RCLCPP_WARN(this->get_logger(), "Rover operation mode set to %s", display_string.c_str());
 }
 
 void ExternalInterface::setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
@@ -136,13 +136,13 @@ void ExternalInterface::setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr j
 }
 
 void ExternalInterface::activeLock(){
+    RCLCPP_ERROR(this->get_logger(), "Lost communication with joystick/control station");
     if(!rover_soft_lock_.mobility_lock || !rover_soft_lock_.actuation_lock){
         // Lock rover if no /joy message received for 3 seconds
         lockRover();
         // Set to standby
         current_rover_op_mode_ = OpModeEnum::STANDBY;
         switchRoverOpMode();
-        RCLCPP_WARN(this->get_logger(), "Lost communication with joystick/control station");
     }
 }
 
