@@ -10,6 +10,7 @@ class ExternalInterface: public rclcpp::Node
 {
     private:
         // Variables & pointers
+        rclcpp::TimerBase::SharedPtr rover_lock_timer_;
         std::thread rover_control_pub_thread_;
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_;
@@ -28,6 +29,7 @@ class ExternalInterface: public rclcpp::Node
         void switchRoverOpMode();
         void setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr );
         void switchRoverLockStatus();
+        void activeLock();
 
     public:
         // Functions

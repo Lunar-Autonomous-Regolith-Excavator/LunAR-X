@@ -6,6 +6,9 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     rover_soft_lock_.actuation_lock = true;
     // Set rover to standby at system start
     current_rover_op_mode_ = OpModeEnum::STANDBY;
+    // Timer for active rover lock
+    rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), 
+                        std::bind(&ExternalInterface::activeLock, this));
     
     // Set up subscriptions & publishers
     setupCommunications();
@@ -38,6 +41,8 @@ void ExternalInterface::joyCallBack(const sensor_msgs::msg::Joy::SharedPtr joy_m
 }
 
 void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
+    // Active lock timer reset
+    rover_lock_timer_.reset();
 
     // Guide button rising-edge controls locking of actuation & mobility 
     if(joy_msg->buttons[int(JoyButtons::GUIDE)] && !joy_last_state_.buttons[int(JoyButtons::GUIDE)]){
@@ -105,4 +110,11 @@ void ExternalInterface::switchRoverOpMode(){
 
 void ExternalInterface::setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
     joy_last_state_ = *joy_msg;
+}
+
+void ExternalInterface::activeLock(){
+    if(!rover_soft_lock_.mobility_lock || !rover_soft_lock_.actuation_lock){
+        lockRover();
+        RCLCPP_WARN(this->get_logger(), "Rover LOCKED - Lost communication with joystick/control station");
+    }
 }
