@@ -8,6 +8,10 @@
 #include "lx_msgs/msg/rover_teleop.hpp"
 #include "lx_utils/lx_utils.hpp"
 
+#include "rcl_interfaces/srv/GetParameters.hpp"
+#include "rcl_interfaces/srv/SetParameters.hpp"
+#include "rcl_interfaces/msg/Parameter.hpp"
+
 
 class ExternalInterface: public rclcpp::Node
 {
@@ -22,7 +26,9 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Publisher<lx_msgs::msg::RoverOpMode>::SharedPtr rover_mode_publisher_;
         // rclcpp::Publisher<lx_msgs::msg::RoverLock>::SharedPtr rover_lock_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
-        std::shared_ptr<rclcpp::AsyncParametersClient> params_client;
+
+        rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
+        rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
 
         // Functions
 
@@ -80,6 +86,9 @@ class ExternalInterface: public rclcpp::Node
         * TODO
         * */
         void passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr );
+
+        // TODO
+        void setupParams();
 
     public:
         // Functions
