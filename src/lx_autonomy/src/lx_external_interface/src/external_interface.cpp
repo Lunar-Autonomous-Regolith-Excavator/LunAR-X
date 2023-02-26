@@ -108,7 +108,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 
 }
 
-void ExternalInterface::switchRoverLockStatus(){
+void ExternalInterface::switchLockStatus(){
     while(!set_params_client_->wait_for_service(std::chrono::seconds(1))){
         RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
     }
@@ -143,7 +143,7 @@ void ExternalInterface::switchRoverLockStatus(){
 void ExternalInterface::lockRover(){
     rover_soft_lock_.mobility_lock = true;
     rover_soft_lock_.actuation_lock = true;
-    switchRoverLockStatus();
+    switchLockStatus();
 }
 
 void ExternalInterface::switchRoverOpMode(){
