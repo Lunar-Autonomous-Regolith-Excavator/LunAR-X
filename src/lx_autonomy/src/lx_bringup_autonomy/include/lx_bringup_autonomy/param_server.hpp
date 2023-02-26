@@ -7,13 +7,26 @@
 class ParamServer: public rclcpp::Node
 {
     private:
+        // Variables
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
-        std::shared_ptr<rclcpp::ParameterCallbackHandle> cb_handle_[4];
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> call_back_handle_[14];
+
+        // Functions
+        /*
+        * Set up and initialize all rover-wide parameters
+        * */
         void initParameters();
     public:
+        // Functions
+        /*
+        * Constructor
+        * */
         ParamServer();
+        
+        /*
+        * Destructor
+        * */
         ~ParamServer(){}
-
 };
 
 #endif
