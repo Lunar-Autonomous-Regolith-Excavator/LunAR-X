@@ -17,8 +17,9 @@ enum class JoyAxes : int {D_V = 7, D_H = 6,
                           RIGHT_STICK_V = 4, RIGHT_STICK_H = 3, 
                           RIGHT_TRIG = 5, LEFT_TRIG = 2};
 
-// Do Not Change
 enum class OpModeEnum : int {STANDBY = 0, TELEOP = 1, AUTONOMOUS = 2};
+
+enum class TaskModeEnum : int {IDLE = 0, NAV = 1, EXC = 2, DMP = 3};
 
 void placeHolderFunction();
 

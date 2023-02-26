@@ -1,0 +1,22 @@
+param_server:
+  ros__parameters:
+    rover_params:
+      mobility_lock: true
+      actuation_lock: true
+      op_mode: 0              # 0: STANDBY, 1: TELEOP, 2: STANDBY
+      task_mode: 0            # 0: IDLE, 1: NAV, 2: EXC, 3: DMP
+      
+    mobility_params:
+      max_mob_vel: 0.5        # meter/sec
+      min_mob_vel: 0.0        # meter/sec
+    
+    actuation_params:
+      max_lin_act_ext: 0.15   # meter
+      min_lin_act_ext: 0.05   # meter
+      max_drum_speed: 0.0     # rad/sec
+      min_drum_speed: 0.0     # rad/sec
+      exc_drum_speed: 0.0     # rad/sec
+      dmp_drum_speed: 0.0     # rad/sec
+
+
+  
