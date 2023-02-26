@@ -8,9 +8,9 @@
 #include "lx_msgs/msg/rover_teleop.hpp"
 #include "lx_utils/lx_utils.hpp"
 
-#include "rcl_interfaces/srv/GetParameters.hpp"
-#include "rcl_interfaces/srv/SetParameters.hpp"
-#include "rcl_interfaces/msg/Parameter.hpp"
+#include "rcl_interfaces/srv/get_parameters.hpp"
+#include "rcl_interfaces/srv/set_parameters.hpp"
+#include "rcl_interfaces/msg/parameter.hpp"
 
 
 class ExternalInterface: public rclcpp::Node
@@ -27,7 +27,9 @@ class ExternalInterface: public rclcpp::Node
         // rclcpp::Publisher<lx_msgs::msg::RoverLock>::SharedPtr rover_lock_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
 
-        rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
+        std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
 
         // Functions
@@ -61,7 +63,7 @@ class ExternalInterface: public rclcpp::Node
         /*
         * Publish required lock status
         * */
-        void switchRoverLockStatus();
+        void switchLockStatus();
 
         /*
         * Automatically set rover lock status to true if no communication
