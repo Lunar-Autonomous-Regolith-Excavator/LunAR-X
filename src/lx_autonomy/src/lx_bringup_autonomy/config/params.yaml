@@ -11,7 +11,7 @@ param_server_node:
       max_ang_mob_vel: 0.1    # rad/sec
       max_lin_act_ext: 0.15   # meter
       min_lin_act_ext: 0.05   # meter
-      max_drum_speed: 0.0     # rad/sec
+      max_drum_speed: 0.1     # rad/sec
       min_drum_speed: 0.0     # rad/sec
     
     operational:

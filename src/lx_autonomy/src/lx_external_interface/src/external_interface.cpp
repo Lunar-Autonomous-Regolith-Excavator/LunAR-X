@@ -38,7 +38,7 @@ void ExternalInterface::setupCommunications(){
                             std::bind(&ExternalInterface::joyCallBack, this, std::placeholders::_1));
 
     // Publishers
-    rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverTeleop>("rover_teleop_cmd", 10);
+    rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_teleop_cmd", 10);
 
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
@@ -50,26 +50,26 @@ void ExternalInterface::setupParams(){
 
     // Callback Lambdas
     auto mob_params_callback = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"Locked":"Unlocked"));
+        RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"Locked":"Unlocked"));
         rover_soft_lock_.mobility_lock = p.as_bool();
     };
     auto act_params_callback = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"Locked":"Unlocked"));
+        RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"Locked":"Unlocked"));
         rover_soft_lock_.actuation_lock = p.as_bool();
     };
     auto op_mode_params_callback = [this](const rclcpp::Parameter & p) {
         switch(p.as_int()){
             case 0:
                current_rover_op_mode_ = OpModeEnum::STANDBY;
-               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Standby", p.get_name().c_str());
+               RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": Standby", p.get_name().c_str());
                break;
             case 1:
                current_rover_op_mode_ = OpModeEnum::TELEOP;
-               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Teleop", p.get_name().c_str());
+               RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": Teleop", p.get_name().c_str());
                break;
             case 2:
                current_rover_op_mode_ = OpModeEnum::AUTONOMOUS;
-               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Autonomous", p.get_name().c_str());
+               RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": Autonomous", p.get_name().c_str());
                break;
         }
     };
@@ -77,28 +77,28 @@ void ExternalInterface::setupParams(){
         switch(p.as_int()){
             case 0:
                current_rover_task_mode_ = TaskModeEnum::IDLE;
-               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Idle", p.get_name().c_str());
+               RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": Idle", p.get_name().c_str());
                break;
             case 1:
                current_rover_task_mode_ = TaskModeEnum::NAV;
-               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Navigation", p.get_name().c_str());
+               RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": Navigation", p.get_name().c_str());
                break;
             case 2:
                current_rover_task_mode_ = TaskModeEnum::EXC;
-               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Excavation", p.get_name().c_str());
+               RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": Excavation", p.get_name().c_str());
                break;
             case 3:
                current_rover_task_mode_ = TaskModeEnum::DMP;
-               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Dumping", p.get_name().c_str());
+               RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": Dumping", p.get_name().c_str());
                break;
         }
     };
     auto lin_mob_vel_params_callback = [this](const rclcpp::Parameter & p){
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
+        RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
         mob_lin_vel_ = p.as_double();
     };
     auto ang_mob_vel_params_callback = [this](const rclcpp::Parameter & p){
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
+        RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
         mob_ang_vel_ = p.as_double();
     };
 
@@ -276,11 +276,11 @@ void ExternalInterface::activeLock(){
 
 void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
     // Make rover teleop message
-    auto rover_teleop_msg = lx_msgs::msg::RoverTeleop();
+    auto rover_teleop_msg = lx_msgs::msg::RoverCommand();
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
     rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     rover_teleop_msg.actuator_height.data = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
-    rover_teleop_msg.drum_speed.data = (joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] < -0.2) ? (-joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]) : 0;
+    rover_teleop_msg.drum_speed.data = (joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] < 0.0) ? (-joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]) : 0;
 
     // Publish rover teleop
     rover_teleop_publisher_->publish(rover_teleop_msg);

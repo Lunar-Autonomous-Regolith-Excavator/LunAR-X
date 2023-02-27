@@ -1,13 +1,17 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lx_launch</name>
+  <name>lx_rover_command</name>
   <version>0.0.0</version>
-  <description>LunAR-X Project - Package to launch the nodes required for the rover autonomy</description>
+  <description>LunAR-X Project - The rover command package to send velocity and position commands to the hardware interface</description>
   <maintainer email="dhruv.tya@gmail.com">Dhruv Tyagi</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>lx_msgs</depend>
+  <depend>lx_utils</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

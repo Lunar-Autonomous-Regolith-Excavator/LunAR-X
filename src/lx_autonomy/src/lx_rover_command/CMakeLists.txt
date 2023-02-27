@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(lx_external_interface)
+project(lx_rover_command)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -10,16 +10,16 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
 find_package(lx_utils REQUIRED)
-find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 include_directories(include)
 
-# External interface node
-add_executable(external_interface_node src/external_interface_node.cpp src/external_interface.cpp)
-ament_target_dependencies(external_interface_node rclcpp sensor_msgs lx_msgs lx_utils)
+# Command mux node
+add_executable(command_mux_node src/command_mux_node.cpp src/command_mux.cpp)
+ament_target_dependencies(command_mux_node rclcpp geometry_msgs lx_msgs lx_utils)
 
 install(TARGETS
-  external_interface_node
+  command_mux_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
