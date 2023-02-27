@@ -11,7 +11,12 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     // Timer for active rover lock
     rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), 
                         std::bind(&ExternalInterface::activeLock, this));
+
+    // Time for guide-button debouncing
     guide_debounce_timer_ = this->get_clock()->now();
+
+    // Time for start-button debouncing
+    start_debounce_timer_ = this->get_clock()->now();
     
     // Set up subscriptions & publishers
     setupCommunications();
@@ -20,7 +25,10 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     setupParams();
 
     // Publish rover lock
-    switchLockStatus(true, true);
+    switchRoverLockStatus(true, true);
+
+    // Publish op_mode : standby
+    switchRoverOpMode(OpModeEnum::STANDBY);
 
     RCLCPP_INFO(this->get_logger(), "External Interface initialized");
 }
@@ -31,7 +39,6 @@ void ExternalInterface::setupCommunications(){
                             std::bind(&ExternalInterface::joyCallBack, this, std::placeholders::_1));
 
     // Publishers
-    // rover_mode_publisher_ = this->create_publisher<lx_msgs::msg::RoverOpMode>("rover_op_mode", 1);
     rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverTeleop>("rover_teleop_cmd", 10);
 
     // Clients
@@ -39,8 +46,10 @@ void ExternalInterface::setupCommunications(){
 }
 
 void ExternalInterface::setupParams(){
+    // Subscriber for global parameter events
     param_subscriber_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
 
+    // Callback Lambdas
     auto mob_params_callback = [this](const rclcpp::Parameter & p) {
         RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"Locked":"Unlocked"));
         rover_soft_lock_.mobility_lock = p.as_bool();
@@ -65,11 +74,15 @@ void ExternalInterface::setupParams(){
                break;
         }
     };
+
+    // Names of node & params for adding callback
     auto param_server_name = std::string("param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
     auto task_mode_param_name = std::string("rover.task_mode");
+
+    // Store callback handles for each parameter
     mob_param_cb_handle_ = param_subscriber_->add_parameter_callback(mob_lock_param_name, mob_params_callback, param_server_name);
     act_param_cb_handle_ = param_subscriber_->add_parameter_callback(act_lock_param_name, act_params_callback, param_server_name);
     op_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(op_mode_param_name, op_mode_params_callback, param_server_name);
@@ -94,30 +107,35 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
         // Check debounce time
         if((this->get_clock()->now() - guide_debounce_timer_).seconds() > 0.1){
             // Change lock status
-            switchLockStatus(!rover_soft_lock_.mobility_lock,!rover_soft_lock_.actuation_lock);
+            switchRoverLockStatus(!rover_soft_lock_.mobility_lock,!rover_soft_lock_.actuation_lock);
             guide_debounce_timer_ = this->get_clock()->now();
         }
     }
 
     // Start-button rising-edge cycles through the operating modes of the rover
     if(joy_msg->buttons[int(JoyButtons::START)] && !joy_last_state_.buttons[int(JoyButtons::START)]){
-        switch(current_rover_op_mode_){
-            case OpModeEnum::STANDBY:
-                switchRoverOpMode(OpModeEnum::TELEOP);
-            break;
+        // Check debounce time
+        if((this->get_clock()->now() - start_debounce_timer_).seconds() > 0.1){
+            switch(current_rover_op_mode_){
+                case OpModeEnum::STANDBY:
+                    switchRoverOpMode(OpModeEnum::TELEOP);
+                break;
 
-            case OpModeEnum::TELEOP:
-                switchRoverOpMode(OpModeEnum::AUTONOMOUS);
-            break;
+                case OpModeEnum::TELEOP:
+                    switchRoverOpMode(OpModeEnum::AUTONOMOUS);
+                break;
 
-            case OpModeEnum::AUTONOMOUS:
-                switchRoverOpMode(OpModeEnum::STANDBY);
-            break;
+                case OpModeEnum::AUTONOMOUS:
+                    switchRoverOpMode(OpModeEnum::STANDBY);
+                break;
 
-            default:
-                switchRoverOpMode(OpModeEnum::STANDBY);
-                RCLCPP_ERROR(this->get_logger(), "Rover mode invalid, setting to STANDBY");
+                default:
+                    switchRoverOpMode(OpModeEnum::STANDBY);
+                    RCLCPP_ERROR(this->get_logger(), "Rover mode invalid, setting to STANDBY");
+            }
+            start_debounce_timer_ = this->get_clock()->now();
         }
+        
     }
 
     // Pass through rover teleop commands
@@ -128,7 +146,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 
 }
 
-void ExternalInterface::switchLockStatus(bool mob_val, bool act_val){
+void ExternalInterface::switchRoverLockStatus(bool mob_val, bool act_val){
     while(!set_params_client_->wait_for_service(std::chrono::seconds(1))){
         RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
     }
@@ -172,7 +190,7 @@ void ExternalInterface::activeLock(){
     RCLCPP_ERROR(this->get_logger(), "No communication with joystick/control station");
     if(!rover_soft_lock_.mobility_lock || !rover_soft_lock_.actuation_lock){
         // Lock rover if no /joy message received for 3 seconds
-        switchLockStatus(true, true);
+        switchRoverLockStatus(true, true);
         // Set to standby
         switchRoverOpMode(OpModeEnum::STANDBY);
     }

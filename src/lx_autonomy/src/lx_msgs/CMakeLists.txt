@@ -12,8 +12,6 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DrumSpeed.msg"
   "msg/LinActHeight.msg"
-  "msg/RoverLock.msg"
-  "msg/RoverOpMode.msg"
   "msg/RoverTeleop.msg"
   DEPENDENCIES geometry_msgs
 )

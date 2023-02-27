@@ -1,2 +1,0 @@
-bool actuation_lock
-bool mobility_lock

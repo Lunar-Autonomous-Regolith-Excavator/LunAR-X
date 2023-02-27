@@ -3,11 +3,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
-#include "lx_msgs/msg/rover_lock.hpp"
-#include "lx_msgs/msg/rover_op_mode.hpp"
 #include "lx_msgs/msg/rover_teleop.hpp"
 #include "lx_utils/lx_utils.hpp"
-
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
@@ -16,29 +13,38 @@
 class ExternalInterface: public rclcpp::Node
 {
     private:
-        // Variables & pointers
+        // Variables & pointers -----------------
+        // Time
         rclcpp::TimerBase::SharedPtr rover_lock_timer_;
         rclcpp::Time guide_debounce_timer_;
+        rclcpp::Time start_debounce_timer_;
+        // Track joystick states
+        sensor_msgs::msg::Joy joy_last_state_ = sensor_msgs::msg::Joy();
+        // Subscribers
+        rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber_;
         std::thread rover_control_pub_thread_;
+        // Publishers
+        rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
+        // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_;
-        sensor_msgs::msg::Joy joy_last_state_ = sensor_msgs::msg::Joy();
-        rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber_;
-        // rclcpp::Publisher<lx_msgs::msg::RoverOpMode>::SharedPtr rover_mode_publisher_;
-        rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
-
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
+        // --------------------------------------
 
-        // Functions
-
+        // Functions ----------------------------
         /*
         * Set up subscribers and publishers of the node
         * */
         void setupCommunications();
+
+        /*
+        * Set up tracking of global parameters
+        * */
+        void setupParams();
 
         /*
         * Argument(s): 
@@ -57,14 +63,13 @@ class ExternalInterface: public rclcpp::Node
         void roverControlPublish(const sensor_msgs::msg::Joy::SharedPtr );
 
         /*
-        * Set rover lock status to true and call to publish
-        * */
-        void lockRover();
-
-        /*
+        * Argument(s):
+        *   - desired mobility lock value
+        *   - desired actuation lock value
+        * 
         * Publish required lock status
         * */
-        void switchLockStatus(bool, bool);
+        void switchRoverLockStatus(bool, bool);
 
         /*
         * Automatically set rover lock status to true if no communication
@@ -73,6 +78,9 @@ class ExternalInterface: public rclcpp::Node
         void activeLock();
 
         /*
+        * Argument(s):
+        *   - desired operation mode
+        * 
         * Publish required rover operation mode
         * */
         void switchRoverOpMode(OpModeEnum );
@@ -89,9 +97,8 @@ class ExternalInterface: public rclcpp::Node
         * TODO
         * */
         void passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr );
-
-        // TODO
-        void setupParams();
+        
+        // --------------------------------------
 
     public:
         // Functions
