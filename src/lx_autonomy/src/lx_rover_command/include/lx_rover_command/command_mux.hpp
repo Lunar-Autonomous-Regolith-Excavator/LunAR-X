@@ -10,7 +10,7 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 
 
-class CommandMux : public rclcpp::Node
+class CommandMux: public rclcpp::Node
 {
     private:
         // Variables ----------------------------
