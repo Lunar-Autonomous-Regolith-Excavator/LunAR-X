@@ -39,7 +39,7 @@ class ExternalInterface: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> lin_mob_vel_param_cb_handle_;
-        std::shared_ptr<rclcpp::ParameterCallbackHandle> ang_mob_vel_param_cb_handle_
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> ang_mob_vel_param_cb_handle_;
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         // --------------------------------------
 
