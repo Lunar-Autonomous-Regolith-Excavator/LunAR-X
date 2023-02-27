@@ -18,7 +18,7 @@ class ExternalInterface: public rclcpp::Node
     private:
         // Variables & pointers
         rclcpp::TimerBase::SharedPtr rover_lock_timer_;
-        rclcpp::TimerBase::SharedPtr guide_debounce_timer_;
+        rclcpp::Time guide_debounce_timer_;
         std::thread rover_control_pub_thread_;
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_;

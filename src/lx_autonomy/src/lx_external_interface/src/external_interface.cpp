@@ -72,7 +72,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 
     // Guide-button rising-edge controls locking of actuation & mobility 
     if(joy_msg->buttons[int(JoyButtons::GUIDE)] && !joy_last_state_.buttons[int(JoyButtons::GUIDE)]){
-        if(this->get_clock()->now() - guide_debounce_timer_ > rclcpp::Duration::seconds(0.1)){
+        if((this->get_clock()->now() - guide_debounce_timer_).seconds > 0.1){
             // Change lock status
             guide_debounce_timer_ = this->get_clock()->now();
             switchLockStatus(!rover_soft_lock_.mobility_lock,!rover_soft_lock_.actuation_lock);
