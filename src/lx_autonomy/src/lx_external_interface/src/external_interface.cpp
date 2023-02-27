@@ -174,7 +174,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     if(joy_msg->buttons[int(JoyButtons::BACK)] && !joy_last_state_.buttons[int(JoyButtons::BACK)]){
         // Check debounce time
         if((this->get_clock()->now() - back_debounce_timer_).seconds() > 0.1){
-            switch(current_rover_op_mode_){
+            switch(current_rover_task_mode_){
                 case TaskModeEnum::IDLE:
                     switchRoverTaskMode(TaskModeEnum::NAV);
                 break;
