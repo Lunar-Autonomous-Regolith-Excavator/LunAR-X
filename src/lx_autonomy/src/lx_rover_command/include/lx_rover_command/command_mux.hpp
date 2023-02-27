@@ -53,6 +53,14 @@ class CommandMux : public rclcpp::Node
         * Argument(s):
         *   - rover teleop message
         * 
+        * Callback for /rover_teleop_cmd message
+        * */
+        void roverTeleopCallBack(const lx_msgs::msg::RoverCommand::SharedPtr );
+
+        /*
+        * Argument(s):
+        *   - rover teleop message
+        * 
         * If teleop mode enabled, pass rover teleop command from external interface to the hardware interface
         * */
         void teleopPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr );

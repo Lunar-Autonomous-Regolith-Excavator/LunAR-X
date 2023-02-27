@@ -119,7 +119,7 @@ void CommandMux::teleopPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr r
     // If current op_mode is teleop & task_mode is not idle
     if(current_rover_op_mode_ == OpModeEnum::TELEOP && current_rover_task_mode_ != TaskModeEnum::IDLE){
         // Pass through teleop command
-        sendCmdToHardware(rover_teleop_msg->mobility_twist, rover_teleop_msg->linact_height, rover_teleop_msg->drum_speed);
+        sendCmdToHardware(rover_teleop_msg);
     } 
 }
 
@@ -134,7 +134,7 @@ void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr r
     }
     if(!rover_soft_lock_.actuation_lock){
         cmd_msg.actuator_height.data = (abs(rover_teleop_msg->actuator_height.data) > 1.0 ? 1.0 : rover_teleop_msg->actuator_height.data);
-        cmd_msg.drum_speed.data = (abs(rover_teleop_cmd->drum_speed.data) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_cmd->drum_speed.data);
+        cmd_msg.drum_speed.data = (abs(rover_teleop_msg->drum_speed.data) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_msg->drum_speed.data);
     }
 
     rover_hw_cmd_publisher_->publish(cmd_msg);
