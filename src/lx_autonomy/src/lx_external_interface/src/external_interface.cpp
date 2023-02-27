@@ -11,6 +11,7 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     // Timer for active rover lock
     rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), 
                         std::bind(&ExternalInterface::activeLock, this));
+    guide_debounce_timer_ = this->get_clock()->now();
     
     // Set up subscriptions & publishers
     setupCommunications();
@@ -71,8 +72,11 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 
     // Guide-button rising-edge controls locking of actuation & mobility 
     if(joy_msg->buttons[int(JoyButtons::GUIDE)] && !joy_last_state_.buttons[int(JoyButtons::GUIDE)]){
-        // Change lock status
-        switchLockStatus(!rover_soft_lock_.mobility_lock,!rover_soft_lock_.actuation_lock);
+        if(this->get_clock()->now() - guide_debounce_timer_ > rclcpp::Duration::seconds(0.1)){
+            // Change lock status
+            guide_debounce_timer_ = this->get_clock()->now();
+            switchLockStatus(!rover_soft_lock_.mobility_lock,!rover_soft_lock_.actuation_lock);
+        }
     }
 
     // Start-button rising-edge cycles through the operating modes of the rover
@@ -159,7 +163,7 @@ void ExternalInterface::activeLock(){
     RCLCPP_ERROR(this->get_logger(), "No communication with joystick/control station");
     if(!rover_soft_lock_.mobility_lock || !rover_soft_lock_.actuation_lock){
         // Lock rover if no /joy message received for 3 seconds
-        lockRover(true, true);
+        lockRover();
         // Set to standby
         current_rover_op_mode_ = OpModeEnum::STANDBY;
         switchRoverOpMode();
