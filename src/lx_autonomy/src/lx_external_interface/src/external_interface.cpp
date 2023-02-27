@@ -31,7 +31,6 @@ void ExternalInterface::setupCommunications(){
 
     // Publishers
     rover_mode_publisher_ = this->create_publisher<lx_msgs::msg::RoverOpMode>("rover_op_mode", 1);
-    // rover_lock_publisher_ = this->create_publisher<lx_msgs::msg::RoverLock>("rover_lock_status", 10);
     rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverTeleop>("rover_teleop_cmd", 10);
 
     // Clients
@@ -39,12 +38,14 @@ void ExternalInterface::setupCommunications(){
 }
 
 void ExternalInterface::setupParams(){
+    param_subscriber_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
+
     auto mob_params_callback = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": \"%s\"", p.get_name().c_str(), p.as_bool()?"true":"false");
+        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": \"%s\"", p.get_name().c_str(), (p.as_bool()?"true":"false"));
         rover_soft_lock_.mobility_lock = p.as_bool();
     };
     auto act_params_callback = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": \"%s\"", p.get_name().c_str(), p.as_bool()?"true":"false");
+        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": \"%s\"", p.get_name().c_str(), (p.as_bool()?"true":"false"));
         rover_soft_lock_.actuation_lock = p.as_bool();
     };
     auto param_server_name = std::string("param_server_node");
@@ -70,12 +71,8 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 
     // Guide-button rising-edge controls locking of actuation & mobility 
     if(joy_msg->buttons[int(JoyButtons::GUIDE)] && !joy_last_state_.buttons[int(JoyButtons::GUIDE)]){
-        // Get lock status
-        rover_soft_lock_.mobility_lock = !rover_soft_lock_.mobility_lock;
-        rover_soft_lock_.actuation_lock = !rover_soft_lock_.actuation_lock;
-
         // Change lock status
-        switchLockStatus();
+        switchLockStatus(!rover_soft_lock_.mobility_lock,!rover_soft_lock_.actuation_lock);
     }
 
     // Start-button rising-edge cycles through the operating modes of the rover
@@ -108,7 +105,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 
 }
 
-void ExternalInterface::switchLockStatus(){
+void ExternalInterface::switchLockStatus(bool mob_val, bool act_val){
     while(!set_params_client_->wait_for_service(std::chrono::seconds(1))){
         RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
     }
@@ -116,34 +113,20 @@ void ExternalInterface::switchLockStatus(){
     auto set_request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
     auto mob_param_req = rcl_interfaces::msg::Parameter();
     mob_param_req.name = "rover.mobility_lock";
-    mob_param_req.value = rover_soft_lock_.mobility_lock;
+    mob_param_req.value.type = 1;
+    mob_param_req.value.bool_value = mob_val;
     auto act_param_req = rcl_interfaces::msg::Parameter();
     act_param_req.name = "rover.actuation_lock";
-    act_param_req.value = rover_soft_lock_.actuation_lock;
+    act_param_req.value.type = 1;
+    act_param_req.value.bool_value = act_val;
 
-    set_request->parameters = [mob_param_req,act_param_req];
+    set_request->parameters = {mob_param_req,act_param_req};
 
-    auto future = set_params_client_->async_send_request(set_request);
-
-    try{
-        auto set_response = future.get();
-    }
-    catch(const std::exception &e){
-        RCLCPP_ERROR(this->get_logger(), "Lock status service call failed");
-    }
-    
-
-    // // Display lock status
-    // std::string mob_display,act_display;
-    // rover_soft_lock_.mobility_lock? (mob_display = "LOCKED") : (mob_display = "UNLOCKED");
-    // rover_soft_lock_.actuation_lock? (act_display = "LOCKED") : (act_display = "UNLOCKED");
-    // RCLCPP_WARN(this->get_logger(), "Rover lock: Mobility %s, Actuation %s", mob_display.c_str(), act_display.c_str());
+    auto future_result = set_params_client_->async_send_request(set_request);
 }
 
 void ExternalInterface::lockRover(){
-    rover_soft_lock_.mobility_lock = true;
-    rover_soft_lock_.actuation_lock = true;
-    switchLockStatus();
+    switchLockStatus(true, true);
 }
 
 void ExternalInterface::switchRoverOpMode(){
@@ -176,7 +159,7 @@ void ExternalInterface::activeLock(){
     RCLCPP_ERROR(this->get_logger(), "No communication with joystick/control station");
     if(!rover_soft_lock_.mobility_lock || !rover_soft_lock_.actuation_lock){
         // Lock rover if no /joy message received for 3 seconds
-        lockRover();
+        lockRover(true, true);
         // Set to standby
         current_rover_op_mode_ = OpModeEnum::STANDBY;
         switchRoverOpMode();

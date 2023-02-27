@@ -24,7 +24,6 @@ class ExternalInterface: public rclcpp::Node
         sensor_msgs::msg::Joy joy_last_state_ = sensor_msgs::msg::Joy();
         rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber_;
         rclcpp::Publisher<lx_msgs::msg::RoverOpMode>::SharedPtr rover_mode_publisher_;
-        // rclcpp::Publisher<lx_msgs::msg::RoverLock>::SharedPtr rover_lock_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
 
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
@@ -63,7 +62,7 @@ class ExternalInterface: public rclcpp::Node
         /*
         * Publish required lock status
         * */
-        void switchLockStatus();
+        void switchLockStatus(bool, bool);
 
         /*
         * Automatically set rover lock status to true if no communication
