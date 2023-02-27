@@ -4,7 +4,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "lx_msgs/msg/rover_teleop.hpp"
+#include "lx_msgs/msg/rover_command.hpp"
 #include "lx_utils/lx_utils.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
@@ -26,7 +26,7 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber_;
         std::thread rover_control_pub_thread_;
         // Publishers
-        rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
+        rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_publisher_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;

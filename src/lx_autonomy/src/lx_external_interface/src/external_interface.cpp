@@ -38,7 +38,7 @@ void ExternalInterface::setupCommunications(){
                             std::bind(&ExternalInterface::joyCallBack, this, std::placeholders::_1));
 
     // Publishers
-    rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverTeleop>("rover_teleop_cmd", 10);
+    rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_teleop_cmd", 10);
 
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
@@ -276,7 +276,7 @@ void ExternalInterface::activeLock(){
 
 void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
     // Make rover teleop message
-    auto rover_teleop_msg = lx_msgs::msg::RoverTeleop();
+    auto rover_teleop_msg = lx_msgs::msg::RoverCommand();
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
     rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     rover_teleop_msg.actuator_height.data = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
