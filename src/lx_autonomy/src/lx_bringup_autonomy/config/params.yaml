@@ -7,14 +7,17 @@ param_server_node:
       task_mode: 0            # 0: IDLE, 1: NAV, 2: EXC, 3: DMP
       
     limits:
-      max_mob_vel: 0.5        # meter/sec
-      min_mob_vel: 0.0        # meter/sec
+      max_lin_mob_vel: 0.5    # meter/sec
+      max_ang_mob_vel: 0.1    # rad/sec
       max_lin_act_ext: 0.15   # meter
       min_lin_act_ext: 0.05   # meter
       max_drum_speed: 0.0     # rad/sec
       min_drum_speed: 0.0     # rad/sec
     
     operational:
+      nav_mob_vel: 0.2        # meter/sec
+      exc_mob_vel: 0.1        # meter/sec
+      dmp_mob_vel: 0.1        # meter/sec
       exc_lin_act_ext: 0.15   # meter
       dmp_lin_act_ext: 0.05   # meter
       exc_drum_speed: 0.0     # rad/sec

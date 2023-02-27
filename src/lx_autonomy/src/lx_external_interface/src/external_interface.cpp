@@ -5,18 +5,14 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     rover_soft_lock_.mobility_lock = true;
     rover_soft_lock_.actuation_lock = true;
 
-    // Set rover to standby at system start
-    current_rover_op_mode_ = OpModeEnum::STANDBY;
-
     // Timer for active rover lock
     rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), 
                         std::bind(&ExternalInterface::activeLock, this));
 
-    // Time for guide-button debouncing
+    // Timers for debouncing
     guide_debounce_timer_ = this->get_clock()->now();
-
-    // Time for start-button debouncing
     start_debounce_timer_ = this->get_clock()->now();
+    back_debounce_timer_ = this->get_clock()->now();
     
     // Set up subscriptions & publishers
     setupCommunications();
@@ -29,6 +25,9 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
 
     // Publish op_mode : standby
     switchRoverOpMode(OpModeEnum::STANDBY);
+
+    // Publish task_mode : idle
+    switchRoverTaskMode(TaskModeEnum::IDLE);
 
     RCLCPP_INFO(this->get_logger(), "External Interface initialized");
 }
@@ -74,6 +73,34 @@ void ExternalInterface::setupParams(){
                break;
         }
     };
+    auto task_mode_params_callback = [this](const rclcpp::Parameter & p){
+        switch(p.as_int()){
+            case 0:
+               current_rover_task_mode_ = TaskModeEnum::IDLE;
+               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Idle", p.get_name().c_str());
+               break;
+            case 1:
+               current_rover_task_mode_ = TaskModeEnum::NAV;
+               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Navigation", p.get_name().c_str());
+               break;
+            case 2:
+               current_rover_task_mode_ = TaskModeEnum::EXC;
+               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Excavation", p.get_name().c_str());
+               break;
+            case 3:
+               current_rover_task_mode_ = TaskModeEnum::DMP;
+               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Dumping", p.get_name().c_str());
+               break;
+        }
+    };
+    auto lin_mob_vel_params_callback = [this](const rclcpp::Parameter & p){
+        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
+        mob_lin_vel_ = p.as_double();
+    };
+    auto ang_mob_vel_params_callback = [this](const rclcpp::Parameter & p){
+        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
+        mob_ang_vel_ = p.as_double();
+    };
 
     // Names of node & params for adding callback
     auto param_server_name = std::string("param_server_node");
@@ -81,11 +108,16 @@ void ExternalInterface::setupParams(){
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
     auto task_mode_param_name = std::string("rover.task_mode");
+    auto lin_mob_vel_param_name = std::string("operational.max_lin_mob_vel");
+    auto ang_mob_vel_param_name = std::string("operational.max_ang_mob_vel");
 
     // Store callback handles for each parameter
     mob_param_cb_handle_ = param_subscriber_->add_parameter_callback(mob_lock_param_name, mob_params_callback, param_server_name);
     act_param_cb_handle_ = param_subscriber_->add_parameter_callback(act_lock_param_name, act_params_callback, param_server_name);
     op_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(op_mode_param_name, op_mode_params_callback, param_server_name);
+    task_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(task_mode_param_name, task_mode_params_callback, param_server_name);
+    lin_mob_vel_param_cb_handle_ = param_subscriber_->add_parameter_callback(lin_mob_vel_param_name, lin_mob_vel_params_callback, param_server_name);
+    ang_mob_vel_param_cb_handle_ = param_subscriber_->add_parameter_callback(ang_mob_vel_param_name, ang_mob_vel_params_callback, param_server_name);
 }
 
 void ExternalInterface::joyCallBack(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
@@ -131,9 +163,39 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
 
                 default:
                     switchRoverOpMode(OpModeEnum::STANDBY);
-                    RCLCPP_ERROR(this->get_logger(), "Rover mode invalid, setting to STANDBY");
+                    RCLCPP_ERROR(this->get_logger(), "Operation mode invalid, setting to STANDBY");
             }
             start_debounce_timer_ = this->get_clock()->now();
+        }
+        
+    }
+
+    // Back-button rising-edge cycles through the task modes of the rover
+    if(joy_msg->buttons[int(JoyButtons::BACK)] && !joy_last_state_.buttons[int(JoyButtons::BACK)]){
+        // Check debounce time
+        if((this->get_clock()->now() - back_debounce_timer_).seconds() > 0.1){
+            switch(current_rover_op_mode_){
+                case TaskModeEnum::IDLE:
+                    switchRoverTaskMode(TaskModeEnum::NAV);
+                break;
+
+                case TaskModeEnum::NAV:
+                    switchRoverTaskMode(TaskModeEnum::EXC);
+                break;
+
+                case TaskModeEnum::EXC:
+                    switchRoverTaskMode(TaskModeEnum::DMP);
+                break;
+
+                case TaskModeEnum::DMP:
+                    switchRoverTaskMode(TaskModeEnum::IDLE);
+                break;
+
+                default:
+                    switchRoverTaskMode(TaskModeEnum::IDLE);
+                    RCLCPP_ERROR(this->get_logger(), "Task mode invalid, setting to IDLE");
+            }
+            back_debounce_timer_ = this->get_clock()->now();
         }
         
     }
@@ -182,6 +244,22 @@ void ExternalInterface::switchRoverOpMode(OpModeEnum mode_to_set){
     auto future_result = set_params_client_->async_send_request(set_request);
 }
 
+void ExternalInterface::switchRoverTaskMode(TaskModeEnum mode_to_set){
+    while(!set_params_client_->wait_for_service(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
+    }
+
+    auto set_request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+    auto task_mode_param_req = rcl_interfaces::msg::Parameter();
+    task_mode_param_req.name = "rover.task_mode";
+    task_mode_param_req.value.type = 2;
+    task_mode_param_req.value.integer_value = uint16_t(mode_to_set);
+
+    set_request->parameters = {task_mode_param_req};
+
+    auto future_result = set_params_client_->async_send_request(set_request);
+}
+
 void ExternalInterface::setLastJoyState(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
     joy_last_state_ = *joy_msg;
 }
@@ -198,4 +276,10 @@ void ExternalInterface::activeLock(){
 
 void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
     // TODO
+    auto rover_teleop_msg = lx_msgs::msg::RoverTeleop();
+    rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
+    rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
+    rover_teleop_msg.actuator_height.data = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
+    rover_teleop_msg.drum_speed.data = joy_msg->axes[int(JoyAxes::LEFT_TRIG)];
+    rover_teleop_publisher_->publish(rover_teleop_msg);
 }

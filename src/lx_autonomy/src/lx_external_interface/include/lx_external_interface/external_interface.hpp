@@ -3,6 +3,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include "lx_msgs/msg/rover_teleop.hpp"
 #include "lx_utils/lx_utils.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
@@ -18,6 +19,7 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::TimerBase::SharedPtr rover_lock_timer_;
         rclcpp::Time guide_debounce_timer_;
         rclcpp::Time start_debounce_timer_;
+        rclcpp::Time back_debounce_timer_;
         // Track joystick states
         sensor_msgs::msg::Joy joy_last_state_ = sensor_msgs::msg::Joy();
         // Subscribers
@@ -27,7 +29,10 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
-        OpModeEnum current_rover_op_mode_;
+        OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
+        TaskModeEnum current_rover_task_mode_ = TaskModeEnum::IDLE;
+        float mob_lin_vel_ = 0.5;
+        float mob_ang_vel_ = 0.1;
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
@@ -84,6 +89,14 @@ class ExternalInterface: public rclcpp::Node
         * Publish required rover operation mode
         * */
         void switchRoverOpMode(OpModeEnum );
+
+        /*
+        * Argument(s):
+        *   - desired task mode
+        * 
+        * Publish required rover task mode
+        * */
+        void switchRoverTaskMode(TaskModeEnum );
 
         /*
         * Argument(s):
