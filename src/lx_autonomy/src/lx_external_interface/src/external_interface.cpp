@@ -275,11 +275,13 @@ void ExternalInterface::activeLock(){
 }
 
 void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr joy_msg){
-    // TODO
+    // Make rover teleop message
     auto rover_teleop_msg = lx_msgs::msg::RoverTeleop();
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
     rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     rover_teleop_msg.actuator_height.data = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
     rover_teleop_msg.drum_speed.data = (joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] < -0.2) ? (-joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]) : 0;
+
+    // Publish rover teleop
     rover_teleop_publisher_->publish(rover_teleop_msg);
 }
