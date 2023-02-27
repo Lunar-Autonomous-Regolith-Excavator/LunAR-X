@@ -24,12 +24,13 @@ class ExternalInterface: public rclcpp::Node
         OpModeEnum current_rover_op_mode_;
         sensor_msgs::msg::Joy joy_last_state_ = sensor_msgs::msg::Joy();
         rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscriber_;
-        rclcpp::Publisher<lx_msgs::msg::RoverOpMode>::SharedPtr rover_mode_publisher_;
+        // rclcpp::Publisher<lx_msgs::msg::RoverOpMode>::SharedPtr rover_mode_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverTeleop>::SharedPtr rover_teleop_publisher_;
 
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
 
         // Functions
@@ -74,7 +75,7 @@ class ExternalInterface: public rclcpp::Node
         /*
         * Publish required rover operation mode
         * */
-        void switchRoverOpMode();
+        void switchRoverOpMode(OpModeEnum );
 
         /*
         * Argument(s):
