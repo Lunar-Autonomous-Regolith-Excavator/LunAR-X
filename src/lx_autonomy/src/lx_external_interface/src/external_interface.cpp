@@ -20,7 +20,7 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     setupParams();
 
     // Publish rover lock
-    lockRover();
+    switchLockStatus(true, true);
 
     RCLCPP_INFO(this->get_logger(), "External Interface initialized");
 }
@@ -42,25 +42,26 @@ void ExternalInterface::setupParams(){
     param_subscriber_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
 
     auto mob_params_callback = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"true":"false"));
+        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"Locked":"Unlocked"));
         rover_soft_lock_.mobility_lock = p.as_bool();
     };
     auto act_params_callback = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"true":"false"));
+        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %s", p.get_name().c_str(), (p.as_bool()?"Locked":"Unlocked"));
         rover_soft_lock_.actuation_lock = p.as_bool();
     };
     auto op_mode_params_callback = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": %d", p.get_name().c_str(), p.as_int());
-        current_rover_op_mode_ = p.as_int();
         switch(p.as_int()){
             case 0:
                current_rover_op_mode_ = OpModeEnum::STANDBY;
+               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Standby", p.get_name().c_str());
                break;
             case 1:
                current_rover_op_mode_ = OpModeEnum::TELEOP;
+               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Teleop", p.get_name().c_str());
                break;
             case 2:
                current_rover_op_mode_ = OpModeEnum::AUTONOMOUS;
+               RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": Autonomous", p.get_name().c_str());
                break;
         }
     };
@@ -156,7 +157,7 @@ void ExternalInterface::switchRoverOpMode(OpModeEnum mode_to_set){
     auto op_mode_param_req = rcl_interfaces::msg::Parameter();
     op_mode_param_req.name = "rover.op_mode";
     op_mode_param_req.value.type = 2;
-    op_mode_param_req.value.integer_value = uint16_t(current_rover_op_mode_);
+    op_mode_param_req.value.integer_value = uint16_t(mode_to_set);
 
     set_request->parameters = {op_mode_param_req};
 
