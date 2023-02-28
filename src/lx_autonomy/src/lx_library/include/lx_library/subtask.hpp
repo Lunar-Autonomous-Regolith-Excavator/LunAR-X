@@ -23,11 +23,17 @@ class SubTask
         * Return ID of the subtask
         * */
         unsigned int getID();
+
+        /*
+        * [Pure Virtual Function]
+        * Execute the subtask. See derived definitions
+        * */
+        virtual bool execute() = 0;
         // --------------------------------------
 
 };
 
-class MobilitySubTask : public SubTask
+class MobilitySubTask : virtual public SubTask
 {
     private:
         // TODO Goal
@@ -44,11 +50,17 @@ class MobilitySubTask : public SubTask
         * */
         ~MobilitySubTask(){}
 
+        /*
+        *
+        * TODO
+        * */
+        bool execute();
+
         // --------------------------------------
 
 };
 
-class LinActSubTask : public SubTask
+class LinActSubTask : virtual public SubTask
 {
     private:
         // TODO Linear actuator height
@@ -65,11 +77,17 @@ class LinActSubTask : public SubTask
         * */
         ~LinActSubTask(){}
 
+        /*
+        *
+        * TODO
+        * */
+        bool execute();
+
         // --------------------------------------
 
 };
 
-class DrumSubTask : public SubTask
+class DrumSubTask : virtual public SubTask
 {
     private:
         // TODO Drum speed
@@ -85,6 +103,12 @@ class DrumSubTask : public SubTask
         * Destructor
         * */
         ~DrumSubTask(){}
+
+        /*
+        *
+        * TODO
+        * */
+        bool execute();
 
         // --------------------------------------
 
