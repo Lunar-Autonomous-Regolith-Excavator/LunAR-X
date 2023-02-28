@@ -10,7 +10,7 @@ find_package(rclcpp REQUIRED)
 
 include_directories(include)
 
-add_library(lx_utils src/lx_utils.cpp)
+add_library(lx_utils src/lx_utils.cpp src/subtask.cpp src/task.cpp)
 ament_export_targets(lx_utils HAS_LIBRARY_TARGET)
 
 install(
