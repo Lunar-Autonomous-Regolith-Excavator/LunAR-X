@@ -9,14 +9,14 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
-find_package(lx_utils REQUIRED)
+find_package(lx_library REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
 include_directories(include)
 
 # External interface node
 add_executable(external_interface_node src/external_interface_node.cpp src/external_interface.cpp)
-ament_target_dependencies(external_interface_node rclcpp sensor_msgs lx_msgs lx_utils)
+ament_target_dependencies(external_interface_node rclcpp sensor_msgs lx_msgs lx_library)
 
 install(TARGETS
   external_interface_node

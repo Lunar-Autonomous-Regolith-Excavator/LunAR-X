@@ -9,14 +9,14 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
-find_package(lx_utils REQUIRED)
+find_package(lx_library REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 include_directories(include)
 
 # Command mux node
 add_executable(command_mux_node src/command_mux_node.cpp src/command_mux.cpp)
-ament_target_dependencies(command_mux_node rclcpp geometry_msgs lx_msgs lx_utils)
+ament_target_dependencies(command_mux_node rclcpp geometry_msgs lx_msgs lx_library)
 
 install(TARGETS
   command_mux_node

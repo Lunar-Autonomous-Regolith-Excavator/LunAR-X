@@ -4,7 +4,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "lx_msgs/msg/rover_command.hpp"
-#include "lx_utils/lx_utils.hpp"
+#include "lx_library/lx_utils.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
