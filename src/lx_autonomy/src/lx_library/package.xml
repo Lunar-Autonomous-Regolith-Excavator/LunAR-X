@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lx_utils</name>
+  <name>lx_library</name>
   <version>0.0.0</version>
-  <description>LunAR-X Project - Utilities required for proper functioning of the nodes</description>
+  <description>LunAR-X Project - Library required for proper functioning of the nodes</description>
   <maintainer email="dhruv.tya@gmail.com">Dhruv Tyagi</maintainer>
   <license>TODO: License declaration</license>
 

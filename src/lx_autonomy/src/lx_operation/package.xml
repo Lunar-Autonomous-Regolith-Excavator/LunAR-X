@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lx_ops_handler</name>
+  <name>lx_operation</name>
   <version>0.0.0</version>
-  <description>LunAR-X Project - The core operations handler package for the autonomy of the rover</description>
+  <description>LunAR-X Project - The core operation and task handling package for the autonomy of the rover</description>
   <maintainer email="dhruv.tya@gmail.com">Dhruv Tyagi</maintainer>
   <license>TODO: License declaration</license>
 
@@ -11,6 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>lx_msgs</depend>
+  <depend>lx_library</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
