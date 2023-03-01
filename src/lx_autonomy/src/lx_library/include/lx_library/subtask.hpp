@@ -26,14 +26,14 @@ class SubTask
 
         /*
         * [Pure Virtual Function]
-        * Execute the subtask. See derived definitions
+        * Execute subtask. See derived definitions
         * */
         virtual bool execute() = 0;
         // --------------------------------------
 
 };
 
-class MobilitySubTask : virtual public SubTask
+class MobilitySubTask : public SubTask
 {
     private:
         // TODO Goal
@@ -54,13 +54,13 @@ class MobilitySubTask : virtual public SubTask
         *
         * TODO
         * */
-        bool execute();
+        virtual bool execute();
 
         // --------------------------------------
 
 };
 
-class LinActSubTask : virtual public SubTask
+class LinActSubTask : public SubTask
 {
     private:
         // TODO Linear actuator height
@@ -81,13 +81,13 @@ class LinActSubTask : virtual public SubTask
         *
         * TODO
         * */
-        bool execute();
+        virtual bool execute();
 
         // --------------------------------------
 
 };
 
-class DrumSubTask : virtual public SubTask
+class DrumSubTask : public SubTask
 {
     private:
         // TODO Drum speed
@@ -108,7 +108,7 @@ class DrumSubTask : virtual public SubTask
         *
         * TODO
         * */
-        bool execute();
+        virtual bool execute();
 
         // --------------------------------------
 
