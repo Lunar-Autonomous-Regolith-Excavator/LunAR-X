@@ -73,7 +73,7 @@ class CommandMux: public rclcpp::Node
         * Publish command to hardware interface
         * */
         void sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr );
-        void sendCmdToHardware(geometry_msgs::msg::Twist& , lx_msgs::msg::LinActHeight& , lx_msgs::msg::DrumSpeed& );
+        void sendCmdToHardware(geometry_msgs::msg::Twist& , float& ,float& );
         // --------------------------------------
 
     public:

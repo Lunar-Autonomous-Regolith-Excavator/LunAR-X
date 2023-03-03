@@ -133,14 +133,14 @@ void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr r
         cmd_msg.mobility_twist.angular.z = (abs(rover_teleop_msg->mobility_twist.angular.z) > max_mob_ang_vel_ ? max_mob_ang_vel_ : rover_teleop_msg->mobility_twist.angular.z);
     }
     if(!rover_soft_lock_.actuation_lock){
-        cmd_msg.actuator_height.data = (abs(rover_teleop_msg->actuator_height.data) > 1.0 ? 1.0 : rover_teleop_msg->actuator_height.data);
-        cmd_msg.drum_speed.data = (abs(rover_teleop_msg->drum_speed.data) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_msg->drum_speed.data);
+        cmd_msg.actuator_speed = (abs(rover_teleop_msg->actuator_speed) > 1.0 ? 1.0 : rover_teleop_msg->actuator_speed);
+        cmd_msg.drum_speed = (abs(rover_teleop_msg->drum_speed) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_msg->drum_speed);
     }
 
     rover_hw_cmd_publisher_->publish(cmd_msg);
 }
 
-void CommandMux::sendCmdToHardware(geometry_msgs::msg::Twist& twist_msg, lx_msgs::msg::LinActHeight& linact_msg, lx_msgs::msg::DrumSpeed& drum_msg){
+void CommandMux::sendCmdToHardware(geometry_msgs::msg::Twist& twist_msg, float& linact_msg, float& drum_msg){
 
     auto cmd_msg = lx_msgs::msg::RoverCommand();
 
@@ -150,8 +150,8 @@ void CommandMux::sendCmdToHardware(geometry_msgs::msg::Twist& twist_msg, lx_msgs
         cmd_msg.mobility_twist.angular.z = (abs(twist_msg.angular.z) > max_mob_ang_vel_ ? max_mob_ang_vel_ : twist_msg.angular.z);
     }
     if(!rover_soft_lock_.actuation_lock){
-        cmd_msg.actuator_height.data = (abs(linact_msg.data) > 1.0 ? 1.0 : linact_msg.data);
-        cmd_msg.drum_speed.data = (abs(drum_msg.data) > max_drum_speed_ ? max_drum_speed_ : drum_msg.data);
+        cmd_msg.actuator_speed = (abs(linact_msg) > 1.0 ? 1.0 : linact_msg);
+        cmd_msg.drum_speed = (abs(drum_msg) > max_drum_speed_ ? max_drum_speed_ : drum_msg);
     }
 
     rover_hw_cmd_publisher_->publish(cmd_msg);

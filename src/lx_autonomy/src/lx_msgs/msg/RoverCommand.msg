@@ -1,3 +1,3 @@
 geometry_msgs/Twist mobility_twist
-lx_msgs/LinActHeight actuator_height
-lx_msgs/DrumSpeed drum_speed
+float64 actuator_speed
+float64 drum_speed
