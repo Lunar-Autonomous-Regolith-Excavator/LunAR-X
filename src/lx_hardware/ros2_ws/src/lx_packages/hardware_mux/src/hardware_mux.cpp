@@ -7,7 +7,7 @@
 //    - /cmd_vel: geometry_msgs/Twist Husky A200 command
 //    - /drum_cmd: Int32 Drum PWM command [-255 to 255]
 //    - /acc_cmd: Int32 Linear Actuator PWM command [-255 to 255]
-//    - /tool_info: lx_hw_msgs/ToolInfo tool localization and currents [Published whenever /tool_raw_info is recieved]
+//    - /tool_info: lx_msgs/ToolInfo tool localization and currents [Published whenever /tool_raw_info is recieved]
 // Services:
 //    - Calibrate Linear Actuator Positon
 //
@@ -25,7 +25,7 @@
 HardwareMux::HardwareMux(): Node("hardware_mux_node")
 {
     // Create subscribers
-    rover_hw_cmd_sub_ = this->create_subscription<lx_hw_msgs::msg::RoverCommand>(
+    rover_hw_cmd_sub_ = this->create_subscription<lx_msgs::msg::RoverCommand>(
         "rover_hw_cmd", 10, std::bind(&HardwareMux::roverHardwareCmdCB, this, std::placeholders::_1));
     tool_raw_info_sub_ = this->create_subscription<std_msgs::msg::Float64MultiArray>(
         "tool_raw_info", 10, std::bind(&HardwareMux::toolRawInfoCB, this, std::placeholders::_1));
@@ -34,7 +34,7 @@ HardwareMux::HardwareMux(): Node("hardware_mux_node")
     husky_node_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
     drum_cmd_pub_ = this->create_publisher<std_msgs::msg::Int32>("drum_cmd", 10);
     acc_cmd_pub_ = this->create_publisher<std_msgs::msg::Int32>("acc_cmd", 10);
-    tool_info_pub_ = this->create_publisher<lx_hw_msgs::msg::ToolInfo>("tool_info", 10);
+    tool_info_pub_ = this->create_publisher<lx_msgs::msg::ToolInfo>("tool_info", 10);
 
     // Create timers
     rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), std::bind(&HardwareMux::roverLockCB, this));
@@ -44,12 +44,13 @@ HardwareMux::HardwareMux(): Node("hardware_mux_node")
 }
 
 //Subscribes to Rover Command Topic and stores desired control commands in class variables
-void HardwareMux::roverHardwareCmdCB(const lx_hw_msgs::msg::RoverCommand::SharedPtr msg)
+void HardwareMux::roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr msg)
 {
     rover_lock_timer_->reset(); //reset live estop 
     
     drum_des_speed = msg->drum_speed;
     acc_cmd.data = msg->actuator_speed;
+    acc_cmd.data = std::min(255.0, std::max((double)(acc_cmd.data*255), -255.0));
     husky_cmd = msg->mobility_twist;
 }
 
@@ -57,7 +58,7 @@ void HardwareMux::roverHardwareCmdCB(const lx_hw_msgs::msg::RoverCommand::Shared
 void HardwareMux::toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
 {
     // Publish Tool Info
-    lx_hw_msgs::msg::ToolInfo tool_info_msg;
+    lx_msgs::msg::ToolInfo tool_info_msg;
     tool_info_msg.drum_vel = drum_rps_scale*msg->data[0];
     tool_info_msg.acc_pos = acc_rps_scale*msg->data[1] - acc_offset;
     tool_info_msg.drum_current = drum_current_scale*msg->data[2];
@@ -86,6 +87,7 @@ void HardwareMux::controlPublishCB()
         error_integral = 0;
         pid_control = 0;
     }
+    pid_control = std::min(255.0, std::max(pid_control, -255.0));
     drum_cmd.data = pid_control;
 
     //Update error_prev

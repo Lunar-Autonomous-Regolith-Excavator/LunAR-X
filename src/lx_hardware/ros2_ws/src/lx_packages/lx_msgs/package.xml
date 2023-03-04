@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lx_hw_msgs</name>
+  <name>lx_msgs</name>
   <version>0.0.0</version>
   <description>LunAR-X Project - Hardware Custom messages package</description>
   <maintainer email="vmohta@andrew.cmu.edu">Vibhakar Mohta</maintainer>
@@ -19,7 +19,6 @@
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <test_depend>geometry_msgs</test_depend>
-
 
   <export>
     <build_type>ament_cmake</build_type>

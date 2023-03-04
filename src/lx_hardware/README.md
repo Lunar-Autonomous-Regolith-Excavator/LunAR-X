@@ -1,97 +1,70 @@
-# Sensor Unit Tests
+# LX Hardware Container
 
-Details about the Dockerfile and Scripts
-- Dockerfile installs ROS 2 Foxy and ROS 1 Noetic with ros1_bridge
-- bash run_docker.sh: Mounts 2 workspaces, for ros2_ws and ros1_ws for ROS 2 foxy and ROS 1 noetic respectively. No workspace sourcing is set up by default
+## Dockerfile
+- Location: docker/lx_harware.Dockerfile
+- Dockerfile installs an image with ROS 2 Foxy and ROS 1 Noetic with ros1_bridge
+- No workspace sourcing is set up by default.
 <br> <br>
 
 
-# Running the code:
-
-Requirements:
-- Install Docker: https://docs.docker.com/engine/install/ubuntu/
-
-## Docker Build:
-```
-sudo docker build -t lx_sensors .
-```
-
-## Run:
-- Launch Docker Image
-```
-bash run_docker.sh
-```
-
-## General Commands:
-- Launch ROS 1 Docker Terminal (Using set Alias)
-``` 
-sr1
-```
-- Launch ROS 2 Docker Terminal (Using set Alias)
-``` 
-sr2
-```
-
-## Running Sensors: 
-Run inside a ROS 2 terminal
-1. Source ROS 2 (using alias)
-```
-sr2
-```
-2. Building Code:
-```
-cd /home/ros2_ws
-colcon build
-```
-3. Run sensors 
-```
-cd src 
-bash run_sensors.sh
-```
-
-## Running Hardware Interface:
-1. Build code:
-    1. Launch Docker Image
+## Running the code:
+1. To launch the two docker containers (hardware and autonomy) 
     ```
-    bash run_docker.sh
+    docker-compose up --build
     ```
-    2. Build ROS 2 code. In a new terminal
-    ```
-    bash terminal_docker.sh
-    sr2 && colcon build
-    ```
-    3. Build ROS 1 code. In a new terminal
-    ```
-    bash terminal_docker.sh
-    sr1 && catkin_make
-    ```
-    4. Build and upload Arduino code: Upload code in ros1_ws/src/arduino/arduino_rosserial.ino to the Arduino using Arduino IDE. Note that "#define USE_USBCON" should be added before importing <ros.h> in the arduino sketch. <br> <br>
+
+    NOTE: 
+    - To launch a terminal attached to the hardware container
+        ```
+        cd scripts
+        bash hardware_terminal.sh
+        ```
+
+    - To source ROS 1 in the launched terminal (using set alias)
+        ``` 
+        sr1
+        ```
+    - To source ROS 2 in the launched terminal (using set alias)
+        ```
+        sr2
+        ```
+
+2. Build code:
+    1. Build ROS 2 code. In a new terminal
+        ```
+        bash hardware_terminal.sh
+        sr2 & cd ros2_ws && colcon build
+        ```
+    2. Build ROS 1 code. In a new terminal
+        ```
+        bash hardware_terminal.sh
+        sr1 & cd ros1_ws && catkin_make
+        ```
+    3. Build and upload Arduino code: Upload code in ros1_ws/src/arduino/arduino_rosserial.ino to the Arduino using Arduino IDE. (Note that "#define USE_USBCON" has been added before importing <ros.h> in the arduino sketch to run rosserial with Arduino Due) <br> <br>
 
 2. Run rosserial node. In a new terminal
-```
-bash terminal_docker.sh
-sr1 && roslaunch arduino_node arduino.launch
-```
+    ```
+    bash hardware_terminal.sh
+    sr1 && roslaunch arduino_node arduino.launch
+    ```
 
 3. Run ROS 2 Hardware Mux. In a new terminal
-```
-bash terminal_docker.sh
-sr2 && ros2 run hardware_mux hardware_mux_node
-```
+    ```
+    bash hardware_terminal.sh
+    sr2 && ros2 run hardware_mux hardware_mux_node
+    ```
 
 4. Run ROS 1 Bridge. This only bridges required topics specified in the yaml file betwen ROS 1 and ROS 2. In a new terminal:
-```
-bash terminal_docker.sh
-sr1 && rosparam load /home/ros2_ws/bridge.yaml && sr2 && ros2 run ros1_bridge parameter_bridge
-```
+    ```
+    bash hardware_terminal.sh
+    sr1 && rosparam load /home/lx_hardware/ros2_ws/src/lx_packages/bridge.yaml && sr2 && ros2 run ros1_bridge parameter_bridge
+    ```
 
-
-
-5. Emulate Rover Commands. In a new terminal
-```
-bash terminal_docker.sh
-sr2 && ros2 topic pub /rover_hw_cmd lx_hw_msgs/msg/RoverCommand "{mobility_twist: {linear: {x: 0.5}, angular: {z: 0.2}}, actuator_speed: 1.0, drum_speed: 0.3}"
-```
+5. If the autonomy docker is not up, we can emulate incoming rover commands. In a new terminal:
+    ```
+    bash hardware_terminal.sh
+    sr2 && ros2 topic pub /rover_hw_cmd lx_msgs/msg/RoverCommand "{mobility_twist: {linear: {x: 0.5}, angular: {z: 0.2}}, actuator_speed: 1.0, drum_speed: 0.3}"
+    ```
 
 
 
@@ -107,4 +80,4 @@ sudo chmod 777 /dev/ttyACMx
 sudo chown -R $USER:$USER <folder>/
 ```
 - Vectornav package not built
-    - change .hpp to .h in src/vn_sensor_msgs.cc
+    - change .hpp to .h in src/vn_sensor_msgs.cc (Added to dockerfile)

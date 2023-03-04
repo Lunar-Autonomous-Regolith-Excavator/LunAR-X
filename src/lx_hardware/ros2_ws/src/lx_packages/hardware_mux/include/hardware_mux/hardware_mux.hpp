@@ -2,8 +2,8 @@
 #define HARDWARE_MUX_H
 
 #include <rclcpp/rclcpp.hpp>
-#include <lx_hw_msgs/msg/tool_info.hpp>
-#include <lx_hw_msgs/msg/rover_command.hpp>
+#include <lx_msgs/msg/tool_info.hpp>
+#include <lx_msgs/msg/rover_command.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <std_msgs/msg/int32.hpp>
@@ -13,16 +13,16 @@ class HardwareMux: public rclcpp::Node
 {
     private:
         // Publishers and Subscribers
-        rclcpp::Subscription<lx_hw_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_sub_;
+        rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_sub_;
         rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr tool_raw_info_sub_;
 
         rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr husky_node_pub_;
         rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr drum_cmd_pub_;
         rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr acc_cmd_pub_;
-        rclcpp::Publisher<lx_hw_msgs::msg::ToolInfo>::SharedPtr tool_info_pub_;
+        rclcpp::Publisher<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_pub_;
 
         // Callbacks
-        void roverHardwareCmdCB(const lx_hw_msgs::msg::RoverCommand::SharedPtr msg);
+        void roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr msg);
         void toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
         void controlPublishCB();
         void roverLockCB();

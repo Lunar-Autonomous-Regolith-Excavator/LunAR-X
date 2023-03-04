@@ -13,13 +13,20 @@ RUN add-apt-repository -y "deb https://librealsense.intel.com/Debian/apt-repo $(
 RUN apt-get install -y librealsense2-dkms librealsense2-utils librealsense2-dev
 
 # Clone Realsense and Vectornav Repos, and install dependencies
-RUN mkdir -p /home/ros2_ws/src/sensor_packages && cd /home/ros2_ws/src/sensor_packages && \
+RUN mkdir -p /home/lx_hardware/ros2_ws/src/sensor_packages && cd /home/lx_hardware/ros2_ws/src/sensor_packages && \
     git clone --single-branch --branch ros2 https://github.com/dawonn/vectornav.git && \
     git clone --single-branch --branch ros2-development https://github.com/IntelRealSense/realsense-ros.git
-RUN apt-get update && cd /home/ros2_ws && rosdep install --from-paths src --ignore-src -r -y
 
-RUN echo "alias sr1='source /opt/ros/noetic/setup.bash; source /home/ros1_ws/devel/setup.bash'" >> ~/.bashrc
-RUN echo "alias sr2='source /opt/ros/foxy/setup.bash; source /home/sensor_test_ws/install/setup.bash'" >> ~/.bashrc
+# replace .hpp with .h in vectornav package to build with ros2 foxy
+RUN sed -i 's/tf2_geometry_msgs.hpp/tf2_geometry_msgs.h/g' \
+    /home/lx_hardware/ros2_ws/src/sensor_packages/vectornav/vectornav/src/vn_sensor_msgs.cc 
+
+RUN apt-get update && cd /home/lx_hardware/ros2_ws && rosdep install --from-paths src --ignore-src -r -y
+
+RUN echo "alias sr1='source /opt/ros/noetic/setup.bash; source /home/lx_hardware/ros1_ws/devel/setup.bash'" >> ~/.bashrc
+RUN echo "alias sr2='source /opt/ros/foxy/setup.bash; source /home/lx_hardware/ros2_ws/install/setup.bash'" >> ~/.bashrc
+
+WORKDIR /home/lx_hardware/
 
 # Install Utility Packages
 RUN apt-get update && \

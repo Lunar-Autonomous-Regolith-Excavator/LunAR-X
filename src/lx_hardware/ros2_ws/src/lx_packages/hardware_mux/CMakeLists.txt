@@ -8,14 +8,14 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(lx_hw_msgs REQUIRED)
+find_package(lx_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 include_directories(include)
 
 # External interface node
 add_executable(hardware_mux_node src/hardware_mux_node.cpp src/hardware_mux.cpp)
-ament_target_dependencies(hardware_mux_node rclcpp geometry_msgs lx_hw_msgs)
+ament_target_dependencies(hardware_mux_node rclcpp geometry_msgs lx_msgs)
 
 install(TARGETS
   hardware_mux_node

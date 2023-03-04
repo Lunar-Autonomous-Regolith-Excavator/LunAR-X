@@ -28,8 +28,8 @@ services:
     privileged: true
 
     volumes:
-      - ./src/lx_hardware/ros2_ws/src/lx_packages/:/home/ros2_ws/src/lx_packages/
-      - ./src/lx_hardware/ros1_ws/src/:/home/ros1_ws/src/
+      - ./src/lx_hardware/ros2_ws/src/lx_packages/:/home/lx_hardware/ros2_ws/src/lx_packages/
+      - ./src/lx_hardware/ros1_ws/src/:/home/lx_hardware/ros1_ws/src/
       - /dev/:/dev/
 
     tty: true
