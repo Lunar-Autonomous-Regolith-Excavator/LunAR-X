@@ -1,19 +1,19 @@
 version: "3.7"
 
 services: 
-  lx_autonomy:
+  lx_hardware:
     build:
       context: ./
-      dockerfile: ./docker/lx_autonomy.Dockerfile
+      dockerfile: ./docker/lx_hardware.Dockerfile
 
-    container_name: lx_autonomy
+    container_name: lx_hardware
 
-    privileged: true
+    # privileged: true
 
     volumes:
       - ./src/lx_autonomy/src/:/home/lx_autonomy/lx_autonomy_ws/src/
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
-      - /dev/:/dev/
+      # - /dev/:/dev/
 
     tty: true
     stdin_open: true
