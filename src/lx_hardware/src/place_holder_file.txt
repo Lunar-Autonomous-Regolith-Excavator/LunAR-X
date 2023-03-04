@@ -1,1 +1,0 @@
-Delete this file and put your ros 2 packages here (/src/lx_hardware/src/)

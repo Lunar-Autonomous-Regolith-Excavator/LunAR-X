@@ -1,12 +1,12 @@
 version: "3.7"
 
-services: 
-  lx_hardware:
+services:
+  lx_autonomy:
     build:
       context: ./
-      dockerfile: ./docker/lx_hardware.Dockerfile
+      dockerfile: ./docker/lx_autonomy.Dockerfile
 
-    container_name: lx_hardware
+    container_name: lx_autonomy
 
     # privileged: true
 
@@ -14,6 +14,23 @@ services:
       - ./src/lx_autonomy/src/:/home/lx_autonomy/lx_autonomy_ws/src/
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
       # - /dev/:/dev/
+
+    tty: true
+    stdin_open: true
+
+  lx_hardware:
+    build:
+      context: ./
+      dockerfile: ./docker/lx_hardware.Dockerfile
+
+    container_name: lx_hardware
+
+    privileged: true
+
+    volumes:
+      - ./src/lx_hardware/ros2_ws/src/lx_packages/:/home/ros2_ws/src/lx_packages/
+      - ./src/lx_hardware/ros1_ws/src/:/home/ros1_ws/src/
+      - /dev/:/dev/
 
     tty: true
     stdin_open: true
