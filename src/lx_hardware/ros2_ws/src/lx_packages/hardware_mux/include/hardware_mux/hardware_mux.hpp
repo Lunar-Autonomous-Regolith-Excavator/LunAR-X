@@ -37,7 +37,7 @@ class HardwareMux: public rclcpp::Node
         geometry_msgs::msg::Twist husky_cmd = geometry_msgs::msg::Twist(); // Husky A200 command intialized to 0        
         
         //Controller Variables
-        double Kp =1, Ki = 1, Kd = 1; // PID gains for drum
+        double Kp =1, Ki = 0.001, Kd = 0.1; // PID gains for drum
         double error = 0, error_integral = 0, error_prev = 0; // PID variables
         double drum_des_speed = 0, drum_curr_speed=0;
 

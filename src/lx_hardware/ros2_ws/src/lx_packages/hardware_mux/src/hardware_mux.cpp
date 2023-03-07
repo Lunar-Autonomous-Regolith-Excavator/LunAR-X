@@ -49,8 +49,8 @@ void HardwareMux::roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr
     rover_lock_timer_->reset(); //reset live estop 
     
     drum_des_speed = msg->drum_speed;
-    acc_cmd.data = msg->actuator_speed;
-    acc_cmd.data = std::min(255.0, std::max((double)(acc_cmd.data*255), -255.0));
+    double temp = msg->actuator_speed;
+    acc_cmd.data = std::min(255.0, std::max(temp*255, -255.0));
     husky_cmd = msg->mobility_twist;
 }
 
@@ -74,11 +74,12 @@ void HardwareMux::controlPublishCB()
 {
     //Apply PID on msg.drum_speed and drum_curr_speed
     double pid_control = 0;
+    std::cout<<"Desired Speed: "<<drum_des_speed<<" Current Speed: "<<drum_curr_speed<<std::endl;
     if(std::abs(drum_des_speed)>1e-3)
     {
         error = drum_des_speed - drum_curr_speed;
         error_integral += error;
-        pid_control = (int)(Kp*error + Ki*error_integral + Kd*(error - error_prev));
+        pid_control = Kp*error + Ki*error_integral + Kd*(error - error_prev);
     }
     else
     {
@@ -87,9 +88,9 @@ void HardwareMux::controlPublishCB()
         error_integral = 0;
         pid_control = 0;
     }
-    pid_control = std::min(255.0, std::max(pid_control, -255.0));
-    drum_cmd.data = pid_control;
-
+    // pid_control = std::min(255.0, std::max(pid_control, -255.0));
+    // drum_cmd.data = pid_control;
+    drum_cmd.data = drum_des_speed*(255/0.1);
     //Update error_prev
     error_prev = error;
 

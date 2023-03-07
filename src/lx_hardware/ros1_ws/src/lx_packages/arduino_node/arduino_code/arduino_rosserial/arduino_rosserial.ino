@@ -115,6 +115,7 @@ void setup()
     drum_read_prev = 0;
     acc_read_prev = 0;
     t_prev = millis();
+    pub_arr.data = (float *)malloc(sizeof(float)*4);
     nh.loginfo("Setup Completed");
     delay(1000);
 }
@@ -182,6 +183,7 @@ void loop()
     pub_arr.data[3]= analogRead(CURR_SENS2);
     tool_raw_msg_pub.publish(&pub_arr);
     nh.loginfo( (String("Current Commands: ")+ String(acc_pwm)+ " "+String(drum_pwm)).c_str() );
+    // nh.loginfo( (String("Current Readings: Drum Ticks")+ String(drum_ticks)+ " Acc ticks "+String(acc_ticks)).c_str() );
 
     //Update previous values
     drum_read_prev = drum_read_curr; acc_read_prev = acc_read_curr;
