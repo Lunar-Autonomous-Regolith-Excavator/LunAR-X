@@ -8,6 +8,14 @@
 
 
 ## Running the code:
+### Using the script and TMUX 
+```
+cd scripts
+bash hardware_terminal.sh
+bash run_hardware.sh
+```
+
+### Manual Launch
 1. To launch the two docker containers (hardware and autonomy) 
     ```
     docker-compose up --build
@@ -66,12 +74,20 @@
     sr2 ; ros2 topic pub /rover_hw_cmd lx_msgs/msg/RoverCommand "{mobility_twist: {linear: {x: 0.5}, angular: {z: 0.2}}, actuator_speed: 1.0, drum_speed: 0.3}"
     ```
 6. Launch Husky Interface
-```
-sr1; roslaunch husky_launch husky_launch.launch
-```
+    ```
+    sr1; roslaunch husky_launch husky_launch.launch
+    ```
 
 
 <hr>
+
+## Using TMUX
+- See running sessions: ``` tmux ls ```
+- Move around panes: ``` ctrl + b + arrow key ```
+- Scroll: ``` ctrl + b + [ ```
+- Kill: ``` ctrl + b + x ```
+- Detach: ``` ctrl + b + d ```
+- Kill Window after detaching: ``` tmux  kill-window -t <session_name>```
 
 ## Error Logs:
 - Failure to upload code to Arduino. Check the arduino port (something like /dev/ttyACMx). Replace x with the correct port number. Then run the following command:
