@@ -8,12 +8,14 @@ services:
 
     container_name: lx_autonomy
 
-    # privileged: true
+    privileged: true
+
+    network_mode: host
 
     volumes:
       - ./src/lx_autonomy/src/:/home/lx_autonomy/lx_autonomy_ws/src/
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
-      # - /dev/:/dev/
+      - /dev/:/dev/
 
     tty: true
     stdin_open: true

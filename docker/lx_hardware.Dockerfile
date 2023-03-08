@@ -10,7 +10,8 @@ RUN apt-get update && \
     apt-get install -y software-properties-common && \
     rm -rf /var/lib/apt/lists/*
 RUN add-apt-repository -y "deb https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" -u
-RUN apt-get install -y librealsense2-dkms librealsense2-utils librealsense2-dev
+RUN apt-get update
+# RUN apt-get install -y librealsense2-dkms librealsense2-utils librealsense2-dev
 
 # Install ROS utility Packages
 RUN apt install ros-noetic-rqt ros-noetic-rqt-graph -y

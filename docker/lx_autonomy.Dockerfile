@@ -1,7 +1,8 @@
 ### Base image
 # Using ros2-base configuration instead of desktop
 # FROM dustynv/ros:humble-ros-base-l4t-r35.2.1
-FROM osrf/ros:humble-desktop-full
+# FROM osrf/ros:humble-desktop-full
+FROM arm64v8/ros:humble-ros-base
 
 # Update & Upgrade
 RUN sudo apt-get update && sudo apt-get upgrade -y
