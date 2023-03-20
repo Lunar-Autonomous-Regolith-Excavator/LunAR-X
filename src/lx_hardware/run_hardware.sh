@@ -1,9 +1,11 @@
 #!/bin/bash
 
+# Automated running all hardware nodes
+
 SESSION_NAME="hardware"
 
 if tmux has-session -t "$SESSION_NAME" >/dev/null 2>&1; then
-    # if session exists, attach to it
+    # If session exists, attach to it
     tmux attach-session -t "$SESSION_NAME"
 else
     # Launch tmux session

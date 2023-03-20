@@ -1,4 +1,4 @@
-#include "hardware_mux/hardware_mux.hpp"
+#include "lx_hardware_mux/hardware_mux.hpp"
 
 int main(int argc, char** argv){
     rclcpp::init(argc, argv);

@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>hardware_mux</name>
+  <name>lx_hardware_mux</name>
   <version>0.0.0</version>
-  <description>Hardware Mux</description>
-  <maintainer email="vmohta@andrew.cmu.edu">Vibhakar Mohta</maintainer>
+  <description>LunAR-X Project - The hardware mux node to communicate with autonomy and low-level hardware</description>
+  <maintainer email="vib2810@gmail.com">Vibhakar Mohta</maintainer>
   <license>TODO</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

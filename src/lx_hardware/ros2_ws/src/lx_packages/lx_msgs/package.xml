@@ -3,8 +3,8 @@
 <package format="3">
   <name>lx_msgs</name>
   <version>0.0.0</version>
-  <description>LunAR-X Project - Hardware Custom messages package</description>
-  <maintainer email="vmohta@andrew.cmu.edu">Vibhakar Mohta</maintainer>
+  <description>LunAR-X Project - Custom messages package</description>
+  <maintainer email="vib2810@gmail.com">Vibhakar Mohta</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

@@ -1,4 +1,4 @@
-#include "hardware_mux/hardware_mux.hpp"
+#include "lx_hardware_mux/hardware_mux.hpp"
 // Author: Vibhakar Mohta
 // Subscribers:
 //    - /rover_hw_cmd: Twist command for Husky, float64 [-1 to 1] for linear actuator, float64 [rad/sec] for drum]

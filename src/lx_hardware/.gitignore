@@ -13,16 +13,12 @@
 *.bag
 data/
 
-# VNC
-cg_ws/nohup.out
-
 # Sensor Packages
 ros2_ws/src/sensor_packages/
 
 # Other
 *.DS_Store
 __pycache__/
-cg_ws/.vscode/
 .vscode/
 **__pycache__
 

@@ -1,6 +1,12 @@
 <launch>
-    <arg name="port" default="$(optenv HUSKY_PORT /dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0 )" />
-    <!-- Husky harware driver --> 
+    <!-- Arguments -->
+    <arg name="port" default="$(optenv HUSKY_PORT /dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0 )"/>
+    <arg name="simulation" default="$(optenv ROBOT_SIMULATION false)"/>
+    <arg name="robot_namespace" default="$(optenv ROBOT_NAMESPACE robot)"/>
+    <arg name="enable_ekf" default="$(optenv ENABLE_EKF false)"/>
+    <arg name="config_extras" default="$(eval optenv('HUSKY_CONFIG_EXTRAS', find('husky_control') + '/config/empty.yaml'))"/>
+
+    <!-- Husky hardware driver --> 
     <node pkg="husky_base" type="husky_node" name="husky_node"> 
         <rosparam subst_value="true"> 
             port: $(arg port)
@@ -12,15 +18,9 @@
             polling_timeout: 10.0
         </rosparam>
     </node>
-    
-    <arg name="simulation" default="$(optenv ROBOT_SIMULATION false)"/>
-    <arg name="robot_namespace" default="$(optenv ROBOT_NAMESPACE robot)"/>
-    <arg name="enable_ekf" default="$(optenv ENABLE_EKF false)"/>
 
-    <arg name="config_extras" default="$(eval optenv('HUSKY_CONFIG_EXTRAS', find('husky_control') + '/config/empty.yaml'))"/>
-
-    <include file="$(find husky_description)/launch/description.launch" >
-  </include>
+    <!-- Description -->
+    <include file="$(find husky_description)/launch/description.launch"></include>
   
     <!-- Load controller configuration -->
     <rosparam command="load" file="$(find husky_control)/config/control.yaml" />
@@ -31,6 +31,7 @@
         $(optenv HUSKY_WHEEL_MULTIPLIER 1.0)
     </rosparam>
 
+    <!-- Twist mux node -->
     <node pkg="twist_mux" type="twist_mux" name="twist_mux">
         <rosparam command="load" file="$(find husky_control)/config/twist_mux.yaml" />
         <remap from="cmd_vel_out" to="husky_velocity_controller/cmd_vel"/>

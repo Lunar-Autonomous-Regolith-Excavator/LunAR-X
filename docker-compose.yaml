@@ -1,6 +1,8 @@
 version: "3.7"
 
+# Containers
 services:
+  # Autonomy container
   lx_autonomy:
     build:
       context: ./
@@ -25,6 +27,7 @@ services:
     tty: true
     stdin_open: true
 
+  # Hardware container
   lx_hardware:
     build:
       context: ./
@@ -32,10 +35,10 @@ services:
 
     container_name: lx_hardware
 
+    privileged: true
+    
     environment:
       DISPLAY: ${DISPLAY}
-
-    privileged: true
 
     volumes:
       - ./src/lx_hardware/ros2_ws/src/lx_packages/:/home/lx_hardware/ros2_ws/src/lx_packages/
@@ -43,7 +46,6 @@ services:
       - ./src/lx_hardware/run_hardware.sh:/home/lx_hardware/run_hardware.sh
       - /dev/:/dev/
       - /tmp/.X11-unix:/tmp/.X11-unix
-
 
     tty: true
     stdin_open: true
