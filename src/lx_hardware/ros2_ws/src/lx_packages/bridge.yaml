@@ -15,3 +15,8 @@ topics:
     topic: /cmd_vel  # Topic name on both ROS 1 and ROS 2
     type: geometry_msgs/msg/Twist  # Type of topic to bridge
     queue_size: 1  # Queue size   
+  -
+    topic: /husky_velocity_controller/odom  # Topic name on both ROS 1 and ROS 2
+    type: nav_msgs/msg/Odometry  # Type of topic to bridge
+    queue_size: 1  # Queue size   
+    

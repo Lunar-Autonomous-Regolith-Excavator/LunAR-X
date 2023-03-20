@@ -10,12 +10,17 @@ services:
 
     privileged: true
 
+    environment:
+      DISPLAY: ${DISPLAY}
+
     network_mode: host
 
     volumes:
       - ./src/lx_autonomy/src/:/home/lx_autonomy/lx_autonomy_ws/src/
+      - ../bags/:/home/lx_autonomy/lx_autonomy_ws/bags/
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
       - /dev/:/dev/
+      - /tmp/.X11-unix:/tmp/.X11-unix
 
     tty: true
     stdin_open: true
