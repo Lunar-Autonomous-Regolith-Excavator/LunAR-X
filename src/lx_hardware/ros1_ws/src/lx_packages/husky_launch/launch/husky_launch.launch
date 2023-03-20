@@ -1,0 +1,48 @@
+<launch>
+    <!-- Arguments -->
+    <arg name="port" default="$(optenv HUSKY_PORT /dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0 )"/>
+    <arg name="simulation" default="$(optenv ROBOT_SIMULATION false)"/>
+    <arg name="robot_namespace" default="$(optenv ROBOT_NAMESPACE robot)"/>
+    <arg name="enable_ekf" default="$(optenv ENABLE_EKF false)"/>
+    <arg name="config_extras" default="$(eval optenv('HUSKY_CONFIG_EXTRAS', find('husky_control') + '/config/empty.yaml'))"/>
+
+    <!-- Husky hardware driver --> 
+    <node pkg="husky_base" type="husky_node" name="husky_node"> 
+        <rosparam subst_value="true"> 
+            port: $(arg port)
+            control_frequency: 10.0 
+            diagnostic_frequency: 1.0
+            max_acceleration: 3.0 
+            max_speed: 1.0
+            wheel_diameter: 0.3302 
+            polling_timeout: 10.0
+        </rosparam>
+    </node>
+
+    <!-- Description -->
+    <include file="$(find husky_description)/launch/description.launch"></include>
+  
+    <!-- Load controller configuration -->
+    <rosparam command="load" file="$(find husky_control)/config/control.yaml" />
+
+    <!-- Spawn controllers -->
+    <node name="base_controller_spawner" pkg="controller_manager" type="spawner" args="husky_joint_publisher husky_velocity_controller"/>
+    <rosparam param="wheel_radius_multiplier" ns="husky_velocity_controller" subst_value="True">
+        $(optenv HUSKY_WHEEL_MULTIPLIER 1.0)
+    </rosparam>
+
+    <!-- Twist mux node -->
+    <node pkg="twist_mux" type="twist_mux" name="twist_mux">
+        <rosparam command="load" file="$(find husky_control)/config/twist_mux.yaml" />
+        <remap from="cmd_vel_out" to="husky_velocity_controller/cmd_vel"/>
+    </node>
+
+    <!--Teleop --> 
+    <!-- <arg name="joy_dev" default="/dev/input/js0"/>
+    <include file="$(find husky_control)/launch/teleop.launch" /> -->
+
+    <!-- Diagnostic Aggregator --> 
+    <node pkg="diagnostic_aggregator" type="aggregator_node" name="diagnostic_aggregator"> 
+        <rosparam command="load" file="$(find husky_base)/config/diagnostics.yaml" /> 
+    </node>
+</launch>

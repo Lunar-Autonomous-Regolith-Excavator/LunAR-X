@@ -1,0 +1,21 @@
+# ROS2 workspace build files 
+*build/
+*install/
+*log/
+*devel/
+*firmware/
+*rosbag*
+
+# Bag files
+*bags/
+*bag/
+*.db3
+*.bag
+data/
+
+# Other
+*.DS_Store
+__pycache__/
+*.vscode/*
+**__pycache__
+
