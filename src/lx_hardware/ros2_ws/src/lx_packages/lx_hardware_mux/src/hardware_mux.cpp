@@ -40,6 +40,13 @@ HardwareMux::HardwareMux(): Node("hardware_mux_node")
     rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), std::bind(&HardwareMux::roverLockCB, this));
     control_publish_timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&HardwareMux::controlPublishCB, this));
 
+    // Create actions
+    this->action_server_ = rclcpp_action::create_server<Calibrate>(
+      this,
+      "calibrate",
+      std::bind(&HardwareMux::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
+      std::bind(&HardwareMux::handle_cancel, this, std::placeholders::_1),
+      std::bind(&HardwareMux::handle_accepted, this, std::placeholders::_1));
     RCLCPP_INFO(this->get_logger(), "Hardware Mux Initialized");
 }
 
@@ -58,15 +65,12 @@ void HardwareMux::roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr
 void HardwareMux::toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
 {
     // Publish Tool Info
-    lx_msgs::msg::ToolInfo tool_info_msg;
-    tool_info_msg.drum_vel = drum_rps_scale*msg->data[0];
-    tool_info_msg.acc_pos = acc_rps_scale*msg->data[1] - acc_offset;
-    tool_info_msg.drum_current = drum_current_scale*msg->data[2];
-    tool_info_msg.acc_current = acc_current_scale*msg->data[3];
-    tool_info_pub_->publish(tool_info_msg);
-
-    // Update Drum Speed for PID
-    drum_curr_speed = tool_info_msg.drum_vel;
+    this->tool_info_msg.drum_vel = drum_rps_scale*msg->data[0];
+    this->tool_info_msg.acc_pos = acc_rps_scale*msg->data[1] - acc_offset;
+    this->tool_info_msg.drum_current = drum_current_scale*msg->data[2];
+    this->tool_info_msg.acc_current = acc_current_scale*msg->data[3];
+    tool_info_pub_->publish(this->tool_info_msg);
+    std::cout<<"Drum Vel: "<<this->tool_info_msg.drum_vel<<" Acc Pos: "<<this->tool_info_msg.acc_pos<<std::endl;
 }
 
 //Triggered by timer, publishes control commands to Husky and Tools(Arduino)
@@ -74,7 +78,8 @@ void HardwareMux::controlPublishCB()
 {
     //Apply PID on msg.drum_speed and drum_curr_speed
     double pid_control = 0;
-    std::cout<<"Desired Speed: "<<drum_des_speed<<" Current Speed: "<<drum_curr_speed<<std::endl;
+    double drum_curr_speed = tool_info_msg.drum_vel;
+    // std::cout<<"Desired Speed: "<<drum_des_speed<<" Current Speed: "<<drum_curr_speed<<std::endl;
     if(std::abs(drum_des_speed)>1e-3)
     {
         error = drum_des_speed - drum_curr_speed;
@@ -107,4 +112,79 @@ void HardwareMux::roverLockCB()
     acc_cmd.data = 0;
     husky_cmd.linear.x = 0; husky_cmd.linear.y = 0; husky_cmd.linear.z = 0; 
     husky_cmd.angular.x = 0; husky_cmd.angular.y = 0; husky_cmd.angular.z = 0;  
+}
+
+// Action Server Callbacks
+rclcpp_action::GoalResponse HardwareMux::handle_goal(const rclcpp_action::GoalUUID & uuid,std::shared_ptr<const Calibrate::Goal> goal)
+{
+    RCLCPP_INFO(this->get_logger(), "Received goal request with request %d", goal->request);
+    (void)uuid;
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse HardwareMux::handle_cancel(const std::shared_ptr<GoalHandleCalibrate> goal_handle)
+{
+    RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
+    (void)goal_handle;
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void HardwareMux::handle_accepted(const std::shared_ptr<GoalHandleCalibrate> goal_handle)
+{
+    using namespace std::placeholders;
+    // this needs to return quickly to avoid blocking the executor, so spin up a new thread
+    std::thread{std::bind(&HardwareMux::execute, this, _1), goal_handle}.detach();
+}
+
+void HardwareMux::execute(const std::shared_ptr<GoalHandleCalibrate> goal_handle)
+{
+    RCLCPP_INFO(this->get_logger(), "Executing goal");
+    rclcpp::Rate loop_rate(1);
+    auto feedback = std::make_shared<Calibrate::Feedback>();
+    auto result = std::make_shared<Calibrate::Result>();
+    // ros time in seconds
+    auto start_time = std::chrono::system_clock::now();
+    while(rclcpp::ok())
+    {
+        // 10 second action timeout
+        auto curr_time = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = curr_time - start_time;
+        if (elapsed_seconds.count() > 10.0) 
+        {
+            result->result = false;
+            goal_handle->succeed(result);
+            RCLCPP_INFO(this->get_logger(), "Calibrate timed out");
+            return;
+        }
+
+        // Check if current sensor reading is very low after about 2 seconds
+        if (this->tool_info_msg.acc_current < 0.1 && elapsed_seconds.count() > 4.0)
+        {
+            result->result = true;
+            goal_handle->succeed(result);
+            RCLCPP_INFO(this->get_logger(), "Calibrate succeeded");
+            this->acc_offset = this->tool_info_msg.acc_pos;
+            return;
+        }
+  
+        // Check if there is a cancel request
+        if (goal_handle->is_canceling()) 
+        {
+            result->result = false;
+            goal_handle->canceled(result);
+            RCLCPP_INFO(this->get_logger(), "Calibrate canceled");
+            return;
+        }
+
+        // Update sequence
+        acc_cmd.data = 200;
+        acc_cmd_pub_->publish(acc_cmd);
+
+        // Publish feedback (time elapsed in seconds)
+        feedback->feedback = elapsed_seconds.count();
+        goal_handle->publish_feedback(feedback);
+        RCLCPP_INFO(this->get_logger(), "Publish feedback");
+
+        loop_rate.sleep();
+    }
 }

@@ -80,6 +80,10 @@ bash run_hardware.sh
 
 
 <hr>
+Calling the Calibrate Action (Hosted by the hardware_mux_node)
+```
+ros2 action send_goal /calibrate lx_hardware_mux/action/Calibrate "{request: True}"
+```
 
 ## Using TMUX
 - See running sessions: ``` tmux ls ```
