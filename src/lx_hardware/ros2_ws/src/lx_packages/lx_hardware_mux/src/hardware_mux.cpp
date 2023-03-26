@@ -56,8 +56,10 @@ void HardwareMux::roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr
     rover_lock_timer_->reset(); //reset live estop 
     
     drum_des_speed = msg->drum_speed;
-    double temp = msg->actuator_speed;
-    acc_cmd.data = std::min(255.0, std::max(temp*255, -255.0));
+    if(this->is_action_running == false)
+    {
+        acc_cmd.data = std::min(255.0, std::max((double)msg->actuator_speed*255.0, -255.0));
+    }
     husky_cmd = msg->mobility_twist;
 }
 
@@ -70,7 +72,8 @@ void HardwareMux::toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPt
     this->tool_info_msg.drum_current = drum_current_scale*msg->data[2];
     this->tool_info_msg.acc_current = acc_current_scale*msg->data[3];
     tool_info_pub_->publish(this->tool_info_msg);
-    std::cout<<"Drum Vel: "<<this->tool_info_msg.drum_vel<<" Acc Pos: "<<this->tool_info_msg.acc_pos<<std::endl;
+    tool_info_msg_time = std::chrono::system_clock::now();
+    // std::cout<<"Drum Vel: "<<this->tool_info_msg.drum_vel<<" Acc Pos: "<<this->tool_info_msg.acc_pos<<std::endl;
 }
 
 //Triggered by timer, publishes control commands to Husky and Tools(Arduino)
@@ -93,9 +96,11 @@ void HardwareMux::controlPublishCB()
         error_integral = 0;
         pid_control = 0;
     }
+
     // pid_control = std::min(255.0, std::max(pid_control, -255.0));
     // drum_cmd.data = pid_control;
     drum_cmd.data = drum_des_speed*(255/0.1);
+    
     //Update error_prev
     error_prev = error;
 
@@ -108,7 +113,7 @@ void HardwareMux::controlPublishCB()
 void HardwareMux::roverLockCB()
 {
     RCLCPP_ERROR(this->get_logger(), "[Hardware Mux] No communication Autonomy Docker, Rover Locked");
-    drum_cmd.data = 0; 
+    drum_des_speed = 0; 
     acc_cmd.data = 0;
     husky_cmd.linear.x = 0; husky_cmd.linear.y = 0; husky_cmd.linear.z = 0; 
     husky_cmd.angular.x = 0; husky_cmd.angular.y = 0; husky_cmd.angular.z = 0;  
@@ -138,12 +143,15 @@ void HardwareMux::handle_accepted(const std::shared_ptr<GoalHandleCalibrate> goa
 
 void HardwareMux::execute(const std::shared_ptr<GoalHandleCalibrate> goal_handle)
 {
+    this->is_action_running = true;
     RCLCPP_INFO(this->get_logger(), "Executing goal");
-    rclcpp::Rate loop_rate(1);
+    rclcpp::Rate loop_rate(2);
     auto feedback = std::make_shared<Calibrate::Feedback>();
     auto result = std::make_shared<Calibrate::Result>();
     // ros time in seconds
     auto start_time = std::chrono::system_clock::now();
+    auto unique_read_time = std::chrono::system_clock::now();
+    auto prev_acc_pos = tool_info_msg.acc_pos;
     while(rclcpp::ok())
     {
         // 10 second action timeout
@@ -152,18 +160,45 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleCalibrate> goal_handle
         if (elapsed_seconds.count() > 10.0) 
         {
             result->result = false;
-            goal_handle->succeed(result);
-            RCLCPP_INFO(this->get_logger(), "Calibrate timed out");
+            goal_handle->abort(result);
+            RCLCPP_INFO(this->get_logger(), "Calibrate: timed out");
+            this->is_action_running = false;
+            acc_cmd.data = 0; acc_cmd_pub_->publish(acc_cmd);
             return;
         }
 
-        // Check if current sensor reading is very low after about 2 seconds
-        if (this->tool_info_msg.acc_current < 0.1 && elapsed_seconds.count() > 4.0)
+        // If no feedback for 2 seconds then timeout
+        if((curr_time - tool_info_msg_time) > std::chrono::seconds(2))
+        {
+            std::chrono::duration<double> elapsed_seconds = curr_time - tool_info_msg_time;
+            std::cout<<elapsed_seconds.count()<<std::endl;
+            result->result = false;
+            goal_handle->abort(result);
+            RCLCPP_INFO(this->get_logger(), "Calibrate: sensor reading timed out");
+            this->is_action_running = false;
+            acc_cmd.data = 0; acc_cmd_pub_->publish(acc_cmd);
+            return;
+        }
+
+        // Measure time since last sensor reading change
+        std::cout<<"reading "<< this->tool_info_msg.acc_pos<< " " <<prev_acc_pos<<std::endl;
+        if(std::abs(this->tool_info_msg.acc_pos - prev_acc_pos)>=std::abs(prev_acc_pos)*0.01)
+        {
+            std::cout<<"unique reading at time: "<<(curr_time - unique_read_time).count()<<"with reading"<< this->tool_info_msg.acc_pos<< " "
+                <<prev_acc_pos<<std::endl;
+            unique_read_time = std::chrono::system_clock::now();
+            prev_acc_pos = this->tool_info_msg.acc_pos;
+        }
+
+        // If no change in sensor reading for 2 seconds then callibrate succeeded
+        if((curr_time - unique_read_time) > std::chrono::seconds(2))
         {
             result->result = true;
             goal_handle->succeed(result);
-            RCLCPP_INFO(this->get_logger(), "Calibrate succeeded");
+            RCLCPP_INFO(this->get_logger(), "Calibrate: succeeded, offest = %f", this->tool_info_msg.acc_pos);
             this->acc_offset = this->tool_info_msg.acc_pos;
+            this->is_action_running = false;
+            acc_cmd.data = 0; acc_cmd_pub_->publish(acc_cmd);
             return;
         }
   
@@ -173,11 +208,13 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleCalibrate> goal_handle
             result->result = false;
             goal_handle->canceled(result);
             RCLCPP_INFO(this->get_logger(), "Calibrate canceled");
+            this->is_action_running = false;
+            acc_cmd.data = 0; acc_cmd_pub_->publish(acc_cmd);
             return;
         }
 
         // Update sequence
-        acc_cmd.data = 200;
+        acc_cmd.data = -255;
         acc_cmd_pub_->publish(acc_cmd);
 
         // Publish feedback (time elapsed in seconds)
@@ -187,4 +224,6 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleCalibrate> goal_handle
 
         loop_rate.sleep();
     }
+    this->is_action_running = false;
+
 }

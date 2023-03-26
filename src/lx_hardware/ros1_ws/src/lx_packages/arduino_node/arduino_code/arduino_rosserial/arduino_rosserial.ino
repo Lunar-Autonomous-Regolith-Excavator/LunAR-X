@@ -55,8 +55,8 @@ void drum_position_interrupt() //Gives the position of the Motor wrt initial pos
 
 void acc_position_interrupt() //Gives the position of the Motor wrt initial position (stored in ep)
 {
-  if (acc_dir==1)  acc_ticks++;
-  else acc_ticks--;
+  if (acc_dir==1)  acc_ticks += 1.0; 
+  else             acc_ticks -= 1.0;
 }
 
 ros::NodeHandle nh;
@@ -101,7 +101,7 @@ void setup()
     pinMode(ACC_PWM_PIN, OUTPUT); analogWrite(DRUM_PWM_PIN, HIGH);
     pinMode(ACC_DIR_PIN1, OUTPUT); digitalWrite(ACC_DIR_PIN1, LOW);
     pinMode(ACC_DIR_PIN2, OUTPUT); digitalWrite(ACC_DIR_PIN2, HIGH);
-    pinMode(ACC_FEEDBACK_PIN, INPUT);
+    pinMode(ACC_FEEDBACK_PIN, INPUT_PULLUP);
 
     //Current Sensors
     pinMode(CURR_SENS1, INPUT);
@@ -109,15 +109,20 @@ void setup()
 
     //Interrupts to read encoder data
     attachInterrupt(digitalPinToInterrupt(DRUM_ENC_A), drum_position_interrupt, RISING);//Interrupt activates when a gets rising edge
-    attachInterrupt(digitalPinToInterrupt(ACC_FEEDBACK_PIN), acc_position_interrupt, RISING);//Interrupt activates when pin gets rising edge
+    attachInterrupt(digitalPinToInterrupt(ACC_FEEDBACK_PIN), acc_position_interrupt, CHANGE);//Interrupt activates when pin gets rising edge
 
     // Store default values in _prev variables
     drum_read_prev = 0;
     acc_read_prev = 0;
     t_prev = millis();
     pub_arr.data = (float *)malloc(sizeof(float)*4);
+    while(nh.connected()==false)
+    {
+      nh.spinOnce(); // Spin node 
+      delay(50);
+    }
     nh.loginfo("Setup Completed");
-    delay(1000);
+
 }
 
 void loop()
@@ -189,7 +194,7 @@ void loop()
     drum_read_prev = drum_read_curr; acc_read_prev = acc_read_curr;
     t_prev = t_curr;
     nh.spinOnce(); // Spin node
-    delay(50);
-    drum_msg_dT+=50; 
-    acc_msg_dT+=50;
+    delay(100);
+    drum_msg_dT+=100; 
+    acc_msg_dT+=100;
 }

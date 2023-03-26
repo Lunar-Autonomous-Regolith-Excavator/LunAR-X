@@ -59,7 +59,7 @@ bash run_hardware.sh
 3. Run ROS 2 Hardware Mux. In a new terminal
     ```
     bash hardware_terminal.sh
-    sr2 ; ros2 run hardware_mux hardware_mux_node
+    sr2 ; ros2 run lx_hardware_mux hardware_mux_node
     ```
 
 4. Run ROS 1 Bridge. This only bridges required topics specified in the yaml file betwen ROS 1 and ROS 2. In a new terminal:

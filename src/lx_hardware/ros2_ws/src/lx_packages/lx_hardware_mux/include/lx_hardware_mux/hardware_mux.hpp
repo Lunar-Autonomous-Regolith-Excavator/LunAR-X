@@ -33,6 +33,7 @@ class HardwareMux: public rclcpp::Node
         rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleCalibrate> goal_handle);
         void handle_accepted(const std::shared_ptr<GoalHandleCalibrate> goal_handle);
         void execute(const std::shared_ptr<GoalHandleCalibrate> goal_handle);
+        bool is_action_running = false;
 
         // Callbacks
         void roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr msg);
@@ -42,6 +43,7 @@ class HardwareMux: public rclcpp::Node
 
         //Current msg info
         lx_msgs::msg::ToolInfo tool_info_msg;
+        std::chrono::time_point<std::chrono::system_clock> tool_info_msg_time = std::chrono::system_clock::now();
 
         //Timers
         rclcpp::TimerBase::SharedPtr rover_lock_timer_;
