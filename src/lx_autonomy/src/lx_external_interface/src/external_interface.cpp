@@ -280,27 +280,31 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
     rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     rover_teleop_msg.actuator_speed = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
-    float right_t_d = (joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] < 0.0) ? (-joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]) : 0;
-    float left_t_d = (joy_msg->axes[int(JoyAxes::LEFT_TRIG)] < 0.0) ? (-joy_msg->axes[int(JoyAxes::LEFT_TRIG)]) : 0;
-    
-    // rover_teleop_msg.drum_speed = right_t_d - left_t_d;
-    if(std::abs(right_t_d)>1e-3)
-    {
-        rover_teleop_msg.drum_speed = right_t_d;
-    }
-    else{
-        rover_teleop_msg.drum_speed = -left_t_d;
-    }
-    // if(right_t_d > left_t_d){
-    //     rover_teleop_msg.drum_speed = right_t_d;
-    // }
-    // else{
-    //     rover_teleop_msg.drum_speed = left_t_d;
-    // }
-    // else{
 
-    // }
+    // Scale trigger input to [0 to 1] for drum command
+    float right_remapped = 0, left_remapped = 0;
+
+    if(joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] <= 0.8){
+        right_remapped = remapTrig(joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]);
+    }
+    if(joy_msg->axes[int(JoyAxes::LEFT_TRIG)] <= 0.8){
+        left_remapped = remapTrig(joy_msg->axes[int(JoyAxes::LEFT_TRIG)]);
+    }
+
+    rover_teleop_msg.drum_speed = right_remapped - left_remapped;
 
     // Publish rover teleop
     rover_teleop_publisher_->publish(rover_teleop_msg);
+}
+
+void ExternalInterface::remapTrig(float trig_val){
+    // Remap trigger value [0.8 to -1] to [0 to 1] for drum command
+    float original_range_start = 0;
+    float original_range_end = -1.8;
+    float remapped_range_start = 0;
+    float remapped_range_end = 1;
+
+    trig_val = trig_val - 0.8;
+
+    return (trig_val - original_range_start) / (original_range_end - original_range_start) * (remapped_range_end - remapped_range_start) + remapped_range_start;
 }
