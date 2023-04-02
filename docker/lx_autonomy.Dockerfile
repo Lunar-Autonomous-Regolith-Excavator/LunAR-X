@@ -38,6 +38,7 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && colcon build
 # Set work directory
 WORKDIR /home/lx_autonomy/lx_autonomy_ws
+RUN apt update && apt install ros-humble-joy-linux -y
 # Add ascii script to bashrc (make sure to keep >> instead of > to avoid overwriting file)
 RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
 RUN echo 'source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash' >> ~/.bashrc

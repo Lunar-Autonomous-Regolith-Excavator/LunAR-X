@@ -280,7 +280,26 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
     rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     rover_teleop_msg.actuator_speed = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
-    rover_teleop_msg.drum_speed = (joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] < 0.0) ? (-joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]) : 0;
+    float right_t_d = (joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] < 0.0) ? (-joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]) : 0;
+    float left_t_d = (joy_msg->axes[int(JoyAxes::LEFT_TRIG)] < 0.0) ? (-joy_msg->axes[int(JoyAxes::LEFT_TRIG)]) : 0;
+    
+    // rover_teleop_msg.drum_speed = right_t_d - left_t_d;
+    if(std::abs(right_t_d)>1e-3)
+    {
+        rover_teleop_msg.drum_speed = right_t_d;
+    }
+    else{
+        rover_teleop_msg.drum_speed = -left_t_d;
+    }
+    // if(right_t_d > left_t_d){
+    //     rover_teleop_msg.drum_speed = right_t_d;
+    // }
+    // else{
+    //     rover_teleop_msg.drum_speed = left_t_d;
+    // }
+    // else{
+
+    // }
 
     // Publish rover teleop
     rover_teleop_publisher_->publish(rover_teleop_msg);

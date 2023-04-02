@@ -62,15 +62,19 @@ void HardwareMux::roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr
     }
     husky_cmd = msg->mobility_twist;
 }
-
+// add moving average filter to current readings
+double filtered_acc_current = 0;
+double filtered_drum_current = 0;
 //Subscribes to tool info from Arudino and Publishes Calibrated Tool Info
 void HardwareMux::toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
 {
     // Publish Tool Info
     this->tool_info_msg.drum_vel = drum_rps_scale*msg->data[0];
     this->tool_info_msg.acc_pos = acc_rps_scale*msg->data[1] - acc_offset;
-    this->tool_info_msg.drum_current = drum_current_scale*msg->data[2];
-    this->tool_info_msg.acc_current = acc_current_scale*msg->data[3];
+    filtered_drum_current = 0.9*filtered_drum_current + 0.1*msg->data[2];
+    filtered_acc_current = 0.9*filtered_acc_current + 0.1*msg->data[3];
+    this->tool_info_msg.drum_current = drum_current_scale*filtered_drum_current;
+    this->tool_info_msg.acc_current = acc_current_scale*filtered_acc_current;
     tool_info_pub_->publish(this->tool_info_msg);
     tool_info_msg_time = std::chrono::system_clock::now();
     // std::cout<<"Drum Vel: "<<this->tool_info_msg.drum_vel<<" Acc Pos: "<<this->tool_info_msg.acc_pos<<std::endl;
@@ -99,8 +103,31 @@ void HardwareMux::controlPublishCB()
 
     // pid_control = std::min(255.0, std::max(pid_control, -255.0));
     // drum_cmd.data = pid_control;
-    drum_cmd.data = drum_des_speed*(255/0.1);
-    
+    // drum_cmd.data = 0.7*drum_des_speed*(255/0.1);
+    if(drum_des_speed>1e-3)
+    {
+        drum_cmd.data = 200;
+    }
+    else if(drum_des_speed<-1e-3)
+    {
+        drum_cmd.data = -200;
+    }
+    else
+    {
+        drum_cmd.data = 0;
+    }
+
+
+    // //!!!! this is temporary
+    // if(std::abs(acc_cmd.data) > 1)
+    // {
+    //     acc_cmd.data = (acc_cmd.data>0) ? 200 : -200; //if acc_cmd is positive, set to 200, else set to -200
+    // }
+    // else 
+    // {
+    //     acc_cmd.data = 0;
+    // }
+
     //Update error_prev
     error_prev = error;
 

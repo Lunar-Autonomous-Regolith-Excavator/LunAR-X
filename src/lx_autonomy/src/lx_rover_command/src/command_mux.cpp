@@ -134,7 +134,11 @@ void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr r
     }
     if(!rover_soft_lock_.actuation_lock){
         cmd_msg.actuator_speed = (abs(rover_teleop_msg->actuator_speed) > 1.0 ? 1.0 : rover_teleop_msg->actuator_speed);
-        cmd_msg.drum_speed = (abs(rover_teleop_msg->drum_speed) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_msg->drum_speed);
+        if(rover_teleop_msg->drum_speed > 0.0)
+            cmd_msg.drum_speed = (abs(rover_teleop_msg->drum_speed) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_msg->drum_speed);
+        else
+            cmd_msg.drum_speed = (abs(rover_teleop_msg->drum_speed) > max_drum_speed_ ? -max_drum_speed_ : rover_teleop_msg->drum_speed);
+        // cmd_msg.drum_speed = (abs(rover_teleop_msg->drum_speed) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_msg->drum_speed);
     }
 
     rover_hw_cmd_publisher_->publish(cmd_msg);

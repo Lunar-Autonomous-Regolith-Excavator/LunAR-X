@@ -1,6 +1,7 @@
 <launch>
     <!-- Serial port -->
-    <arg name="port" default="/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Due_Prog._Port_85036313130351715120-if00" />
+    <!-- <arg name="port" default="/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Due_Prog._Port_85036313130351715120-if00" /> -->
+    <arg name="port" default="/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_85334343638351015282-if00" />
     <arg name="baud" default="57600" />
 
     <!-- Start the rosserial_python node -->

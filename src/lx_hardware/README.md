@@ -92,6 +92,7 @@ ros2 action send_goal /calibrate lx_hardware_mux/action/Calibrate "{request: Tru
 - Kill: ``` ctrl + b + x ```
 - Detach: ``` ctrl + b + d ```
 - Kill Window after detaching: ``` tmux  kill-window -t <session_name>```
+- Kill Window keyboard: ``` ctrl + b + & ```
 
 ## Error Logs:
 - Failure to upload code to Arduino. Check the arduino port (something like /dev/ttyACMx). Replace x with the correct port number. Then run the following command:
