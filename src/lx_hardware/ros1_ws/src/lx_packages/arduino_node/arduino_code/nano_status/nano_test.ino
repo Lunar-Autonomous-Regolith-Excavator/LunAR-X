@@ -1,3 +1,5 @@
+
+
 #include <ros.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/Bool.h>
@@ -33,7 +35,7 @@ int val_4b = 255;
 int val_5r = 0;
 
 
-// ------------- ROS Setup -------------------
+// ---------------- ROS Setup -----------------
 // ROS Node handle
 ros::NodeHandle nh;
 
@@ -127,6 +129,13 @@ ros::Subscriber<std_msgs::Bool> lock_sub("/lock_status_nano", &lockCB);
 
 //------------------- Setup ------------------
 void setup() {
+  // Initialize node
+  nh.initNode();
+  nh.subscribe(hw_sub);
+  nh.subscribe(op_sub);
+  nh.subscribe(task_sub);
+  nh.subscribe(lock_sub);
+
   // LED 1 Output mode
   pinMode(LED_1g, OUTPUT);
   // LED 2 Output mode
@@ -141,6 +150,12 @@ void setup() {
   pinMode(LED_4b, OUTPUT);
   // LED 5 Output mode
   pinMode(LED_5r, OUTPUT);
+
+  while(nh.connected()==false){
+    nh.spinOnce(); // Spin node 
+    delay(50);
+  }
+  nh.loginfo("Nano setup Completed");
 }
 
 
@@ -161,5 +176,6 @@ void loop() {
   // LED 5 write value
   analogWrite(LED_5r, val_5r);
 
+  nh.spinOnce(); // Spin node
   delay(100);
 }
