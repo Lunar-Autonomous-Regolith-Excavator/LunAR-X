@@ -19,7 +19,7 @@ services:
 
     volumes:
       - ./src/lx_autonomy/src/:/home/lx_autonomy/lx_autonomy_ws/src/
-      - ./src/lx_autonomy/init_autonomy.sh:/home/lx_autonomy/init_autonomy.sh
+      - ./src/lx_autonomy/init_autonomy.sh:/home/lx_autonomy/lx_autonomy_ws/init_autonomy.sh
       - ./bags/:/home/lx_autonomy/lx_autonomy_ws/bags/
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
       - /dev/:/dev/

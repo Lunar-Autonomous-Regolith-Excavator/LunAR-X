@@ -17,7 +17,7 @@ RUN sudo apt-get update && sudo apt-get upgrade -y
 # TODO
 
 # Nano
-RUN sudo apt-get install nano
+RUN sudo apt-get install nano tmux
 
 
 ### Copy source code

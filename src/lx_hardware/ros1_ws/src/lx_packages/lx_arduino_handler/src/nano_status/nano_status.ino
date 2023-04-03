@@ -5,33 +5,33 @@
 
 //-------------------- Pins -------------------
 // LED 1
-#define LED_1g 13;
+#define LED_1g 13
 // LED 2
-#define LED_2g 12;
+#define LED_2g 12
 // LED 3
-#define LED_3r 11;
-#define LED_3g 10;
-#define LED_3b 9;
+#define LED_3r 11
+#define LED_3g 10
+#define LED_3b 9
 // LED 4
-#define LED_4r 6;
-#define LED_4g 5;
-#define LED_4b 3;
+#define LED_4r 6
+#define LED_4g 5
+#define LED_4b 3
 // LED 5
-#define LED_5r 2;
+#define LED_5r 2
 
 
 //-------------- Global Variables -------------
 // Default values
 int val_1g = 0;
-int val_2g = 0;
+int val_2g = 255;
 int val_3r = 255;
-int val_3g = 0;
+int val_3g = 255;
 int val_3b = 255;
 int val_4r = 255;
-int val_4g = 0;
+int val_4g = 255;
 int val_4b = 255;
-int val_5r = 0;
-volatile unsigned int last_hw_msg = millis();
+int val_5r = 255;
+volatile unsigned long long last_hw_msg = millis();
 
 // ---------------- ROS Setup -----------------
 // ROS Node handle
@@ -150,18 +150,33 @@ void setup() {
   // LED 5 Output mode
   pinMode(LED_5r, OUTPUT);
 
+  // LED 1 write value
+  analogWrite(LED_1g, val_1g);
+  // LED 2 write value
+  analogWrite(LED_2g, val_2g);
+  // LED 3 write value
+  analogWrite(LED_3r, val_3r);
+  analogWrite(LED_3g, val_3g);
+  analogWrite(LED_3b, val_3b);
+  // LED 4 write value
+  analogWrite(LED_4r, val_4r);
+  analogWrite(LED_4g, val_4g);
+  analogWrite(LED_4b, val_4b);
+  // LED 5 write value
+  analogWrite(LED_5r, val_5r);
+
   while(nh.connected()==false){
     nh.spinOnce(); // Spin node 
     delay(50);
   }
-  nh.loginfo("Nano setup Completed");
+  nh.loginfo("Nano setup completed");
 }
 
 
 //------------------- Loop -------------------
 void loop() {
   // 2nd LED Heartbeat blink for 80 ms 
-  if(millis() - last_hw_msg > 80 && val_2g != 255){
+  if(millis() - last_hw_msg > 120 && val_2g != 255){
     val_2g = 255;
   }
   
@@ -181,5 +196,5 @@ void loop() {
   analogWrite(LED_5r, val_5r);
 
   nh.spinOnce(); // Spin node
-  delay(100);
+  delay(50);
 }

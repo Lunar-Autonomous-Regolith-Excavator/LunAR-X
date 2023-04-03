@@ -297,7 +297,7 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
     rover_teleop_publisher_->publish(rover_teleop_msg);
 }
 
-void ExternalInterface::remapTrig(float trig_val){
+double ExternalInterface::remapTrig(float trig_val){
     // Remap trigger value [0.8 to -1] to [0 to 1] for drum command
     float original_range_start = 0;
     float original_range_end = -1.8;

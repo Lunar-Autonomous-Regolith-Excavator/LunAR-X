@@ -18,6 +18,7 @@ class CommandMux: public rclcpp::Node
         rclcpp::TimerBase::SharedPtr last_cmd_timer_;
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_subscriber_;
+        rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_subscriber_;
         std::thread teleop_cmd_pub_thread_;
         std::thread auto_cmd_pub_thread_;
         // Publishers

@@ -123,7 +123,7 @@ class ExternalInterface: public rclcpp::Node
         *
         * Remap joystick trigger value to [0 to 1] for drum command
         * */
-        void remapTrig(float )
+        double remapTrig(float );
         
         // --------------------------------------
 
