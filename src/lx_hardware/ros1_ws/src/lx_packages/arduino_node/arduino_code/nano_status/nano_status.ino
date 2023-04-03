@@ -1,5 +1,3 @@
-
-
 #include <ros.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/Bool.h>
@@ -33,7 +31,7 @@ int val_4r = 255;
 int val_4g = 0;
 int val_4b = 255;
 int val_5r = 0;
-
+volatile unsigned int last_hw_msg = millis();
 
 // ---------------- ROS Setup -----------------
 // ROS Node handle
@@ -48,6 +46,7 @@ void hwCB(const std_msgs::Bool& msg){
     else{
       val_2g = 255;
     }
+    last_hw_msg = millis();
 }
 void opCB(const std_msgs::Int32& msg){
     // Operation mode indicated by 3rd LED
@@ -161,6 +160,11 @@ void setup() {
 
 //------------------- Loop -------------------
 void loop() {
+  // 2nd LED Heartbeat blink for 80 ms 
+  if(millis() - last_hw_msg > 80 && val_2g != 255){
+    val_2g = 255;
+  }
+  
   // LED 1 write value
   analogWrite(LED_1g, val_1g);
   // LED 2 write value
