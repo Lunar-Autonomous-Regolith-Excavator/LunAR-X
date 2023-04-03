@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(arduino_node)
+project(lx_arduino_handler)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
