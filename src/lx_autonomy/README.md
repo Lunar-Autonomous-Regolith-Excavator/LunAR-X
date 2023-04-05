@@ -29,18 +29,19 @@ bash init_autonomy.sh
 # Description
 
 ##  External Interface
-### Subscriptions
+### Subscribers
 - /joy <br>
 sensor_msgs::msg::Joy <br>
 Joystick raw input
 
-### Publishing
+### Publishers
 - /rover_teleop_cmd <br>
 lx_msgs::msg::RoverCommand <br>
 Teleop command passthrough to command_mux_node
 
-### Service client
+### Services
 - /param_server_node/set_parameters <br>
+Client <br>
 rcl_interfaces::srv::SetParameters <br>
 Client to set or change global params on param_server_node
 
@@ -49,19 +50,18 @@ Client to set or change global params on param_server_node
 - Joystick buttons set the lock, operation mode and task mode
 - If the op mode is set to teleop, will passthrough the joystick teleop commands to the command mux via RoverCommand data type
 - If no joystick data received for 3 seconds, will set the rover to lock for safety.
-- TODO : Add berm inputs
-- TODO : Add initial getting of parameters
 
 <hr>
 
 ## Param Server
 ### Summary
-- Provides access to globally crucial variables like current lock status, operation & task modes, actuation limits etc. 
+- Provides access to globally crucial variables like current lock status, operation & task modes, actuation limits etc.
+- Refer to lx_bringup_autonomy/config/params.yaml for all global params
 
 <hr>
 
 ## Command Mux
-### Subscriptions
+### Subscribers
 - /rover_teleop_cmd <br>
 lx_msgs::msg::RoverCommand
 Teleop command from joystick via external_interface_node
@@ -70,18 +70,24 @@ Teleop command from joystick via external_interface_node
 lx_msgs::msg::RoverCommand
 Autonomy command
 
-### Publishing
+### Publishers
 - /rover_hw_cmd <br>
 lx_msgs::msg::RoverCommand
 Command published to the lx_hardware container's hardware_mux_node
 
-### Services
 ### Summary
 - Switches between teleop and autonomous commands based on the operation mode
 - Enforces actuation limits
-- TODO : Test autonomous input handling
-- TODO : Add initial getting of parameters
+<hr>
+
+## Operations Handler
+TODO
 <hr>
 
 ## LX Library
 TODO
+<hr>
+
+## LX Msgs
+TODO
+<hr>

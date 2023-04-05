@@ -1,3 +1,18 @@
+/* Author: Dhruv Tyagi
+ * Subscribers:
+ *    - /rover_teleop_cmd: [lx_msgs::msg::RoverCommand] Teleop command from joystick via external_interface_node
+ *    - /rover_auto_cmd: [lx_msgs::msg::RoverCommand] Autonomy command
+ * Publishers:
+ *    - /rover_hw_cmd: [lx_msgs::msg::RoverCommand] Command published to the lx_hardware container's hardware_mux_node
+ *
+ * - Switches between teleop and autonomous commands based on the operation mode
+ * - Enforces actuation limits
+ * 
+ * TODO
+ * - Test autonomous input handling
+ * - Add initial getting of parameters
+ * */
+
 #include "lx_rover_command/command_mux.hpp"
 
 CommandMux::CommandMux(): Node("command_mux_node"){

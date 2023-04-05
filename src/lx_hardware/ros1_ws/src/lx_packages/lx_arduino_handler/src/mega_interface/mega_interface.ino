@@ -1,10 +1,17 @@
-// Subscribers:
-//    - /drum_cmd: Int32 PWM value between -255 to 255 
-//    - /acc_cmd : Int32 PWM value between -255 to 255
-// Publishers:
-//    - /tool_raw_info: Float64MultiArray {drum_dticks_dt, acc_ticks, drum_current_read, acc_current_read}
-// 
-// The node locks actuation if the particular topic is not recieved for 3 seconds
+/* Author: Vibhakar Mohta
+ * Subscribers:
+ *    - /drum_cmd: [std_msgs::Int32] PWM value between -255 to 255 
+ *    - /acc_cmd : [std_msgs::Int32] PWM value between -255 to 255
+ * Publishers:
+ *    - /tool_raw_info: [std_msgs::Float64MultiArray] {drum_dticks_dt, acc_ticks, drum_current_read, acc_current_read}
+ *
+ * - Source code for arduino mega to handle action and encoder feedback
+ * - The node locks actuation if the particular topic is not recieved for 3 seconds
+ * 
+ * TODO
+ * - 
+ * */
+
 
 // #define USE_USBCON
 #include <ros.h>

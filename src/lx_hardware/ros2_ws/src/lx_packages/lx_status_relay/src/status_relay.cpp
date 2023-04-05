@@ -1,3 +1,16 @@
+/* Author: Dhruv Tyagi
+ * Publishers:
+ *    - /hw_status_nano: [std_msgs::msg::Bool] heartbeat every 1.5 seconds to the nano
+ *    - /op_status_nano: [std_msgs::msg::Int32] publish current operation mode to the nano
+ *    - /task_status_nano: [std_msgs::msg::Int32] publish current task mode to the nano
+ *    - /lock_status_nano: [std_msgs::msg::Bool] publish current lock status to the nano
+ * Clients:
+ *    - /param_server_node/get_parameters - Client - [rcl_interfaces::srv::GetParameters] 
+ *        get lock/op mode/task mode params every 0.5 seconds from the param server
+ *
+ * - Publishes status indication data for LEDs on the electronics panel
+ * */
+
 #include "lx_status_relay/status_relay.hpp"
 
 StatusRelay::StatusRelay(): Node("status_relay_node"){

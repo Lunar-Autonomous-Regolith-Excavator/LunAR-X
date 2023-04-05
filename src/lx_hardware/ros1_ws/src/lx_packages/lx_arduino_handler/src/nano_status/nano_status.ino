@@ -1,3 +1,26 @@
+/* Author: Dhruv Tyagi
+ * Subscribers:
+ *    - /hw_status_nano: [std_msgs::Bool] listen to heartbeat every 1.5 seconds
+ *    - /op_status_nano: [std_msgs::Int32] current operation mode
+ *    - /task_status_nano: [std_msgs::Int32] current task mode
+ *    - /lock_status_nano: [std_msgs::Bool] current lock status
+ *
+ * - Source code for arduin nano to handle LED status indicators
+ * - LED 1 
+ *    Green: Power On
+ * - LED 2
+ *    Green: [Blinking] Heartbeat for ROS
+ * - LED 3
+ *    Green: Standby, White: Teleop, Blue: Autonomous
+ * - LED 4
+ *    Green: Idle, White: Nav, Blue: Exc, Red: DMP
+ * - LED 5
+ *    Red: Rover Locked
+ * 
+ * TODO
+ * - 
+ * */
+
 #include <ros.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/Bool.h>

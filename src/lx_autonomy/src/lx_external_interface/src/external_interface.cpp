@@ -1,3 +1,21 @@
+/* Author: Dhruv Tyagi
+ * Subscribers:
+ *    - /joy: [sensor_msgs::msg::Joy] Joystick raw input
+ * Publishers:
+ *    - /rover_teleop_cmd: [lx_msgs::msg::RoverCommand] Teleop command passthrough to command_mux_node
+ * Services:
+ *    - /param_server_node/set_parameters - Client - [rcl_interfaces::srv::SetParameters] Client to set or change global params on param_server_node
+ *
+ * - Based on user inputs, guides the robot operation
+ * - Joystick buttons set the lock, operation mode and task mode
+ * - If the op mode is set to teleop, will passthrough the joystick teleop commands to the command mux via RoverCommand data type
+ * - If no joystick data received for 3 seconds, will set the rover to lock for safety.
+ * 
+ * TODO
+ * - Add berm inputs
+ * - Add initial getting of parameters
+ * */
+
 #include "lx_external_interface/external_interface.hpp"
 
 ExternalInterface::ExternalInterface(): Node("external_interface_node"){

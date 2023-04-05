@@ -1,24 +1,27 @@
-#include "lx_hardware_mux/hardware_mux.hpp"
-// Author: Vibhakar Mohta
-// Subscribers:
-//    - /rover_hw_cmd: Twist command for Husky, float64 [-1 to 1] for linear actuator, float64 [rad/sec] for drum]
-//    - /tool_raw_info: Float64MultiArray {drum_ticks, acc_ticks, drum_current_read, acc_current_read}
-// Publishers:
-//    - /cmd_vel: geometry_msgs/Twist Husky A200 command
-//    - /drum_cmd: Int32 Drum PWM command [-255 to 255]
-//    - /acc_cmd: Int32 Linear Actuator PWM command [-255 to 255]
-//    - /tool_info: lx_msgs/ToolInfo tool localization and currents [Published whenever /tool_raw_info is recieved]
-// Services:
-//    - WeightEstimate to estimate amount of excavated material
-//
-// - Enforces Hardware limits on Tool and Rover Actuation
-// - Stores Calibration offsets for linear actuator (saved when the callibration service is called)
-// - Scales drum ticks to position [rad] for drum, ticks to m for linear actuator, current analogRead values to Amps
-// - LOCKS all actuation commands when input not recieved for 3 seconds from /rover_hw_cmd (And updates same in Parameter server)
+/* Author: Vibhakar Mohta
+ * Subscribers:
+ *    - /rover_hw_cmd: [lx_msgs::msg::RoverCommand] Twist command for Husky, float64 [-1 to 1] for linear actuator, float64 [rad/sec] for drum]
+ *    - /tool_raw_info: [std_msgs::msg::Float64MultiArray] {drum_ticks, acc_ticks, drum_current_read, acc_current_read}
+ * Publishers:
+ *    - /cmd_vel: [geometry_msgs::msg::Twist] Husky A200 command
+ *    - /drum_cmd: [std_msgs::msg::Int32] Drum PWM command [-255 to 255]
+ *    - /acc_cmd: [std_msgs::msg::Int32] Linear Actuator PWM command [-255 to 255]
+ *    - /tool_info: [lx_msgs::msg::ToolInfo] tool localization and currents [Published whenever /tool_raw_info is recieved]
+ * Actions:
+ *    - /WeightEstimate - Server - [WeightEstimate] to estimate amount of excavated material
+ *
+ * - Enforces Hardware limits on Tool and Rover Actuation
+ * - Stores Calibration offsets for linear actuator (saved when the callibration service is called)
+ * - Scales drum ticks to position [rad] for drum, ticks to m for linear actuator, current analogRead values to Amps
+ * - LOCKS all actuation commands when input not recieved for 3 seconds from /rover_hw_cmd (And updates same in Parameter server)
+ *
+ * TODO
+ * - Add limits to control commands (interface with parameter server)
+ * - After lock, update status in parameter server
+ * - Change service name to different formatting
+ * */
 
-//TODO
-// - Add limits to control commands (interface with parameter server)
-// - After lock, update status in parameter server
+#include "lx_hardware_mux/hardware_mux.hpp"
 
 HardwareMux::HardwareMux(): Node("hardware_mux_node")
 {
