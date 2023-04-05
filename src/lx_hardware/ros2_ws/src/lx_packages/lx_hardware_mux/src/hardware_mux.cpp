@@ -94,7 +94,7 @@ void HardwareMux::roverLockCB()
     drum_cmd.data = 0; 
     acc_cmd.data = 0;
     husky_cmd.linear.x = 0; husky_cmd.linear.y = 0; husky_cmd.linear.z = 0; 
-    husky_cmd.angular.x = 0; husky_cmd.angular.y = 0; husky_cmd.angular.z = 0;  
+    husky_cmd.angular.x = 0; husky_cmd.angular.y = 0; husky_cmd.angular.z = 0;
 }
 
 // Action Server Callbacks
@@ -121,6 +121,10 @@ void HardwareMux::handle_accepted(const std::shared_ptr<GoalHandleWeightEstimate
 
 void HardwareMux::execute(const std::shared_ptr<GoalHandleWeightEstimate> goal_handle)
 {
+    /*TODO: 
+    - add movement of linear actuator to highest point before calling action
+    - add checks for estop modes and operation modes, and other checks for communications with autonomy container
+    */ 
     this->is_action_running = true;
     RCLCPP_INFO(this->get_logger(), "Executing Weight Estimation");
     rclcpp::Rate loop_rate(10);

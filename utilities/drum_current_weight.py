@@ -69,8 +69,8 @@ if __name__ == "__main__":
     
         start_ind = bag_files[i][2]
         add_ind = 60
-        axs[0].plot(np.linspace(0, add_ind/10, add_ind), filtered_current[start_ind:start_ind+add_ind], label=str(bag_files[i][0])+" rotations")
-        axs[1].plot(np.linspace(0, add_ind/10, add_ind), omegas[start_ind:start_ind+add_ind], label=str(bag_files[i][0])+" rotations")
+        axs[0].plot(np.linspace(0, add_ind/10, add_ind), filtered_current[start_ind:start_ind+add_ind], label=str(bag_files[i][0])+" Excavation Rotations")
+        axs[1].plot(np.linspace(0, add_ind/10, add_ind), omegas[start_ind:start_ind+add_ind], label=str(bag_files[i][0])+" Excavation Rotations")
         # axs[2].plot(np.linspace(0, add_ind/10, add_ind), i_omega[start_ind:start_ind+add_ind], label=str(bag_files[i][0])+" rotations")
         integrals.append((np.sum(filtered_current[start_ind:start_ind+add_ind]), np.sum(omegas[start_ind:start_ind+add_ind]), 
                             np.sum(i_omega[start_ind:start_ind+add_ind])))
@@ -89,9 +89,9 @@ if __name__ == "__main__":
     plt.figure()
     plt.bar(np.arange(integrals.shape[0]), np.abs(integrals[:,0]), label="Current")
     # set xticks of plot
-    plt.xticks(np.arange(integrals.shape[0]), [str(bag_files[i][0])+" rotations" for i in range(len(bag_files))])
+    plt.xticks(np.arange(integrals.shape[0]), [str(bag_files[i][0]) for i in range(len(bag_files))])
     plt.ylabel("Integral of Current (A)")
-    plt.xlabel("Number of Rotations")
+    plt.xlabel("Number of Excavation Rotations")
     # axs[1].bar(np.arange(integrals.shape[0]), np.abs(integrals[:,1]))
     # axs[2].bar(np.arange(integrals.shape[0]), np.abs(integrals[:,2]))
     plt.show()
