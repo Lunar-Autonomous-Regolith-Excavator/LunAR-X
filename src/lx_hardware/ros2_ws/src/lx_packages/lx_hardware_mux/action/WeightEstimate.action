@@ -1,5 +1,5 @@
 bool request
 ---
-bool result
+float64 result
 ---
 float64 feedback

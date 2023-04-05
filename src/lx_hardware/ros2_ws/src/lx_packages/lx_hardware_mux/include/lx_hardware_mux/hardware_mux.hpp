@@ -8,7 +8,7 @@
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <std_msgs/msg/int32.hpp>
 #include "std_msgs/msg/string.hpp"
-#include "lx_hardware_mux/action/calibrate.hpp"
+#include "lx_hardware_mux/action/weight_estimate.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
 class HardwareMux: public rclcpp::Node
@@ -24,15 +24,15 @@ class HardwareMux: public rclcpp::Node
         rclcpp::Publisher<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_pub_;
 
         // Action Server
-        using Calibrate = lx_hardware_mux::action::Calibrate;
-        using GoalHandleCalibrate = rclcpp_action::ServerGoalHandle<Calibrate>;
-        rclcpp_action::Server<Calibrate>::SharedPtr action_server_;
+        using WeightEstimate = lx_hardware_mux::action::WeightEstimate;
+        using GoalHandleWeightEstimate = rclcpp_action::ServerGoalHandle<WeightEstimate>;
+        rclcpp_action::Server<WeightEstimate>::SharedPtr action_server_;
 
         // Action server callbacks
-        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Calibrate::Goal> goal);
-        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleCalibrate> goal_handle);
-        void handle_accepted(const std::shared_ptr<GoalHandleCalibrate> goal_handle);
-        void execute(const std::shared_ptr<GoalHandleCalibrate> goal_handle);
+        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const WeightEstimate::Goal> goal);
+        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleWeightEstimate> goal_handle);
+        void handle_accepted(const std::shared_ptr<GoalHandleWeightEstimate> goal_handle);
+        void execute(const std::shared_ptr<GoalHandleWeightEstimate> goal_handle);
         bool is_action_running = false;
 
         // Callbacks
@@ -54,17 +54,16 @@ class HardwareMux: public rclcpp::Node
         std_msgs::msg::Int32 acc_cmd = std_msgs::msg::Int32(); 
         geometry_msgs::msg::Twist husky_cmd = geometry_msgs::msg::Twist(); // Husky A200 command intialized to 0        
         
-        //Controller Variables
-        double Kp =1, Ki = 0.001, Kd = 0.1; // PID gains for drum
-        double error = 0, error_integral = 0, error_prev = 0; // PID variables
-        double drum_des_speed = 0;
-
         //Callibation Variables
         double drum_rps_scale = 1; // Scale for drum dticks/dt to rad/s
         double acc_rps_scale = 1; // Scale for linear actuator ticks to m
         double drum_current_scale = 1; // Scale for drum current analogRead to Amps
         double acc_current_scale = 1; // Scale for linear actuator current analogRead to Amps
         double acc_offset = 0; // Offset for linear actuator calibration
+
+        //Filter Variables
+        double filtered_acc_current = 0;
+        double filtered_drum_current = 0;
         
     public:
         // Functions

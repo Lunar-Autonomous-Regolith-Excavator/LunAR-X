@@ -1,4 +1,4 @@
 float64 acc_pos
-float64 drum_vel
+float64 drum_pos
 float64 acc_current
 float64 drum_current

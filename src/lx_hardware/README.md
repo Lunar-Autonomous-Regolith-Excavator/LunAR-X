@@ -78,11 +78,10 @@ bash run_hardware.sh
     sr1; roslaunch husky_launch husky_launch.launch
     ```
 
-
 <hr>
-Calling the Calibrate Action (Hosted by the hardware_mux_node)
+Calling the WeightEstimate Action (Hosted by the hardware_mux_node)
 ```
-ros2 action send_goal /calibrate lx_hardware_mux/action/Calibrate "{request: True}"
+ros2 action send_goal /WeightEstimate lx_hardware_mux/action/WeightEstimate "{request: True}"
 ```
 
 ## Using TMUX
