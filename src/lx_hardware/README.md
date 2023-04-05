@@ -12,7 +12,7 @@
 ```
 cd scripts
 bash hardware_terminal.sh
-bash run_hardware.sh
+bash init_hardware.sh
 ```
 
 ### Manual Launch
