@@ -1,3 +1,18 @@
+/* Author: Dhruv Tyagi
+ * Subscribers:
+ *    - /rover_teleop_cmd: [lx_msgs::msg::RoverCommand] Teleop command from joystick via external_interface_node
+ *    - /rover_auto_cmd: [lx_msgs::msg::RoverCommand] Autonomy command
+ * Publishers:
+ *    - /rover_hw_cmd: [lx_msgs::msg::RoverCommand] Command published to the lx_hardware container's hardware_mux_node
+ *
+ * - Switches between teleop and autonomous commands based on the operation mode
+ * - Enforces actuation limits
+ * 
+ * TODO
+ * - Test autonomous input handling
+ * - Add initial getting of parameters
+ * */
+
 #include "lx_rover_command/command_mux.hpp"
 
 CommandMux::CommandMux(): Node("command_mux_node"){
@@ -18,6 +33,8 @@ void CommandMux::setupCommunications(){
     // Subscribers
     rover_teleop_subscriber_ = this->create_subscription<lx_msgs::msg::RoverCommand>("rover_teleop_cmd", 10 , 
                             std::bind(&CommandMux::roverTeleopCallBack, this, std::placeholders::_1));
+    rover_auto_subscriber_ = this->create_subscription<lx_msgs::msg::RoverCommand>("rover_auto_cmd", 10 , 
+                            std::bind(&CommandMux::roverAutoCallBack, this, std::placeholders::_1));
 
     // Publishers
     rover_hw_cmd_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_hw_cmd", 10);
@@ -106,7 +123,6 @@ void CommandMux::setupParams(){
 }
 
 void CommandMux::roverTeleopCallBack(const lx_msgs::msg::RoverCommand::SharedPtr rover_teleop_msg){
-
     // Passthrough teleop command 
     teleop_cmd_pub_thread_ = std::thread(std::bind(&CommandMux::teleopPassthrough, this, rover_teleop_msg));
 
@@ -123,18 +139,61 @@ void CommandMux::teleopPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr r
     } 
 }
 
-void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr rover_teleop_msg){
+void CommandMux::roverAutoCallBack(const lx_msgs::msg::RoverCommand::SharedPtr rover_auto_msg){
+    // Passthrough auto command 
+    auto_cmd_pub_thread_ = std::thread(std::bind(&CommandMux::autoPassthrough, this, rover_auto_msg));
+
+    // Have to detach thread before it goes out of scope
+    auto_cmd_pub_thread_.detach(); 
+
+}
+
+void CommandMux::autoPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rover_auto_msg){
+    // If current op_mode is autonomous & task_mode is not idle
+    if(current_rover_op_mode_ == OpModeEnum::AUTONOMOUS && current_rover_task_mode_ != TaskModeEnum::IDLE){
+        // Pass through autonomy command
+        sendCmdToHardware(rover_auto_msg);
+    } 
+}
+
+void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr received_msg){
 
     auto cmd_msg = lx_msgs::msg::RoverCommand();
 
     // If rover is not locked, pass the commands
     if(!rover_soft_lock_.mobility_lock){
-        cmd_msg.mobility_twist.linear.x = (abs(rover_teleop_msg->mobility_twist.linear.x) > max_mob_lin_vel_ ? max_mob_lin_vel_ : rover_teleop_msg->mobility_twist.linear.x);
-        cmd_msg.mobility_twist.angular.z = (abs(rover_teleop_msg->mobility_twist.angular.z) > max_mob_ang_vel_ ? max_mob_ang_vel_ : rover_teleop_msg->mobility_twist.angular.z);
+        // Clip mobility linear command to [-max_mob_lin_vel_  max_mob_lin_vel_]
+        if(received_msg->mobility_twist.linear.x > 0.0){
+            cmd_msg.mobility_twist.linear.x = (received_msg->mobility_twist.linear.x > max_mob_lin_vel_ ? max_mob_lin_vel_ : received_msg->mobility_twist.linear.x);
+        }
+        else{
+            cmd_msg.mobility_twist.linear.x = (received_msg->mobility_twist.linear.x < -max_mob_lin_vel_ ? -max_mob_lin_vel_ : received_msg->mobility_twist.linear.x);
+        }
+        
+        // Clip mobility angular command to [-max_mob_ang_vel_  max_mob_ang_vel_]
+        if(received_msg->mobility_twist.angular.z > 0.0){
+            cmd_msg.mobility_twist.angular.z = (received_msg->mobility_twist.angular.z > max_mob_ang_vel_ ? max_mob_ang_vel_ : received_msg->mobility_twist.angular.z);
+        }
+        else{
+            cmd_msg.mobility_twist.angular.z = (received_msg->mobility_twist.angular.z < -max_mob_ang_vel_ ? -max_mob_ang_vel_ : received_msg->mobility_twist.angular.z);
+        }        
     }
     if(!rover_soft_lock_.actuation_lock){
-        cmd_msg.actuator_speed = (abs(rover_teleop_msg->actuator_speed) > 1.0 ? 1.0 : rover_teleop_msg->actuator_speed);
-        cmd_msg.drum_speed = (abs(rover_teleop_msg->drum_speed) > max_drum_speed_ ? max_drum_speed_ : rover_teleop_msg->drum_speed);
+        // Clip actuator command to [-1 1]
+        if(received_msg->actuator_speed > 0.0){
+            cmd_msg.actuator_speed = (received_msg->actuator_speed > 1.0 ? 1.0 : received_msg->actuator_speed);
+        }
+        else{
+            cmd_msg.actuator_speed = (received_msg->actuator_speed < -1.0 ? -1.0 : received_msg->actuator_speed);
+        }
+
+        // Clip drum command to [-1 1]
+        if(received_msg->drum_speed > 0.0){
+            cmd_msg.drum_speed = (received_msg->drum_speed > 1.0 ? 1.0 : received_msg->drum_speed);
+        }
+        else{
+            cmd_msg.drum_speed = (received_msg->drum_speed < -1.0 ? -1.0 : received_msg->drum_speed);
+        }
     }
 
     rover_hw_cmd_publisher_->publish(cmd_msg);
@@ -146,12 +205,38 @@ void CommandMux::sendCmdToHardware(geometry_msgs::msg::Twist& twist_msg, float& 
 
     // If rover is not locked, pass the commands
     if(!rover_soft_lock_.mobility_lock){
-        cmd_msg.mobility_twist.linear.x = (abs(twist_msg.linear.x) > max_mob_lin_vel_ ? max_mob_lin_vel_ : twist_msg.linear.x);
-        cmd_msg.mobility_twist.angular.z = (abs(twist_msg.angular.z) > max_mob_ang_vel_ ? max_mob_ang_vel_ : twist_msg.angular.z);
+        // Clip mobility linear command to [-max_mob_lin_vel_  max_mob_lin_vel_]
+        if(twist_msg.linear.x > 0.0){
+            cmd_msg.mobility_twist.linear.x = (twist_msg.linear.x > max_mob_lin_vel_ ? max_mob_lin_vel_ : twist_msg.linear.x);
+        }
+        else{
+            cmd_msg.mobility_twist.linear.x = (twist_msg.linear.x < -max_mob_lin_vel_ ? -max_mob_lin_vel_ : twist_msg.linear.x);
+        }
+        
+        // Clip mobility angular command to [-max_mob_ang_vel_  max_mob_ang_vel_]
+        if(twist_msg.angular.z > 0.0){
+            cmd_msg.mobility_twist.angular.z = (twist_msg.angular.z > max_mob_ang_vel_ ? max_mob_ang_vel_ : twist_msg.angular.z);
+        }
+        else{
+            cmd_msg.mobility_twist.angular.z = (twist_msg.angular.z < -max_mob_ang_vel_ ? -max_mob_ang_vel_ : twist_msg.angular.z);
+        }        
     }
     if(!rover_soft_lock_.actuation_lock){
-        cmd_msg.actuator_speed = (abs(linact_msg) > 1.0 ? 1.0 : linact_msg);
-        cmd_msg.drum_speed = (abs(drum_msg) > max_drum_speed_ ? max_drum_speed_ : drum_msg);
+        // Clip actuator command to [-1 1]
+        if(linact_msg > 0.0){
+            cmd_msg.actuator_speed = (linact_msg > 1.0 ? 1.0 : linact_msg);
+        }
+        else{
+            cmd_msg.actuator_speed = (linact_msg < -1.0 ? -1.0 : linact_msg);
+        }
+
+        // Clip drum command to [-max_drum_speed_  max_drum_speed_]
+        if(drum_msg > 0.0){
+            cmd_msg.drum_speed = (drum_msg > 1.0 ? 1.0 : drum_msg);
+        }
+        else{
+            cmd_msg.drum_speed = (drum_msg < -1.0 ? -1.0 : drum_msg);
+        }
     }
 
     rover_hw_cmd_publisher_->publish(cmd_msg);

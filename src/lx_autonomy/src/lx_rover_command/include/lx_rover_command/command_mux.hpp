@@ -18,7 +18,9 @@ class CommandMux: public rclcpp::Node
         rclcpp::TimerBase::SharedPtr last_cmd_timer_;
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_subscriber_;
+        rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_subscriber_;
         std::thread teleop_cmd_pub_thread_;
+        std::thread auto_cmd_pub_thread_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_publisher_;
         // Parameter handling
@@ -64,6 +66,22 @@ class CommandMux: public rclcpp::Node
         * If teleop mode enabled, pass rover teleop command from external interface to the hardware interface
         * */
         void teleopPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr );
+
+        /*
+        * Argument(s):
+        *   - rover autonomy message
+        * 
+        * Callback for /rover_auto_cmd message
+        * */
+        void roverAutoCallBack(const lx_msgs::msg::RoverCommand::SharedPtr );
+
+        /*
+        * Argument(s):
+        *   - rover autonomy message
+        * 
+        * If autonomous mode enabled, pass rover autonomy command from external interface to the hardware interface
+        * */
+        void autoPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr );
 
         /*
         * Argument(s):

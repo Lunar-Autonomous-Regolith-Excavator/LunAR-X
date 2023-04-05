@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>arduino_node</name>
+  <name>lx_arduino_handler</name>
   <version>0.0.0</version>
   <description>LunAR-X Project - The arduino_node package to interface with low-level hardware</description>
   <maintainer email="vib2810@gmail.com">Vibhakar Mohta</maintainer>

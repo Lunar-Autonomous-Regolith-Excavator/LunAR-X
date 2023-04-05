@@ -1,3 +1,21 @@
+/* Author: Dhruv Tyagi
+ * Subscribers:
+ *    - /joy: [sensor_msgs::msg::Joy] Joystick raw input
+ * Publishers:
+ *    - /rover_teleop_cmd: [lx_msgs::msg::RoverCommand] Teleop command passthrough to command_mux_node
+ * Services:
+ *    - /param_server_node/set_parameters - Client - [rcl_interfaces::srv::SetParameters] Client to set or change global params on param_server_node
+ *
+ * - Based on user inputs, guides the robot operation
+ * - Joystick buttons set the lock, operation mode and task mode
+ * - If the op mode is set to teleop, will passthrough the joystick teleop commands to the command mux via RoverCommand data type
+ * - If no joystick data received for 3 seconds, will set the rover to lock for safety.
+ * 
+ * TODO
+ * - Add berm inputs
+ * - Add initial getting of parameters
+ * */
+
 #include "lx_external_interface/external_interface.hpp"
 
 ExternalInterface::ExternalInterface(): Node("external_interface_node"){
@@ -280,8 +298,31 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
     rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     rover_teleop_msg.actuator_speed = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
-    rover_teleop_msg.drum_speed = (joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] < 0.0) ? (-joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]) : 0;
+
+    // Scale trigger input to [0 to 1] for drum command
+    float right_remapped = 0, left_remapped = 0;
+
+    if(joy_msg->axes[int(JoyAxes::RIGHT_TRIG)] <= 0.8){
+        right_remapped = remapTrig(joy_msg->axes[int(JoyAxes::RIGHT_TRIG)]);
+    }
+    if(joy_msg->axes[int(JoyAxes::LEFT_TRIG)] <= 0.8){
+        left_remapped = remapTrig(joy_msg->axes[int(JoyAxes::LEFT_TRIG)]);
+    }
+
+    rover_teleop_msg.drum_speed = right_remapped - left_remapped;
 
     // Publish rover teleop
     rover_teleop_publisher_->publish(rover_teleop_msg);
+}
+
+double ExternalInterface::remapTrig(float trig_val){
+    // Remap trigger value [0.8 to -1] to [0 to 1] for drum command
+    float original_range_start = 0;
+    float original_range_end = -1.8;
+    float remapped_range_start = 0;
+    float remapped_range_end = 1;
+
+    trig_val = trig_val - 0.8;
+
+    return (trig_val - original_range_start) / (original_range_end - original_range_start) * (remapped_range_end - remapped_range_start) + remapped_range_start;
 }
