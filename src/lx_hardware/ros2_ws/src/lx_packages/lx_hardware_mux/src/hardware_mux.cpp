@@ -148,15 +148,15 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleWeightEstimate> goal_h
         // 15 second action timeout
         auto curr_time = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = curr_time - start_time;
-        if (elapsed_seconds.count() > 15.0) 
-        {
-            result->result = -1;
-            goal_handle->abort(result);
-            RCLCPP_INFO(this->get_logger(), "WeightEstimate: timed out");
-            this->is_action_running = false;
-            this->drum_cmd.data = 0; this->drum_cmd_pub_->publish(drum_cmd);
-            return;
-        }
+        // if (elapsed_seconds.count() > 15.0) 
+        // {
+        //     result->result = -1;
+        //     goal_handle->abort(result);
+        //     RCLCPP_INFO(this->get_logger(), "WeightEstimate: timed out");
+        //     this->is_action_running = false;
+        //     this->drum_cmd.data = 0; this->drum_cmd_pub_->publish(drum_cmd);
+        //     return;
+        // }
 
         // If no feedback for 2 seconds then timeout
         if((curr_time - tool_info_msg_time) > std::chrono::seconds(2))
@@ -174,7 +174,8 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleWeightEstimate> goal_h
         auto curr_drum_ticks = this->tool_info_msg.drum_pos;
 
         // If ticks exceed 10000 then succeed
-        if(std::abs(curr_drum_ticks - start_drum_ticks) > 10000)
+        // if(std::abs(curr_drum_ticks - start_drum_ticks) > 10000)
+        if(elapsed_seconds.count() > 3.0)
         {
             result->result = integral_current;
             goal_handle->succeed(result);
