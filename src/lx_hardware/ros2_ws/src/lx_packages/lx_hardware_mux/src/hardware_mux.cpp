@@ -56,6 +56,7 @@ HardwareMux::HardwareMux(): Node("hardware_mux_node")
 void HardwareMux::roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr msg)
 {
     rover_lock_timer_->reset(); //reset live estop 
+    this->rover_locked = false;
     if(this->is_action_running == false) //set control commands only if action is not running, else action will take control
     {
         acc_cmd.data = std::min(255.0, std::max((double)msg->actuator_speed*255.0, -255.0));
@@ -85,6 +86,13 @@ void HardwareMux::toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPt
 //Triggered by timer, publishes control commands to Husky and Tools(Arduino)
 void HardwareMux::controlPublishCB()
 {
+    if(this->rover_locked == true) // Rover is locked, publish 0 control commands
+    {
+        drum_cmd.data = 0; 
+        acc_cmd.data = 0;
+        husky_cmd.linear.x = 0; husky_cmd.linear.y = 0; husky_cmd.linear.z = 0; 
+        husky_cmd.angular.x = 0; husky_cmd.angular.y = 0; husky_cmd.angular.z = 0;
+    }
     // Publish Control Commands
     husky_node_pub_->publish(husky_cmd);
     drum_cmd_pub_->publish(drum_cmd);
@@ -94,10 +102,7 @@ void HardwareMux::controlPublishCB()
 void HardwareMux::roverLockCB()
 {
     RCLCPP_ERROR(this->get_logger(), "[Hardware Mux] No communication Autonomy Docker, Rover Locked");
-    drum_cmd.data = 0; 
-    acc_cmd.data = 0;
-    husky_cmd.linear.x = 0; husky_cmd.linear.y = 0; husky_cmd.linear.z = 0; 
-    husky_cmd.angular.x = 0; husky_cmd.angular.y = 0; husky_cmd.angular.z = 0;
+    this->rover_locked = true;
 }
 
 // Action Server Callbacks
@@ -128,35 +133,46 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleWeightEstimate> goal_h
     - add movement of linear actuator to highest point before calling action
     - add checks for estop modes and operation modes, and other checks for communications with autonomy container
     */ 
-    this->is_action_running = true;
+    auto result = std::make_shared<WeightEstimate::Result>();
+    if(this->rover_locked == true) // Rover is locked, publish 0 control commands
+    {
+        result->result = -1;
+        goal_handle->abort(result);
+        RCLCPP_INFO(this->get_logger(), "WeightEstimate: Rover is locked, cannot execute action");
+        this->is_action_running = false;
+        this->drum_cmd.data = 0;
+        return;
+    }
+
+    this->is_action_running = true; // Set flag to indicate action is running (so teleop can't take control)
     RCLCPP_INFO(this->get_logger(), "Executing Weight Estimation");
     rclcpp::Rate loop_rate(10);
 
     auto feedback = std::make_shared<WeightEstimate::Feedback>();
-    auto result = std::make_shared<WeightEstimate::Result>();
 
     // Set acc_cmd and drum_cmd to 0 to stop linear actuator before starting action
-    this->acc_cmd.data = 0; this->acc_cmd_pub_->publish(acc_cmd);
-    this->drum_cmd.data = 0; this->drum_cmd_pub_->publish(drum_cmd);
+    this->acc_cmd.data = 0;
+    this->drum_cmd.data = 0;
 
     // Startup variables
     auto start_time = std::chrono::system_clock::now();
     auto start_drum_ticks = this->tool_info_msg.drum_pos;
     auto integral_current = 0.0;
+    double action_ticks = 3000;
     while(rclcpp::ok())
     {
         // 15 second action timeout
         auto curr_time = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = curr_time - start_time;
-        // if (elapsed_seconds.count() > 15.0) 
-        // {
-        //     result->result = -1;
-        //     goal_handle->abort(result);
-        //     RCLCPP_INFO(this->get_logger(), "WeightEstimate: timed out");
-        //     this->is_action_running = false;
-        //     this->drum_cmd.data = 0; this->drum_cmd_pub_->publish(drum_cmd);
-        //     return;
-        // }
+        if (elapsed_seconds.count() > 15.0) 
+        {
+            result->result = -1;
+            goal_handle->abort(result);
+            RCLCPP_INFO(this->get_logger(), "WeightEstimate: timed out");
+            this->is_action_running = false;
+            this->drum_cmd.data = 0;
+            return;
+        }
 
         // If no feedback for 2 seconds then timeout
         if((curr_time - tool_info_msg_time) > std::chrono::seconds(2))
@@ -165,23 +181,22 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleWeightEstimate> goal_h
             std::cout<<elapsed_seconds.count()<<std::endl;
             result->result = -1;
             goal_handle->abort(result);
-            RCLCPP_INFO(this->get_logger(), "WeightEstimate: sensor reading timed out");
+            RCLCPP_INFO(this->get_logger(), "WeightEstimate: Sensor Reading Timed Out");
             this->is_action_running = false;
-            this->drum_cmd.data = 0; this->drum_cmd_pub_->publish(drum_cmd);
+            this->drum_cmd.data = 0;
             return;
         }
 
-        auto curr_drum_ticks = this->tool_info_msg.drum_pos;
+        auto ticks_rotated = std::abs(this->tool_info_msg.drum_pos - start_drum_ticks);
 
-        // If ticks exceed 10000 then succeed
-        // if(std::abs(curr_drum_ticks - start_drum_ticks) > 10000)
-        if(elapsed_seconds.count() > 3.0)
+        // if ticks rotated is greater than action_ticks, then action is complete
+        if(ticks_rotated > action_ticks)
         {
             result->result = integral_current;
             goal_handle->succeed(result);
             RCLCPP_INFO(this->get_logger(), "WeightEstimate: Succeeded, Integral = %f", integral_current);
             this->is_action_running = false;
-            drum_cmd.data = 0; drum_cmd_pub_->publish(drum_cmd);
+            drum_cmd.data = 0; 
             return;
         }
   
@@ -192,24 +207,24 @@ void HardwareMux::execute(const std::shared_ptr<GoalHandleWeightEstimate> goal_h
             goal_handle->canceled(result);
             RCLCPP_INFO(this->get_logger(), "WeightEstimate Canceled");
             this->is_action_running = false;
-            acc_cmd.data = 0; acc_cmd_pub_->publish(acc_cmd);
+            drum_cmd.data = 0;
             return;
         }
 
         // Give control command to drum
-        drum_cmd.data = 200;
-        drum_cmd_pub_->publish(drum_cmd);
+        drum_cmd.data = -100;
 
         // Publish feedback (time elapsed in seconds)
         feedback->feedback = elapsed_seconds.count();
         goal_handle->publish_feedback(feedback);
         RCLCPP_INFO(this->get_logger(), "Publish feedback");
 
-        //integrate current
-        integral_current += std::abs(this->tool_info_msg.acc_current);
+        //integrate current (ignore values for first 0.25 seconds)
+        if(elapsed_seconds.count() > 0.25) integral_current += std::abs(this->tool_info_msg.drum_current);
 
         // Sleep for the time remaining to let us hit our 10Hz publish rate
         loop_rate.sleep();
     }
     this->is_action_running = false;
+    drum_cmd.data = 0;
 }

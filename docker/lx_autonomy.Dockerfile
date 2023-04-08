@@ -1,8 +1,8 @@
 ### Base image
 # AMD Architecture
-FROM osrf/ros:humble-desktop
+# FROM osrf/ros:humble-desktop
 # ARM Architecture
-# FROM arm64v8/ros:humble-ros-base
+FROM ros:humble-ros-base
 
 # Update & Upgrade
 RUN sudo apt-get update && sudo apt-get upgrade -y
@@ -43,6 +43,9 @@ RUN apt update && apt install ros-humble-joy-linux -y
 # Auto source ROS 2 workspace
 RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
 RUN echo 'source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash' >> ~/.bashrc
+
+# Install rqt
+RUN apt install ros-humble-rqt -y
 
 # Add ascii script to bashrc (make sure to keep >> instead of > to avoid overwriting file)
 RUN echo 'source /home/lx_autonomy/lx_autonomy_ws/utilities/lunarx_ascii.sh' >> ~/.bashrc

@@ -52,7 +52,8 @@ class HardwareMux: public rclcpp::Node
         //Variables
         std_msgs::msg::Int32 drum_cmd = std_msgs::msg::Int32(); 
         std_msgs::msg::Int32 acc_cmd = std_msgs::msg::Int32(); 
-        geometry_msgs::msg::Twist husky_cmd = geometry_msgs::msg::Twist(); // Husky A200 command intialized to 0        
+        geometry_msgs::msg::Twist husky_cmd = geometry_msgs::msg::Twist(); // Husky A200 command intialized to 0      
+        bool rover_locked = true; // Rover locked flag  
         
         //Callibation Variables
         double drum_rps_scale = 1; // Scale for drum dticks/dt to rad/s
