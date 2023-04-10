@@ -12,7 +12,7 @@
 ```
 cd scripts
 bash hardware_terminal.sh
-bash run_hardware.sh
+bash init_hardware.sh
 ```
 
 ### Manual Launch
@@ -59,7 +59,7 @@ bash run_hardware.sh
 3. Run ROS 2 Hardware Mux. In a new terminal
     ```
     bash hardware_terminal.sh
-    sr2 ; ros2 run hardware_mux hardware_mux_node
+    sr2 ; ros2 run lx_hardware_mux hardware_mux_node
     ```
 
 4. Run ROS 1 Bridge. This only bridges required topics specified in the yaml file betwen ROS 1 and ROS 2. In a new terminal:
@@ -78,8 +78,11 @@ bash run_hardware.sh
     sr1; roslaunch husky_launch husky_launch.launch
     ```
 
-
 <hr>
+Calling the WeightEstimate Action (Hosted by the hardware_mux_node)
+```
+ros2 action send_goal /WeightEstimate lx_hardware_mux/action/WeightEstimate "{request: True}"
+```
 
 ## Using TMUX
 - See running sessions: ``` tmux ls ```
@@ -88,6 +91,7 @@ bash run_hardware.sh
 - Kill: ``` ctrl + b + x ```
 - Detach: ``` ctrl + b + d ```
 - Kill Window after detaching: ``` tmux  kill-window -t <session_name>```
+- Kill Window keyboard: ``` ctrl + b + & ```
 
 ## Error Logs:
 - Failure to upload code to Arduino. Check the arduino port (something like /dev/ttyACMx). Replace x with the correct port number. Then run the following command:

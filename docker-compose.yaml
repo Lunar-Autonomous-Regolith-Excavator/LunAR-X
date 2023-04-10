@@ -19,6 +19,7 @@ services:
 
     volumes:
       - ./src/lx_autonomy/src/lx_packages:/home/lx_autonomy/lx_autonomy_ws/src/lx_packages
+      - ./src/lx_autonomy/init_autonomy.sh:/home/lx_autonomy/lx_autonomy_ws/init_autonomy.sh
       - ./bags/:/home/lx_autonomy/lx_autonomy_ws/bags/
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
       - /dev/:/dev/
@@ -43,7 +44,7 @@ services:
     volumes:
       - ./src/lx_hardware/ros2_ws/src/lx_packages/:/home/lx_hardware/ros2_ws/src/lx_packages/
       - ./src/lx_hardware/ros1_ws/src/lx_packages/:/home/lx_hardware/ros1_ws/src/lx_packages/
-      - ./src/lx_hardware/run_hardware.sh:/home/lx_hardware/run_hardware.sh
+      - ./src/lx_hardware/init_hardware.sh:/home/lx_hardware/init_hardware.sh
       - /dev/:/dev/
       - /tmp/.X11-unix:/tmp/.X11-unix
 

@@ -17,7 +17,7 @@ RUN sudo apt-get update && sudo apt-get upgrade -y
 # TODO
 
 # Nano
-RUN sudo apt-get install nano
+RUN sudo apt-get install nano tmux -y
 
 
 ### Copy source code
@@ -44,7 +44,11 @@ RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && 
 
 # Set work directory
 WORKDIR /home/lx_autonomy/lx_autonomy_ws
-# Add ascii script to bashrc (make sure to keep >> instead of > to avoid overwriting file)
+RUN apt update && apt install ros-humble-joy-linux -y
+
+# Auto source ROS 2 workspace
 RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
 RUN echo 'source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash' >> ~/.bashrc
+
+# Add ascii script to bashrc (make sure to keep >> instead of > to avoid overwriting file)
 RUN echo 'source /home/lx_autonomy/lx_autonomy_ws/utilities/lunarx_ascii.sh' >> ~/.bashrc

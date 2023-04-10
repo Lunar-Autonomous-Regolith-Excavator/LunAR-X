@@ -58,5 +58,9 @@ RUN cd /home/lx_hardware/ros1_ws && source /opt/ros/noetic/setup.bash && catkin_
 RUN apt-get update && \
     apt-get install -y nano tmux
 
+# Mount ROS2 workspace and colcon build
+COPY ./src/lx_hardware/ros2_ws/src/lx_packages/ /home/lx_hardware/ros2_ws/src/lx_packages/
+RUN cd /home/lx_hardware/ros2_ws/ && source /opt/ros/foxy/setup.bash && colcon build
+
 # Enter with bash
 CMD ["bash"]

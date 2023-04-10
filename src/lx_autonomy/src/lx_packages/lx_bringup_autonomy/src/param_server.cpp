@@ -1,3 +1,8 @@
+/* Author: Dhruv Tyagi
+ * - Provides access to globally crucial variables like current lock status, operation & task modes, actuation limits etc. 
+ * - Refer to lx_bringup_autonomy/config/params.yaml for all global params
+ * */
+
 #include "lx_bringup_autonomy/param_server.hpp"
 
 ParamServer::ParamServer(): Node("param_server_node"){

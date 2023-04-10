@@ -18,5 +18,23 @@ topics:
   -
     topic: /husky_velocity_controller/odom  # Topic name on both ROS 1 and ROS 2
     type: nav_msgs/msg/Odometry  # Type of topic to bridge
-    queue_size: 1  # Queue size   
+    queue_size: 1  # Queue size  
+
+  - 
+    topic: /hw_status_nano  # Topic name on both ROS 1 and ROS 2
+    type: std_msgs/msg/Bool  # Type of topic to bridge
+    queue_size: 1  # Queue size 
+  -
+    topic: /op_status_nano  # Topic name on both ROS 1 and ROS 2
+    type: std_msgs/msg/Int32  # Type of topic to bridge
+    queue_size: 1  # Queue size 
+  - 
+    topic: /task_status_nano  # Topic name on both ROS 1 and ROS 2
+    type: std_msgs/msg/Int32  # Type of topic to bridge
+    queue_size: 1  # Queue size 
+  - 
+    topic: /lock_status_nano  # Topic name on both ROS 1 and ROS 2
+    type: std_msgs/msg/Bool  # Type of topic to bridge
+    queue_size: 1  # Queue size 
+ 
     

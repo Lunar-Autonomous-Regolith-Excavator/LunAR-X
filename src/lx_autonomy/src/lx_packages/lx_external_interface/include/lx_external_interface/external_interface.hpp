@@ -116,6 +116,14 @@ class ExternalInterface: public rclcpp::Node
         * Publish rover teleop command using the joystick input
         * */
         void passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPtr );
+
+        /*
+        * Argument(s):
+        *   - joystick trigger value
+        *
+        * Remap joystick trigger value to [0 to 1] for drum command
+        * */
+        double remapTrig(float );
         
         // --------------------------------------
 
