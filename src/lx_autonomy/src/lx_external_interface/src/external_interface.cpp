@@ -305,7 +305,8 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
         rover_teleop_msg.mobility_twist.angular.z = -joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     }
     
-    rover_teleop_msg.actuator_speed = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
+    // Inverted actuator movement
+    rover_teleop_msg.actuator_speed = -joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
 
     // Scale trigger input to [0 to 1] for drum command
     float right_remapped = 0, left_remapped = 0;
