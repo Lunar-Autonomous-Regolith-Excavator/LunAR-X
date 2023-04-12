@@ -31,8 +31,8 @@ class ExternalInterface: public rclcpp::Node
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
         TaskModeEnum current_rover_task_mode_ = TaskModeEnum::IDLE;
-        float mob_lin_vel_ = 0.5; // Reflect any default param changes here 
-        float mob_ang_vel_ = 0.1; // Reflect any default param changes here
+        float mob_lin_vel_ = 0.6; // Reflect any default param changes here 
+        float mob_ang_vel_ = 0.12; // Reflect any default param changes here
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;

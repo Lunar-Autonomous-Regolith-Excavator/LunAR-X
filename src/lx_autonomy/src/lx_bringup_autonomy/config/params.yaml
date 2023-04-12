@@ -7,7 +7,7 @@ param_server_node:
       task_mode: 0            # 0: IDLE, 1: NAV, 2: EXC, 3: DMP
       
     limits:
-      max_lin_mob_vel: 0.5    # meter/sec
+      max_lin_mob_vel: 0.6    # meter/sec
       max_lin_mob_acc: 0.05    # (meter/sec)/command
       max_ang_mob_vel: 0.12    # rad/sec
       max_lin_act_ext: 0.15   # meter

@@ -29,7 +29,7 @@ class CommandMux: public rclcpp::Node
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
         TaskModeEnum current_rover_task_mode_ = TaskModeEnum::IDLE;
-        float max_mob_lin_vel_ = 0.5; // Reflect any default param changes here 
+        float max_mob_lin_vel_ = 0.6; // Reflect any default param changes here 
         float max_mob_ang_vel_ = 0.12; // Reflect any default param changes here
         float max_drum_speed_ = 0.1;  // Reflect any default param changes here
         float max_mob_lin_acc_ = 0.05; // Reflect any default param changes here 
