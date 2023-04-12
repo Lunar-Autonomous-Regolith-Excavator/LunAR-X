@@ -26,9 +26,16 @@ def generate_launch_description():
     external_interface_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     external_interface_dir + '/launch/external_interface.launch.py'))
+                                    
+    perception_dir = get_package_share_directory('lx_perception')
+    perception_launch = IncludeLaunchDescription(
+                                PythonLaunchDescriptionSource(
+                                    perception_dir + '/launch/berm_eval.launch.py'))
+
 
     ld.add_action(param_server_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
+    ld.add_action(perception_launch)
 
     return ld

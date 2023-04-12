@@ -5,7 +5,7 @@ def generate_launch_description():
     # create a list of nodes
     nodes = [
         Node(
-            package='lx_berm',
+            package='lx_perception',
             executable='berm_eval',
             name='berm_eval',
         )

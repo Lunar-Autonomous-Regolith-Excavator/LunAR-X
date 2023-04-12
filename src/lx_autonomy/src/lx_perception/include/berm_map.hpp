@@ -25,7 +25,7 @@ class BermMap : public rclcpp::Node
 {
 public:
     BermMap()
-        : Node("lx_berm")
+        : Node("lx_perception")
     {
         subscription_right = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "camera2/depth/color/points", 100, std::bind(&BermMap::topic_callback_right, this, _1));
