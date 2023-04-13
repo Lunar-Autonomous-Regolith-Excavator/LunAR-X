@@ -16,6 +16,7 @@ void ParamServer::initParameters(){
     this->declare_parameter("rover.op_mode", 0);
     this->declare_parameter("rover.task_mode", 0);
     this->declare_parameter("limits.max_lin_mob_vel", 0.0);
+    this->declare_parameter("limits.max_lin_mob_acc", 0.0);
     this->declare_parameter("limits.max_ang_mob_vel", 0.0);
     this->declare_parameter("limits.max_lin_act_ext", 0.0);
     this->declare_parameter("limits.min_lin_act_ext", 0.0);
@@ -49,17 +50,18 @@ void ParamServer::initParameters(){
     call_back_handle_[2] = param_subscriber_->add_parameter_callback("rover.op_mode", param_int_call_back);
     call_back_handle_[3] = param_subscriber_->add_parameter_callback("rover.task_mode", param_int_call_back);
     call_back_handle_[4] = param_subscriber_->add_parameter_callback("limits.max_lin_mob_vel", param_double_call_back);
-    call_back_handle_[5] = param_subscriber_->add_parameter_callback("limits.max_ang_mob_vel", param_double_call_back);
-    call_back_handle_[6] = param_subscriber_->add_parameter_callback("limits.max_lin_act_ext", param_double_call_back);
-    call_back_handle_[7] = param_subscriber_->add_parameter_callback("limits.min_lin_act_ext", param_double_call_back);
-    call_back_handle_[8] = param_subscriber_->add_parameter_callback("limits.max_drum_speed", param_double_call_back);
-    call_back_handle_[9] = param_subscriber_->add_parameter_callback("limits.min_drum_speed", param_double_call_back);
-    call_back_handle_[10] = param_subscriber_->add_parameter_callback("operational.nav_mob_vel", param_double_call_back);
-    call_back_handle_[11] = param_subscriber_->add_parameter_callback("operational.exc_mob_vel", param_double_call_back);
-    call_back_handle_[12] = param_subscriber_->add_parameter_callback("operational.dmp_mob_vel", param_double_call_back);
-    call_back_handle_[13] = param_subscriber_->add_parameter_callback("operational.exc_lin_act_ext", param_double_call_back);
-    call_back_handle_[14] = param_subscriber_->add_parameter_callback("operational.dmp_lin_act_ext", param_double_call_back);
-    call_back_handle_[15] = param_subscriber_->add_parameter_callback("operational.exc_drum_speed", param_double_call_back);
-    call_back_handle_[16] = param_subscriber_->add_parameter_callback("operational.dmp_drum_speed", param_double_call_back);
+    call_back_handle_[5] = param_subscriber_->add_parameter_callback("limits.max_lin_mob_acc", param_double_call_back);
+    call_back_handle_[6] = param_subscriber_->add_parameter_callback("limits.max_ang_mob_vel", param_double_call_back);
+    call_back_handle_[7] = param_subscriber_->add_parameter_callback("limits.max_lin_act_ext", param_double_call_back);
+    call_back_handle_[8] = param_subscriber_->add_parameter_callback("limits.min_lin_act_ext", param_double_call_back);
+    call_back_handle_[9] = param_subscriber_->add_parameter_callback("limits.max_drum_speed", param_double_call_back);
+    call_back_handle_[10] = param_subscriber_->add_parameter_callback("limits.min_drum_speed", param_double_call_back);
+    call_back_handle_[11] = param_subscriber_->add_parameter_callback("operational.nav_mob_vel", param_double_call_back);
+    call_back_handle_[12] = param_subscriber_->add_parameter_callback("operational.exc_mob_vel", param_double_call_back);
+    call_back_handle_[13] = param_subscriber_->add_parameter_callback("operational.dmp_mob_vel", param_double_call_back);
+    call_back_handle_[14] = param_subscriber_->add_parameter_callback("operational.exc_lin_act_ext", param_double_call_back);
+    call_back_handle_[15] = param_subscriber_->add_parameter_callback("operational.dmp_lin_act_ext", param_double_call_back);
+    call_back_handle_[16] = param_subscriber_->add_parameter_callback("operational.exc_drum_speed", param_double_call_back);
+    call_back_handle_[17] = param_subscriber_->add_parameter_callback("operational.dmp_drum_speed", param_double_call_back);
 }
 

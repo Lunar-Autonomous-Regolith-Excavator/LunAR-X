@@ -14,8 +14,8 @@ class CommandMux: public rclcpp::Node
 {
     private:
         // Variables ----------------------------
-        // Time
-        rclcpp::TimerBase::SharedPtr last_cmd_timer_;
+        // Last command
+        float last_mob_lin_vel_ = 0.0;
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_subscriber_;
         rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_subscriber_;
@@ -27,15 +27,17 @@ class CommandMux: public rclcpp::Node
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
         TaskModeEnum current_rover_task_mode_ = TaskModeEnum::IDLE;
-        float max_mob_lin_vel_ = 0.5; // Reflect any default param changes here 
-        float max_mob_ang_vel_ = 0.1; // Reflect any default param changes here
+        float max_mob_lin_vel_ = 0.6; // Reflect any default param changes here 
+        float max_mob_ang_vel_ = 0.12; // Reflect any default param changes here
         float max_drum_speed_ = 0.1;  // Reflect any default param changes here
+        float max_mob_lin_acc_ = 0.01; // Reflect any default param changes here 
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> lin_mob_vel_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> lin_mob_acc_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> ang_mob_vel_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> drum_speed_param_cb_handle_;
         // --------------------------------------
