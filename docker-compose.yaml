@@ -18,7 +18,7 @@ services:
     network_mode: host
 
     volumes:
-      - ./src/lx_autonomy/src/:/home/lx_autonomy/lx_autonomy_ws/src/
+      - ./src/lx_autonomy/src/lx_packages:/home/lx_autonomy/lx_autonomy_ws/src/lx_packages
       - ./src/lx_autonomy/init_autonomy.sh:/home/lx_autonomy/lx_autonomy_ws/init_autonomy.sh
       - ./bags/:/home/lx_autonomy/lx_autonomy_ws/bags/
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
@@ -37,6 +37,8 @@ services:
     container_name: lx_hardware
 
     privileged: true
+
+    # network_mode: host
     
     environment:
       DISPLAY: ${DISPLAY}

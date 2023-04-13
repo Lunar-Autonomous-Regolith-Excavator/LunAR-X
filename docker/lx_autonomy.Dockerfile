@@ -1,8 +1,8 @@
 ### Base image
 # AMD Architecture
-FROM osrf/ros:humble-desktop
+# FROM osrf/ros:humble-desktop
 # ARM Architecture
-# FROM arm64v8/ros:humble-ros-base
+FROM ros:humble-ros-base
 
 # Update & Upgrade
 RUN sudo apt-get update && sudo apt-get upgrade -y
@@ -28,6 +28,10 @@ COPY ./src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/
 # Add utilities
 COPY ./utilities/ /home/lx_autonomy/lx_autonomy_ws/utilities/
 
+### Clone github packages
+# Clone robot_localization package
+RUN mkdir -p /home/lx_autonomy/lx_autonomy_ws/src/git_packages && cd /home/lx_autonomy/lx_autonomy_ws/src/git_packages && \
+        git clone --single-branch --branch ros2 https://github.com/cra-ros-pkg/robot_localization.git
 
 ### Installation
 # Run rosdep on src folder
@@ -36,6 +40,8 @@ RUN cd /home/lx_autonomy/lx_autonomy_ws && apt-get update && rosdep install -i -
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh 
 # Colcon build
 RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && colcon build
+
+
 # Set work directory
 WORKDIR /home/lx_autonomy/lx_autonomy_ws
 RUN apt update && apt install ros-humble-joy-linux -y
