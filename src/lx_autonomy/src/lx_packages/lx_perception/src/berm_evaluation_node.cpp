@@ -1,7 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include <memory>
 #include "lx_msgs/srv/compute_berm_metrics.hpp"
-#include "berm_eval/berm_map.hpp"
+#include "lx_perception/berm_evaluation.hpp"
 
 int main(int argc, char **argv)
 {

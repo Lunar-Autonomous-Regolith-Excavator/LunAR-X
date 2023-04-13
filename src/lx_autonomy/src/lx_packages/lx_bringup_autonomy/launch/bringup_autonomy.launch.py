@@ -30,7 +30,7 @@ def generate_launch_description():
     perception_dir = get_package_share_directory('lx_perception')
     perception_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
-                                    perception_dir + '/launch/lx_perception.launch.py'))
+                                    perception_dir + '/launch/perception.launch.py'))
 
 
     ld.add_action(param_server_launch)

@@ -38,13 +38,13 @@ find_package(pcl_conversions REQUIRED)
 #   "srv/ComputeMap.srv"
 # )
 
-add_executable(berm_evaluation_server src/berm_evaluation_server.cpp)
-ament_target_dependencies(berm_evaluation_server rclcpp lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
-target_include_directories(berm_evaluation_server PUBLIC
+add_executable(berm_evaluation_node src/berm_evaluation_node.cpp src/berm_evaluation.cpp)
+ament_target_dependencies(berm_evaluation_node rclcpp lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
+target_include_directories(berm_evaluation_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>) 
 
-install(TARGETS berm_evaluation_server
+install(TARGETS berm_evaluation_node
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
