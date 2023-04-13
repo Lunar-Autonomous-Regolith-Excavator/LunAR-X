@@ -28,10 +28,10 @@ else
     tmux split-window -h
 
     # Run commands in each pane (add sleeps to wait for roscore to start)
-    tmux send-keys -t 0 "sr1; sleep 2; roslaunch lx_arduino_handler arduino_handler.launch" C-m
+    tmux send-keys -t 0 "sr1; sleep 5; roslaunch lx_arduino_handler arduino_handler.launch" C-m
     tmux send-keys -t 1 "sr2; cd /home/lx_hardware/ros2_ws && colcon build && sr2 && ros2 launch lx_bringup_hardware bringup_hardware.launch.py" C-m
-    # tmux send-keys -t 2 "sr1; sleep 2; roslaunch husky_launch husky_launch.launch" C-m
-    tmux send-keys -t 3 "sr1; sleep 2; rosparam load /home/lx_hardware/ros2_ws/src/lx_packages/bridge.yaml; sr2; ros2 run ros1_bridge parameter_bridge" C-m
+    tmux send-keys -t 2 "sr1; sleep 5; roslaunch husky_launch husky_launch.launch" C-m
+    tmux send-keys -t 3 "sr1; sleep 5; rosparam load /home/lx_hardware/ros2_ws/src/lx_packages/bridge.yaml; sr2; ros2 run ros1_bridge parameter_bridge" C-m
     tmux send-keys -t 4 "sr1; roscore" C-m
     tmux send-keys -t 5 "bash" C-m
 

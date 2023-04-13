@@ -39,6 +39,7 @@ class CommandMux: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> lin_mob_vel_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> lin_mob_acc_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> ang_mob_vel_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> drum_speed_param_cb_handle_;
         // --------------------------------------
