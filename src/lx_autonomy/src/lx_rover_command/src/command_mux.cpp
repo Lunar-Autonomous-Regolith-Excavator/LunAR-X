@@ -20,9 +20,6 @@ CommandMux::CommandMux(): Node("command_mux_node"){
     // Lock movement at system start
     rover_soft_lock_.mobility_lock = true;
     rover_soft_lock_.actuation_lock = true;
-
-    // Last mobility linear vel command for acceleration
-    // last_mob_vel_timer_ = this->get_clock()->now();
     
     // Set up subscriptions & publishers
     setupCommunications();

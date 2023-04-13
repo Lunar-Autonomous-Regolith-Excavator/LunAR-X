@@ -16,8 +16,6 @@ class CommandMux: public rclcpp::Node
         // Variables ----------------------------
         // Last command
         float last_mob_lin_vel_ = 0.0;
-        // Time
-        rclcpp::TimerBase::SharedPtr last_mob_vel_timer_;
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_subscriber_;
         rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_subscriber_;

@@ -318,7 +318,7 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
         left_remapped = remapTrig(joy_msg->axes[int(JoyAxes::LEFT_TRIG)]);
     }
 
-    rover_teleop_msg.drum_speed = right_remapped - left_remapped;
+    rover_teleop_msg.drum_speed = left_remapped - right_remapped;
 
     // Publish rover teleop
     rover_teleop_publisher_->publish(rover_teleop_msg);
