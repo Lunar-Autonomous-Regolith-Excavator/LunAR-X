@@ -32,7 +32,7 @@ class CommandMux: public rclcpp::Node
         float max_mob_lin_vel_ = 0.6; // Reflect any default param changes here 
         float max_mob_ang_vel_ = 0.12; // Reflect any default param changes here
         float max_drum_speed_ = 0.1;  // Reflect any default param changes here
-        float max_mob_lin_acc_ = 0.05; // Reflect any default param changes here 
+        float max_mob_lin_acc_ = 0.01; // Reflect any default param changes here 
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
