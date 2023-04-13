@@ -6,8 +6,8 @@ def generate_launch_description():
     nodes = [
         Node(
             package='lx_perception',
-            executable='berm_eval',
-            name='berm_eval',
+            executable='berm_evaluation_server',
+            name='berm_evaluation_server',
         )
     ]
 

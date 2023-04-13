@@ -20,21 +20,29 @@
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
+using ComputeBermMetrics = lx_msgs::srv::ComputeBermMetrics;
 
 class BermMap : public rclcpp::Node
 {
 public:
     BermMap()
-        : Node("lx_perception")
+        : Node("berm_evaluation_server")
     {
+        debug_mode = false;
         subscription_right = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-            "camera2/depth/color/points", 100, std::bind(&BermMap::topic_callback_right, this, _1));
-        // subscription_left = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        //     "camera1/depth/color/points", 100, std::bind(&BermMap::topic_callback_left, this, _1));
+            "camera2/depth/color/points", 1, std::bind(&BermMap::topic_callback_right, this, _1)); //subscribes to the point cloud topic at 1Hz
+        subscription_left = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+            "camera1/depth/color/points", 1, std::bind(&BermMap::topic_callback_left, this, _1));
 
-        publisher_og = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid2", 1);
-        publisher_fil = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_filtered", 1);
-        publisher_berm_eval = this->create_publisher<std_msgs::msg::Float32>("lx_berm/berm_eval", 1);
+        if(debug_mode){
+            publisher_og = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid2", 1);
+            publisher_fil = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_filtered", 1);
+        }
+        service_ = create_service<ComputeBermMetrics>(
+            "evaluate_berm_metrics",
+            std::bind(&BermMap::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+        
         setTargetBermHeight(0.15);
         occupancy_grid.info.resolution = 0.05;
         occupancy_grid.info.width = 200;
@@ -47,6 +55,9 @@ public:
         occupancy_grid.info.origin.orientation.z = 0;
         occupancy_grid.info.origin.orientation.w = 1;
         filtered_occupancy_grid = occupancy_grid;
+        berm_height = -1;
+        berm_width = -1;
+        berm_length = -1;
     }
 
     void setTargetBermHeight(double height = 0.15)
@@ -55,6 +66,18 @@ public:
     }
 
 private:
+
+    void service_callback(const std::shared_ptr<ComputeBermMetrics::Request> request,
+    std::shared_ptr<ComputeBermMetrics::Response> response)
+    {
+        process_left(msg_left);
+        process_right(msg_right);
+        response->height = berm_height;
+        response->width = berm_width;
+        response->length = berm_length;
+        RCLCPP_INFO(this->get_logger(), "Computed berm metrics: height: %f, width: %f, length: %f", response->height, response->width, response->length);
+    }
+
     void add_dune_neighbors(std::vector<int> &dune_x, std::vector<int> &dune_y, std::vector<int> &dune_indices, int idx, int width)
     {
         int x_idx = idx % width;
@@ -73,7 +96,6 @@ private:
                         dune_x.push_back(i);
                         dune_y.push_back(j);
                         dune_indices.push_back(candidate_idx);
-                        // score += occupancy_grid.data[candidate_idx]*occupancy_grid.data[candidate_idx];
                         add_dune_neighbors(dune_x, dune_y, dune_indices, candidate_idx, width);
                     }
                 }
@@ -83,7 +105,6 @@ private:
 
     void grow_dune(std::vector<int> &dune_indices,int &score, int idx, int width, int dune_counter)
     {
-        // printf("grow_dune %d: %d", dune_counter, idx);
         int x_idx = idx % width;
         int y_idx = idx / width;
         filtered_occupancy_grid.data[idx] = 0;
@@ -109,6 +130,15 @@ private:
 
     void topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
+        msg_right = msg;
+    }
+    void topic_callback_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+    {
+        msg_left = msg;
+    }
+
+    void process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+    {
         // Make occupancy grid
 
         occupancy_grid.header = msg->header;
@@ -126,12 +156,6 @@ private:
         }
 
         const double number_of_points = msg->height * msg->width;
-
-        // fit a ground plane to the point cloud using RANSAC
-        // 1. randomly select 4 points
-        // 2. fit a plane to the 4 points
-        // 3. count the number of points that are within a threshold distance from the plane
-        // 4. repeat 1-3 for a large number of iterations
 
         int num_iterations = 100;
         double num_inliers = 0, max_num_inliers = 0;
@@ -186,7 +210,6 @@ private:
             double c1 = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2);
             double d1 = -(x1 * (y2 * z3 - y3 * z2) + x2 * (y3 * z1 - y1 * z3) + x3 * (y1 * z2 - y2 * z1));
 
-            // printf("candidate coeffs: %f %f %f %f\n ",a1,b1,c1,d1);
             num_inliers = 0;
 
             for (size_t i = 0; i < number_of_points; ++i, ++iter_x3, ++iter_y3, ++iter_z3)
@@ -211,7 +234,8 @@ private:
             a = -a;b = -b;c = -c;d = -d;
         }
         double denom = sqrt(a * a + b * b + c * c);
-        // printf("Ground plane: a = %f, b = %f, c = %f, d = %f, max_inliers = %f, num_points = %f\n", a, b, c, d, max_num_inliers, number_of_points);
+        if (debug_mode)
+            printf("Ground plane: a = %f, b = %f, c = %f, d = %f, max_inliers = %f, num_points = %f\n", a, b, c, d, max_num_inliers, number_of_points);
         sensor_msgs::PointCloud2Iterator<float> iter_x(*msg, "x");
         sensor_msgs::PointCloud2Iterator<float> iter_y(*msg, "y");
         sensor_msgs::PointCloud2Iterator<float> iter_z(*msg, "z");
@@ -219,7 +243,7 @@ private:
         double min_z_val = 1000, max_z_val = -1000;
         double z_values[occupancy_grid.info.width * occupancy_grid.info.height];
         int berm_peak = -1;
-        berm_height_right = -1000;
+        double berm_height_right = -1000;
         for (size_t i = 0; i < occupancy_grid.info.width * occupancy_grid.info.height; i++)
         {
             z_values[i] = 0;
@@ -268,12 +292,10 @@ private:
                 max_z_val = z_val;
             }
         }
-        // berm_height_right -= min_z_val/3;   
         for (int i = 0; i < (int)(occupancy_grid.info.width * occupancy_grid.info.height); i++)
         {
             if (pc_density_grid_right.data[i] > 0)
             {
-                // int height = (int)fabs(1000*(z_values[i]/pc_density_grid_right.data[i]));
                 int height = (int)  1000 * (z_values[i] / pc_density_grid_right.data[i]);
                 // if (height > 0 && height < 100)
                 if (height > 0)
@@ -282,98 +304,15 @@ private:
                     occupancy_grid.data[i] = 0;
             }
         }
-
-        // printf("x_min = %f, x_max = %f, y_min = %f, y_max = %f\n", x_min, x_max, y_min, y_max);
-        // printf("berm height = %f\n", berm_height_right);
-        // printf("berm peak = %d\n", berm_peak);
+        if(debug_mode){
+            printf("x_min = %f, x_max = %f, y_min = %f, y_max = %f\n", x_min, x_max, y_min, y_max);
+            printf("berm height = %f\n", berm_height_right);
+            printf("berm peak = %d\n", berm_peak);
+        }
 
         filtered_occupancy_grid.header = occupancy_grid.header;
         filtered_occupancy_grid.data.resize(occupancy_grid.info.width * occupancy_grid.info.height);
         filtered_occupancy_grid.data = occupancy_grid.data;
-        for (int i = 0; i < (int)(occupancy_grid.info.width * occupancy_grid.info.height); i++)
-        {
-            int x_idx = i % occupancy_grid.info.width;
-            int y_idx = i / occupancy_grid.info.width;
-            int num_neighbors = 0;
-            int sum = 0;
-            for (int x = -1; x <= 1; x++)
-            {
-                for (int y = -1; y <= 1; y++)
-                {
-                    int idx = (x_idx + x) + (y_idx + y) * occupancy_grid.info.width;
-                    if (idx >= 0 && idx < (int)(occupancy_grid.info.width * occupancy_grid.info.height))
-                    {
-                        if (occupancy_grid.data[idx] > 0)
-                        {
-                            sum += occupancy_grid.data[idx];
-                            num_neighbors++;
-                        }
-                    }
-                }
-            }
-            // printf("num_neighbors = %d\n", num_neighbors);
-            if (num_neighbors > 0)
-            {
-                filtered_occupancy_grid.data[i] = sum / num_neighbors;
-            }
-        }
-        // apply sobel filter to filtered_occupancy_grid
-        int sobel_x[9] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
-        // int sobel_x[9] = {-1, 2, -1, -1, 2, -1, -1, 2, -1};
-        int sobel_y[9] = {-1, -2, -1, 0, 0, 0, 1, 2, 1};
-        // int sobel_y[9] = {-1, -1, -1, 2,2,2, -1, -1, -1};
-
-        int peak_idx = -1;
-        int peak_val = -1;
-
-        for (int i = 0; i < (int)(occupancy_grid.info.width * occupancy_grid.info.height); i++)
-        {
-            int x_idx = i % occupancy_grid.info.width;
-            int y_idx = i / occupancy_grid.info.width;
-            int num_neighbors = 0;
-            int sum = 0;
-            int sobel_x_sum = 0;
-            int sobel_y_sum = 0;
-            for (int x = -1; x <= 1; x++)
-            {
-                for (int y = -1; y <= 1; y++)
-                {
-                    int idx = (x_idx + x) + (y_idx + y) * occupancy_grid.info.width;
-                    if (idx >= 0 && idx < (int)(occupancy_grid.info.width * occupancy_grid.info.height))
-                    {
-                        if (filtered_occupancy_grid.data[idx] > 0)
-                        {
-                            sobel_x_sum += filtered_occupancy_grid.data[idx] * sobel_x[num_neighbors];
-                            sobel_y_sum += filtered_occupancy_grid.data[idx] * sobel_y[num_neighbors] + 10;
-                            num_neighbors++;
-                            // printf("sobel_x_sum = %d, sobel_y_sum = %d\n", sobel_x_sum, sobel_y_sum);
-                        }
-                    }
-                }
-            }
-            // printf("num_neighbors = %d\n", num_neighbors);
-            if (num_neighbors > 0)
-            {
-                // int val = sqrt(sobel_x_sum*sobel_x_sum + sobel_y_sum*sobel_y_sum)/5;
-                // int val = std::abs(sobel_y_sum*sobel_x_sum/100);
-                int val = 3 * sobel_x_sum / 4;
-
-                // filtered_occupancy_grid.data[i] = (int)fabs(sobel_y_sum);
-                if (occupancy_grid.data[i] > 20)
-                {
-                    filtered_occupancy_grid.data[i] = occupancy_grid.data[i];
-                    // printf("%d %d,",i, val);
-                }
-                else
-                    filtered_occupancy_grid.data[i] = 0;
-                if (val > peak_val)
-                {
-                    peak_val = val;
-                    peak_idx = i;
-                }
-            }
-        }
-
 
         std::vector<std::vector<int>> dunes_indices;
         std::vector<int> dunes_scores;
@@ -395,7 +334,8 @@ private:
                 berm_score = dune_score;
             }
             dune_count+=10;
-            // printf("counter = %d, idx = %d,dune1_indices.size() = %d, dunes_score = %d\n", dune_count, idx, dune1_indices.size(), dune_score);
+            if(debug_mode)
+                printf("counter = %d, idx = %d,dune1_indices.size() = %d, dunes_score = %d\n", dune_count, idx, dune1_indices.size(), dune_score);
         }
         int berm_height_max = 0;    
         int berm_peak2 = -1;
@@ -410,7 +350,7 @@ private:
         }
 
         berm_peak = berm_peak2;
-        // make an int vector to store indices of dunes
+
         std::vector<int> dune_indices_x;
         std::vector<int> dune_indices_y;
         std::vector<int> dune_indices;
@@ -434,7 +374,8 @@ private:
             double n = x.size();
             m = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
             intercept = (sum_y - m * sum_x) / n;
-            // printf("m = %f, c = %f\n", m, intercept);
+            if(debug_mode)
+                printf("m = %f, c = %f\n", m, intercept);
             double mean_x = sum_x / n;
             double mean_y = sum_y / n;
             double sum_err = 0;
@@ -444,7 +385,6 @@ private:
                 sum_err += err * err;
             }
             std_dev = sqrt(sum_err / n);
-            // printf("std_dev = %f", std_dev);
         }
 
         int x_start = -1;
@@ -455,7 +395,6 @@ private:
         for (int i = 0; i < occupancy_grid.info.width; i++)
         {
             int y = m * i + intercept;
-            // printf ("y = %d, x = %d, height = %d\n", y, i, occupancy_grid.data[i + y * occupancy_grid.info.width]);
             if (y >= 0 && y < occupancy_grid.info.height && occupancy_grid.data[i + y * occupancy_grid.info.width] > 20)
 
             {
@@ -476,31 +415,28 @@ private:
                 }
             }
         }
-        for (int i = best_x_start; i < best_x_end; i++)
-        {
-            int y = m * i + intercept;
-            if (y >= 0 && y < occupancy_grid.info.height)
+        if(debug_mode){
+            for (int i = best_x_start; i < best_x_end; i++)
             {
-                // occupancy_grid.data[i + y * occupancy_grid.info.width] = 100;
-                filtered_occupancy_grid.data[i + y * occupancy_grid.info.width] = 200;
+                int y = m * i + intercept;
+                if (y >= 0 && y < occupancy_grid.info.height)
+                    filtered_occupancy_grid.data[i + y * occupancy_grid.info.width] = 200;
             }
         }
-        // occupancy_grid.data[berm_peak] = 200;
 
         // get blob regions in filtered_occupancy_grid where value > 10, without using OpenCv
 
-        double dune_length = (best_x_end - best_x_start) * sqrt(1 + m * m) * 2;
-        double dune_width = std_dev / sqrt(1 + m * m) * 6.0;
-        double dune_height =  occupancy_grid.data[berm_peak2]/10.0;
-        printf("berm_height = %f, berm_length = %f, berm_width = %f\n", dune_height, dune_length, dune_width);
-        filtered_occupancy_grid.data[berm_peak2] = 101;
-        // filtered_occupancy_grid.data[peak_idx] = 100;
+        berm_length = (best_x_end - best_x_start) * sqrt(1 + m * m) * 2;
+        berm_width = std_dev / sqrt(1 + m * m) * 6.0;
+        berm_height =  occupancy_grid.data[berm_peak2]/10.0;
+        if(debug_mode){
+            printf("berm_height = %f, berm_length = %f, berm_width = %f\n", berm_height, berm_length, berm_width);
+            filtered_occupancy_grid.data[berm_peak2] = 101;
 
-        // printf("done filtering occupancy grid\n");
-        publisher_og->publish(occupancy_grid);
-        publisher_fil->publish(filtered_occupancy_grid);
-        berm_height_msg.data = (berm_height_left + berm_height_right) / 2;
-        publisher_berm_eval->publish(berm_height_msg);
+            printf("done filtering occupancy grid\n");
+            publisher_og->publish(occupancy_grid);
+            publisher_fil->publish(filtered_occupancy_grid);
+        }
 
         // reset vector
         dune_indices_x.clear();
@@ -511,13 +447,12 @@ private:
         dunes_scores.clear();
     }
 
-    void topic_callback_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+    void process_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
         // Make occupancy grid
-
+    
         occupancy_grid.header = msg->header;
         occupancy_grid.data.resize(occupancy_grid.info.width * occupancy_grid.info.height);
-
         pc_density_grid_left.header = occupancy_grid.header;
         pc_density_grid_left.info = occupancy_grid.info;
         pc_density_grid_left.info.origin.position.z = 10;
@@ -530,12 +465,6 @@ private:
         }
 
         const double number_of_points = msg->height * msg->width;
-
-        // fit a ground plane to the point cloud using RANSAC
-        // 1. randomly select 4 points
-        // 2. fit a plane to the 4 points
-        // 3. count the number of points that are within a threshold distance from the plane
-        // 4. repeat 1-3 for a large number of iterations
 
         int num_iterations = 100;
         double num_inliers = 0, max_num_inliers = 0;
@@ -600,7 +529,6 @@ private:
             double c1 = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2);
             double d1 = -(x1 * (y2 * z3 - y3 * z2) + x2 * (y3 * z1 - y1 * z3) + x3 * (y1 * z2 - y2 * z1));
 
-            // printf("candidate coeffs: %f %f %f %f\n ",a1,b1,c1,d1);
             num_inliers = 0;
 
             for (size_t i = 0; i < number_of_points; ++i, ++iter_x3, ++iter_y3, ++iter_z3)
@@ -639,7 +567,7 @@ private:
         double min_z_val = 1000, max_z_val = -1000;
         double z_values[occupancy_grid.info.width * occupancy_grid.info.height];
         int berm_peak = -1;
-        berm_height_left = -1000;
+        double berm_height_left = -1000;
 
         for (size_t i = 0; i < occupancy_grid.info.width * occupancy_grid.info.height; i++)
         {
@@ -689,30 +617,30 @@ private:
                 }
             }
         }
-        // berm_height_left -= min_z_val/3;
         for (int i = 0; i < (int)(occupancy_grid.info.width * occupancy_grid.info.height); i++)
         {
             if (pc_density_grid_left.data[i] > 0)
             {
-                // int height = (int)fabs(1000*(z_values[i]/pc_density_grid_left.data[i]));
                 int height = (int)1000 * (z_values[i] / pc_density_grid_left.data[i]);
                 if (height > 0)
                     occupancy_grid.data[i] = height;
             }
         }
-        // occupancy_grid.data[berm_peak] = 200;
         // printf("x_min = %f, x_max = %f, y_min = %f, y_max = %f\n", x_min, x_max, y_min, y_max);
-        printf("min_z_val = %f, max_z_val = %f\n", min_z_val, max_z_val);
     }
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_right, subscription_left;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_og, publisher_fil, publisher_pc_density_right, publisher_pc_density_left;
-    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr publisher_berm_eval;
+    rclcpp::Service<ComputeBermMetrics>::SharedPtr service_;
+
     double berm_target_height;
-    double berm_height_left, berm_height_right;
+    float berm_height, berm_width, berm_length;
+    bool debug_mode;
 
     nav_msgs::msg::OccupancyGrid occupancy_grid, filtered_occupancy_grid;
     nav_msgs::msg::OccupancyGrid pc_density_grid_right, pc_density_grid_left;
     std_msgs::msg::Float32 berm_height_msg;
     rclcpp::TimerBase::SharedPtr timer_;
+
+    sensor_msgs::msg::PointCloud2::SharedPtr msg_right, msg_left;
 };
