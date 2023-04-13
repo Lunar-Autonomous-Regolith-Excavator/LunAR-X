@@ -11,6 +11,7 @@
  * TODO
  * - Test autonomous input handling
  * - Add initial getting of parameters
+ * - Test acceleration clipping
  * */
 
 #include "lx_rover_command/command_mux.hpp"
@@ -93,6 +94,10 @@ void CommandMux::setupParams(){
         RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
         max_mob_lin_vel_ = p.as_double();
     };
+    auto lin_mob_acc_params_callback = [this](const rclcpp::Parameter & p){
+        RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
+        max_mob_lin_acc_ = p.as_double();
+    };
     auto ang_mob_vel_params_callback = [this](const rclcpp::Parameter & p){
         RCLCPP_DEBUG(this->get_logger(), "Parameter updated \"%s\": %.2f", p.get_name().c_str(), p.as_double());
         max_mob_ang_vel_ = p.as_double();
@@ -109,6 +114,7 @@ void CommandMux::setupParams(){
     auto op_mode_param_name = std::string("rover.op_mode");
     auto task_mode_param_name = std::string("rover.task_mode");
     auto lin_mob_vel_param_name = std::string("limits.max_lin_mob_vel");
+    auto lin_mob_acc_param_name = std::string("limits.max_lin_mob_acc");
     auto ang_mob_vel_param_name = std::string("limits.max_ang_mob_vel");
     auto drum_speed_param_name = std::string("limits.max_drum_speed");
 
@@ -118,6 +124,7 @@ void CommandMux::setupParams(){
     op_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(op_mode_param_name, op_mode_params_callback, param_server_name);
     task_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(task_mode_param_name, task_mode_params_callback, param_server_name);
     lin_mob_vel_param_cb_handle_ = param_subscriber_->add_parameter_callback(lin_mob_vel_param_name, lin_mob_vel_params_callback, param_server_name);
+    lin_mob_acc_param_cb_handle_ = param_subscriber_->add_parameter_callback(lin_mob_acc_param_name, lin_mob_acc_params_callback, param_server_name);
     ang_mob_vel_param_cb_handle_ = param_subscriber_->add_parameter_callback(ang_mob_vel_param_name, ang_mob_vel_params_callback, param_server_name);
     drum_speed_param_cb_handle_ = param_subscriber_->add_parameter_callback(drum_speed_param_name, drum_speed_params_callback, param_server_name);
 }
@@ -169,6 +176,16 @@ void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr r
         else{
             cmd_msg.mobility_twist.linear.x = (received_msg->mobility_twist.linear.x < -max_mob_lin_vel_ ? -max_mob_lin_vel_ : received_msg->mobility_twist.linear.x);
         }
+        // Add acceleration clipping
+        if(abs(cmd_msg.mobility_twist.linear.x - last_mob_lin_vel_) > max_mob_lin_acc_){
+            if(cmd_msg.mobility_twist.linear.x > last_mob_lin_vel_){
+                cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ + max_mob_lin_acc_;
+            }
+            else{
+                cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ - max_mob_lin_acc_;
+            }
+        }
+        last_mob_lin_vel_ = cmd_msg.mobility_twist.linear.x;
         
         // Clip mobility angular command to [-max_mob_ang_vel_  max_mob_ang_vel_]
         if(received_msg->mobility_twist.angular.z > 0.0){
@@ -212,6 +229,16 @@ void CommandMux::sendCmdToHardware(geometry_msgs::msg::Twist& twist_msg, float& 
         else{
             cmd_msg.mobility_twist.linear.x = (twist_msg.linear.x < -max_mob_lin_vel_ ? -max_mob_lin_vel_ : twist_msg.linear.x);
         }
+        // Add acceleration clipping
+        if(abs(cmd_msg.mobility_twist.linear.x - last_mob_lin_vel_) > max_mob_lin_acc_){
+            if(cmd_msg.mobility_twist.linear.x > last_mob_lin_vel_){
+                cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ + max_mob_lin_acc_;
+            }
+            else{
+                cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ - max_mob_lin_acc_;
+            }
+        }
+        last_mob_lin_vel_ = cmd_msg.mobility_twist.linear.x;
         
         // Clip mobility angular command to [-max_mob_ang_vel_  max_mob_ang_vel_]
         if(twist_msg.angular.z > 0.0){
