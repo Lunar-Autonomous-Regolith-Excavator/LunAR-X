@@ -1,7 +1,6 @@
 <launch>
     <!-- Serial port -->
-    <!-- <arg name="port" default="/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Due_Prog._Port_85036313130351715120-if00" /> -->
-    <arg name="port_mega" default="/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_85334343638351D03270-if00" />
+    <arg name="port_mega" default="/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_24235313336351C0E1A0-if00" />
     <arg name="port_nano" default="/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0" />
 
     <arg name="baud" default="57600" />

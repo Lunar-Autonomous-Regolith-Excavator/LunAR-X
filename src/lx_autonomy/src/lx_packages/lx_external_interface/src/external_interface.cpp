@@ -296,8 +296,17 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
     // Make rover teleop message
     auto rover_teleop_msg = lx_msgs::msg::RoverCommand();
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
-    rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
-    rover_teleop_msg.actuator_speed = joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
+    
+    // Angular vel sign depends on forward or reverse (inverted)
+    if(rover_teleop_msg.mobility_twist.linear.x >= 0){
+        rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
+    }
+    else{
+        rover_teleop_msg.mobility_twist.angular.z = -joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
+    }
+    
+    // Inverted actuator movement
+    rover_teleop_msg.actuator_speed = -joy_msg->axes[int(JoyAxes::RIGHT_STICK_V)];
 
     // Scale trigger input to [0 to 1] for drum command
     float right_remapped = 0, left_remapped = 0;
@@ -309,7 +318,7 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
         left_remapped = remapTrig(joy_msg->axes[int(JoyAxes::LEFT_TRIG)]);
     }
 
-    rover_teleop_msg.drum_speed = right_remapped - left_remapped;
+    rover_teleop_msg.drum_speed = left_remapped - right_remapped;
 
     // Publish rover teleop
     rover_teleop_publisher_->publish(rover_teleop_msg);

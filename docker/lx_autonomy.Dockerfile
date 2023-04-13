@@ -1,8 +1,8 @@
 ### Base image
 # AMD Architecture
-FROM osrf/ros:humble-desktop
+# FROM osrf/ros:humble-desktop
 # ARM Architecture
-# FROM arm64v8/ros:humble-ros-base
+FROM ros:humble-ros-base
 
 # Update & Upgrade
 RUN sudo apt-get update && sudo apt-get upgrade -y
