@@ -17,7 +17,6 @@
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_eigen/tf2_eigen.h>
 
-
 using std::placeholders::_1;
 using namespace std::chrono_literals;
 using ComputeBermMetrics = lx_msgs::srv::ComputeBermMetrics;
@@ -27,53 +26,39 @@ class BermMap : public rclcpp::Node
 public:
     BermMap();
 
-    void setTargetBermHeight(double height = 0.15)
-    {
-        berm_target_height = height;
-    }
+    void setTargetBermHeight(double height = 0.15);
 
 private:
 
     void service_callback(const std::shared_ptr<ComputeBermMetrics::Request> request,
-    std::shared_ptr<ComputeBermMetrics::Response> response)
-    {
-        process_left(msg_left);
-        process_right(msg_right);
-        response->height = berm_height;
-        response->width = berm_width;
-        response->length = berm_length;
-        RCLCPP_INFO(this->get_logger(), "Computed berm metrics: height: %f, width: %f, length: %f", response->height, response->width, response->length);
-    }
+    std::shared_ptr<ComputeBermMetrics::Response> response);
 
     void add_dune_neighbors(std::vector<int> &dune_x, std::vector<int> &dune_y, std::vector<int> &dune_indices, int idx, int width);
 
     void grow_dune(std::vector<int> &dune_indices,int &score, int idx, int width, int dune_counter);
 
-    void topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-    {
-        msg_right = msg;
-    }
-    void topic_callback_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-    {
-        msg_left = msg;
-    }
+    void topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
-    void process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void topic_callback_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
-    void process_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    bool process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_right, subscription_left;
-    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_og, publisher_fil, publisher_pc_density_right, publisher_pc_density_left;
+    bool process_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_right_, subscription_left_;
+    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_og_, publisher_fil_, publisher_pc_density_right_, publisher_pc_density_left_;
     rclcpp::Service<ComputeBermMetrics>::SharedPtr service_;
 
-    double berm_target_height;
-    float berm_height, berm_width, berm_length;
-    bool debug_mode;
+    double berm_target_height_;
+    float berm_height_, berm_width_, berm_length_;
+    bool debug_mode_;
 
-    nav_msgs::msg::OccupancyGrid occupancy_grid, filtered_occupancy_grid;
-    nav_msgs::msg::OccupancyGrid pc_density_grid_right, pc_density_grid_left;
-    std_msgs::msg::Float32 berm_height_msg;
+    bool is_initialized_right_, is_initialized_left_;
+
+    nav_msgs::msg::OccupancyGrid occupancy_grid_, filtered_occupancy_grid_;
+    nav_msgs::msg::OccupancyGrid pc_density_grid_right_, pc_density_grid_left_;
+    std_msgs::msg::Float32 berm_height_msg_;
     rclcpp::TimerBase::SharedPtr timer_;
 
-    sensor_msgs::msg::PointCloud2::SharedPtr msg_right, msg_left;
-};
+    sensor_msgs::msg::PointCloud2::SharedPtr msg_right_, msg_left_;
+};  
