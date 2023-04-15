@@ -78,9 +78,7 @@ private:
         pose_map_msg.header.frame_id = "map";
         pose_map_msg.header.stamp = msg->header.stamp;
 
-        // pose_pub_->publish(pose_map_msg);
-        pose_pub_->publish((*msg));
-
+        pose_pub_->publish(pose_map_msg);
     }
 };
 
