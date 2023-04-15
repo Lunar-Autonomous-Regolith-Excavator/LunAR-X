@@ -18,7 +18,6 @@ RUN sudo apt-get update && sudo apt-get upgrade -y
 
 # Nano
 RUN sudo apt-get install nano tmux -y
-RUN apt update && sudo apt install ros-humble-rviz2 -y
 
 ### Copy source code
 COPY ./src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/
