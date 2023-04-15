@@ -1,28 +1,4 @@
-#include <cstdio>
-#include <memory>
-#include <chrono>
-#include <functional>
-#include <string>
-
-#include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
-#include "nav_msgs/msg/occupancy_grid.hpp"
-#include "std_msgs/msg/string.hpp"
-#include "std_msgs/msg/float32.hpp"
-#include <sensor_msgs/point_cloud2_iterator.hpp>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2/LinearMath/Matrix3x3.h>
-#include <tf2/LinearMath/Transform.h>
-#include <tf2_eigen/tf2_eigen.h>
-#include "lx_msgs/srv/compute_berm_metrics.hpp"
 #include "lx_perception/berm_evaluation.hpp"
-
-
-using std::placeholders::_1;
-using namespace std::chrono_literals;
-using ComputeBermMetrics = lx_msgs::srv::ComputeBermMetrics;
 
 BermMap::BermMap() : Node("berm_evaluation_node")
 {
@@ -37,7 +13,7 @@ BermMap::BermMap() : Node("berm_evaluation_node")
         publisher_fil_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid__filtered", 1);
     }
     service_ = create_service<ComputeBermMetrics>(
-        "evaluate_berm_metrics",
+        "evaluate_berm",
         std::bind(&BermMap::service_callback, this, std::placeholders::_1, std::placeholders::_2));
 
     
