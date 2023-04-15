@@ -18,11 +18,11 @@ else
     tmux new-session -d -s autonomy
 
     # Split window into 3x2 grid
-    tmux split-window -v
+    # tmux split-window -v
 
     # Run commands in each pane
     tmux send-keys -t 0 "source /opt/ros/humble/setup.bash; cd /home/lx_autonomy/lx_autonomy_ws && colcon build && source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_bringup_autonomy bringup_autonomy.launch.py" C-m
-    tmux send-keys -t 1 "bash" C-m
+    # tmux send-keys -t 1 "bash" C-m
 
     # Attach to tmux session
     tmux attach-session -t autonomy

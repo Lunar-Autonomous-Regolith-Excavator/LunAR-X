@@ -40,14 +40,6 @@ def generate_launch_description():
         ('odometry/filtered', 'odometry/ekf_global_node')
       ]
     ),
-  
-    Node(
-      package='lx_localization',
-      executable='remap_msgs_localization',
-      name='remap_msgs_localization',
-      output='screen',
-      parameters=[{'use_sim_time': use_sim_time_param}],
-    ),
 
     # static tf transform from base_link to imu_link
     Node(
@@ -68,5 +60,13 @@ def generate_launch_description():
       arguments=['0.2', '-0.3', '0.6', '0', '0', '0', 'base_link', 'total_station_prism'],
       parameters=[{'use_sim_time': use_sim_time_param}]
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
+  
+    Node(
+      package='lx_localization',
+      executable='remap_msgs_localization',
+      name='remap_msgs_localization',
+      output='screen',
+      parameters=[{'use_sim_time': use_sim_time_param}],
+    ),    
     
   ])
