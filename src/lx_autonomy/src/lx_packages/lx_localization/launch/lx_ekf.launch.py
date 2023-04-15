@@ -16,7 +16,7 @@ def generate_launch_description():
     'lx_ts_localization_params.yaml'
   )
   # set use_sim_time param
-  use_sim_time_param = launch.substitutions.LaunchConfiguration('use_sim_time', default='false')
+  use_sim_time_param = launch.substitutions.LaunchConfiguration('use_sim_time', default='false')  
 
   return LaunchDescription([
     Node(
@@ -68,15 +68,5 @@ def generate_launch_description():
       arguments=['0.2', '-0.3', '0.6', '0', '0', '0', 'base_link', 'total_station_prism'],
       parameters=[{'use_sim_time': use_sim_time_param}]
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
-
-    # rviz2 node with config file and set use_sim_time params
-    Node(
-      package='rviz2',
-      executable='rviz2',
-      name='rviz2',
-      output='screen',
-      arguments=['-d', "/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_localization/config/localization.rviz"],
-      parameters=[{'use_sim_time': use_sim_time_param}]
-    )      
     
   ])
