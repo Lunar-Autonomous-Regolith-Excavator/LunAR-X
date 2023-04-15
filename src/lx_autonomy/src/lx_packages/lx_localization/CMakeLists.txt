@@ -19,9 +19,14 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIRS})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -35,9 +40,9 @@ if(BUILD_TESTING)
 endif()
 
 #remap node for husky odom
-add_executable(remap_husky_odom src/remap_husky_odom.cpp)
-ament_target_dependencies(remap_husky_odom rclcpp nav_msgs)
-install(TARGETS remap_husky_odom DESTINATION lib/${PROJECT_NAME})
+add_executable(remap_msgs_localization src/remap_msgs_localization.cpp)
+ament_target_dependencies(remap_msgs_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs)
+install(TARGETS remap_msgs_localization DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
   params
