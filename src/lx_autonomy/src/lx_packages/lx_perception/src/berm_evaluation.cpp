@@ -12,7 +12,7 @@ BermMap::BermMap() : Node("berm_evaluation_node")
         publisher_og_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_2", 1);
         publisher_fil_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid__filtered", 1);
     }
-    service_ = create_service<ComputeBermMetrics>(
+    service_ = create_service<BermMetrics>(
         "evaluate_berm",
         std::bind(&BermMap::service_callback, this, std::placeholders::_1, std::placeholders::_2));
 
@@ -41,8 +41,8 @@ void BermMap::setTargetBermHeight(double height)
     berm_target_height_ = height;
 }
 
-void BermMap::service_callback(const std::shared_ptr<ComputeBermMetrics::Request> request,
-std::shared_ptr<ComputeBermMetrics::Response> response)
+void BermMap::service_callback(const std::shared_ptr<BermMetrics::Request> request,
+std::shared_ptr<BermMetrics::Response> response)
 {
     response->success = process_left(msg_left_) && process_right(msg_right_);
     response->height = berm_height_;

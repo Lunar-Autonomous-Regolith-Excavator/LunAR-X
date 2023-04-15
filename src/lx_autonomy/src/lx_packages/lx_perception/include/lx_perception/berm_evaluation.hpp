@@ -16,11 +16,11 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_eigen/tf2_eigen.h>
-#include "lx_msgs/srv/compute_berm_metrics.hpp"
+#include "lx_msgs/srv/berm_metrics.hpp"
 
 using std::placeholders::_1;
 using namespace std::chrono_literals;
-using ComputeBermMetrics = lx_msgs::srv::ComputeBermMetrics;
+using BermMetrics = lx_msgs::srv::BermMetrics;
 
 class BermMap : public rclcpp::Node
 {
@@ -31,8 +31,8 @@ public:
 
 private:
 
-    void service_callback(const std::shared_ptr<ComputeBermMetrics::Request> request,
-    std::shared_ptr<ComputeBermMetrics::Response> response);
+    void service_callback(const std::shared_ptr<BermMetrics::Request> request,
+    std::shared_ptr<BermMetrics::Response> response);
 
     void add_dune_neighbors(std::vector<int> &dune_x, std::vector<int> &dune_y, std::vector<int> &dune_indices, int idx, int width);
 
@@ -48,7 +48,7 @@ private:
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_right_, subscription_left_;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_og_, publisher_fil_, publisher_pc_density_right_, publisher_pc_density_left_;
-    rclcpp::Service<ComputeBermMetrics>::SharedPtr service_;
+    rclcpp::Service<BermMetrics>::SharedPtr service_;
 
     double berm_target_height_;
     float berm_height_, berm_width_, berm_length_;

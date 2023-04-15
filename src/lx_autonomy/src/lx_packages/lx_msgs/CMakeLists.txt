@@ -12,7 +12,8 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RoverCommand.msg"
   "msg/ToolInfo.msg"
-  "srv/ComputeBermMetrics.srv"
+  "msg/BermMetrics.msg"
+  "srv/BermMetrics.srv"
   DEPENDENCIES geometry_msgs
 )
 
