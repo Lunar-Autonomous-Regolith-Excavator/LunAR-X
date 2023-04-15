@@ -16,8 +16,8 @@ RUN sudo apt-get update && sudo apt-get upgrade -y
 # VNC
 # TODO
 
-# Nano
-RUN sudo apt-get install nano tmux -y
+# Nano tmux
+RUN apt update && sudo apt-get install nano tmux -y
 
 ### Copy source code
 COPY ./src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/

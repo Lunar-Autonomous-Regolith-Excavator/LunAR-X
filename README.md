@@ -3,7 +3,7 @@ The LunAR-X codebase
 
 ## Instructions
 ### Initialization
-1. Start and enter the container with `docker-compose up --build`
+1. Start and enter the container with `sudo docker-compose up --build`
 2. `bash scripts/lx.sh`
 3. Before unlocking rover, press both joystick triggers to start joy data stream
 4. Unlock rover using GUIDE button
