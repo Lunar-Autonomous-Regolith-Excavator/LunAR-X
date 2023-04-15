@@ -221,7 +221,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     }
 
     // B-button rising-edge calls service to evaluate the berm
-    if(joy_msg->buttons[int(JoyButtons::B)] && !joy_last_state_.buttons[int(JoyButtons::B)] && ){
+    if(joy_msg->buttons[int(JoyButtons::B)] && !joy_last_state_.buttons[int(JoyButtons::B)]){
         // Check debounce time
         if((this->get_clock()->now() - b_debounce_timer_).seconds() > 1.0){
             if(current_rover_op_mode_ == OpModeEnum::TELEOP){
