@@ -35,8 +35,8 @@ def generate_launch_description():
             'serial_no2': '_048622070860',
             'pointcloud.enable1': 'true',
             'pointcloud.enable2': 'true',
-            'align_depth1': 'true',
-            'align_depth2': 'true'
+            #'align_depth1': 'true',
+            #'align_depth2': 'true',
         }.items()
     )
 
