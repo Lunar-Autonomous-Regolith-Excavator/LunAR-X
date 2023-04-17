@@ -15,7 +15,7 @@ services:
     environment:
       DISPLAY: ${DISPLAY}
 
-    # network_mode: host
+    network_mode: host
 
     volumes:
       - ./src/lx_autonomy/src/lx_packages:/home/lx_autonomy/lx_autonomy_ws/src/lx_packages
@@ -38,7 +38,7 @@ services:
 
     privileged: true
 
-    # network_mode: host
+    network_mode: host
     
     environment:
       DISPLAY: ${DISPLAY}
