@@ -46,15 +46,11 @@ private:
         msg->twist.covariance[21] = 0.01;
         msg->twist.covariance[28] = 0.01;
         msg->twist.covariance[35] = 0.5;
-        std::cout<<"odom callback"<<std::endl;
         odom_pub_->publish(*msg);
     }
 
     void pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
     {
-        msg->header.frame_id = "map";
-        pose_pub_->publish(*msg);
-        return;
         if(this->got_transform == false)
         {
             try 
@@ -70,17 +66,19 @@ private:
             {
                 std::cout<<"No transform found, publishing directly"<<std::endl;
                 msg->header.frame_id = "map";
+                msg->pose.pose.position.z += 3.6;
                 pose_pub_->publish(*msg);
             }
         }
         if (this->got_transform == true)
         {   
-            std::cout<<"Transform found, publishing"<<std::endl;
+            // std::cout<<"Transform found, publishing"<<std::endl;
             geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
             
             tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink);
             pose_map_msg.header.frame_id = "map";
             pose_map_msg.header.stamp = msg->header.stamp;
+            pose_map_msg.pose.pose.position.z += 3.6;
 
             pose_pub_->publish(pose_map_msg);
         }
