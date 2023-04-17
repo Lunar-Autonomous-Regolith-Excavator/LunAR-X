@@ -40,11 +40,7 @@ private:
 
     void topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
-    void topic_callback_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-
     bool process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-
-    bool process_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_right_, subscription_left_;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_og_, publisher_fil_, publisher_pc_density_right_, publisher_pc_density_left_;
