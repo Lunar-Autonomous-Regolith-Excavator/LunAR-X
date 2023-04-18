@@ -5,6 +5,7 @@ from launch_ros.actions import Node
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
+from launch.launch_description_sources import AnyLaunchDescriptionSource
 
 def generate_launch_description():
     ld = LaunchDescription()
@@ -31,11 +32,17 @@ def generate_launch_description():
     perception_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     perception_dir + '/launch/perception.launch.py'))
-
-
+    
+    foxglove_dir = get_package_share_directory('foxglove_bridge')
+    # launch xml launch file foxglove_bridge_launch.xml
+    foxglove_bridge_launch = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource([foxglove_dir, '/launch/foxglove_bridge_launch.xml']),
+    )
+    
     ld.add_action(param_server_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
-    ld.add_action(perception_launch)
+    ld.add_action(foxglove_bridge_launch)
+    # ld.add_action(perception_launch)
 
     return ld

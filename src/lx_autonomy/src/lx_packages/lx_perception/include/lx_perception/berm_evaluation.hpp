@@ -36,7 +36,7 @@ private:
 
     void add_dune_neighbors(std::vector<int> &dune_x, std::vector<int> &dune_y, std::vector<int> &dune_indices, int idx, int width);
 
-    void grow_dune(std::vector<int> &dune_indices,int &score, int idx, int width, int dune_counter);
+    void grow_dune(std::vector<int> &dune_indices,int &score, int idx, int width, int dune_counter, int rec_count);
 
     void topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
