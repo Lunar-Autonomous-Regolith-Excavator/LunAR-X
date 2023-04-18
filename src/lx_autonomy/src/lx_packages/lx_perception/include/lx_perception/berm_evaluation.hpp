@@ -15,7 +15,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Transform.h>
-#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 #include "lx_msgs/srv/berm_metrics.hpp"
 
 using std::placeholders::_1;
@@ -40,11 +40,7 @@ private:
 
     void topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
-    void topic_callback_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-
     bool process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-
-    bool process_left(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_right_, subscription_left_;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_og_, publisher_fil_, publisher_pc_density_right_, publisher_pc_density_left_;
