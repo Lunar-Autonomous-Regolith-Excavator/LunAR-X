@@ -26,29 +26,12 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(get_package_share_directory('vectornav') + '/launch/vectornav.launch.py'),
     )
 
-    # realsense_launch = launch.actions.IncludeLaunchDescription(
-    #     launch.launch_description_sources.AnyLaunchDescriptionSource(
-    #         os.path.join(get_package_share_directory('realsense2_camera'), 'launch', 'rs_multi_camera_launch.py')
-    #     ),
-    #     launch_arguments={
-    #         'serial_no1': '_048522073244',
-    #         'serial_no2': '_048622070860',
-    #         'pointcloud.enable1': 'true',
-    #         'pointcloud.enable2': 'true',
-    #         #'align_depth1': 'true',
-    #         #'align_depth2': 'true',
-    #     }.items()
-    # )
-
-
+    realsense_params_path = os.path.join(get_package_share_directory('lx_bringup_hardware'), 'config/realsense_config.yaml')
     realsense_launch = launch.actions.IncludeLaunchDescription(
         launch.launch_description_sources.AnyLaunchDescriptionSource(
             os.path.join(get_package_share_directory('realsense2_camera'), 'launch', 'rs_launch.py')
         ),
-        launch_arguments={
-            'pointcloud.enable': 'true',
-            'rgb_camera.profile': '640x480x2',
-        }.items()
+        launch_arguments={'config_file': f"'{realsense_params_path}'"}.items()
     )
 
     status_relay_launch = IncludeLaunchDescription(
