@@ -38,7 +38,7 @@ services:
 
     privileged: true
 
-    network_mode: host
+    # network_mode: host
     
     environment:
       DISPLAY: ${DISPLAY}

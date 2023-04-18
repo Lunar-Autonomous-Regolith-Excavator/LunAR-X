@@ -10,8 +10,8 @@ BermMap::BermMap() : Node("berm_evaluation_node")
         "camera/depth/color/points", 10, std::bind(&BermMap::topic_callback_right, this, _1)); //subscribes to the point cloud topic at 1Hz
 
     // publishers for occupancy grids
-    publisher_og_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_2", 1);
-    publisher_fil_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_filtered", 1);
+    publisher_og_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_2", 10);
+    publisher_fil_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_filtered", 10);
     
     // ros service to evaluate the berm
     service_ = create_service<BermMetrics>(
@@ -87,7 +87,7 @@ void BermMap::grow_dune(std::vector<int> &dune_indices,int &score, int idx, int 
 {
     int x_idx = idx % width;
     int y_idx = idx / width;
-    filtered_occupancy_grid_.data[idx] = 0;
+    // filtered_occupancy_grid_.data[idx] = 0;
 
     for (int i = x_idx - 1; i < x_idx + 2; i++)
     {
@@ -112,9 +112,9 @@ void BermMap::topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPt
 {
     if(!is_initialized_right_) is_initialized_right_ = true;
     msg_right_ = msg;
-    if(debug_mode){
-        bool success = process_right(msg_right);
-    }
+    // if(debug_mode_){
+        bool success = process_right(msg_right_);
+    // }
 }
 
 bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -126,12 +126,12 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     }
 
     // Error handling for pointcloud age
-    rclcpp::Time current_time = this->now();
-    int cloud_age = current_time.seconds() - (msg->header.stamp.sec + msg->header.stamp.nanosec/1e9);
-    if(cloud_age > 3){
-        RCLCPP_ERROR(this->get_logger(), "Error: Point cloud is %d seconds old", cloud_age);
-        return false;
-    }
+    // rclcpp::Time current_time = this->now();
+    // int cloud_age = current_time.seconds() - (msg->header.stamp.sec + msg->header.stamp.nanosec/1e9);
+    // if(cloud_age > 3){
+    //     RCLCPP_ERROR(this->get_logger(), "Error: Point cloud is %d seconds old", cloud_age);
+    //     return false;
+    // }
 
     occupancy_grid_.header = msg->header;
     occupancy_grid_.data.resize(occupancy_grid_.info.width * occupancy_grid_.info.height);
@@ -239,6 +239,37 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     }
 
     double x_min = 1000, x_max = -1000, y_min = 1000, y_max = -1000;
+    double height_density[50];
+    for (size_t i = 0; i < 50; i++)
+    {
+        height_density[i] = 0;
+    }
+
+    for (sensor_msgs::PointCloud2Iterator<float> iter_x4(*msg, "x"); iter_x4 != iter_x4.end(); ++iter_x4)
+    {
+        double x = iter_x4[0];
+        double y = iter_x4[1];
+        double z = iter_x4[2];
+        int x_idx = (int)(3 * x / occupancy_grid_.info.resolution) - 1.25 * occupancy_grid_.info.width / 2;
+        int y_idx = (int)(5 * y / occupancy_grid_.info.resolution) + 1.25 * occupancy_grid_.info.height / 2;
+
+        double z_val = -(a * x + b * y + c * z + d) / denom;
+        int height_idx = (int)(z_val / 0.01);
+
+        if (height_idx >= 0 && height_idx < 50)
+        {
+            height_density[height_idx]++;
+        }
+    }
+
+    double z_val_threshold = 0.0;
+    for(int l=0;l<50;l++){
+        if(height_density[l]==0){
+            z_val_threshold = l*0.01;
+            break;
+        }
+    }
+    printf("z_val_threshold = %f\n", z_val_threshold);
 
     for (sensor_msgs::PointCloud2Iterator<float> iter_x(*msg, "x"); iter_x != iter_x.end(); ++iter_x, ++iter_rgb)
     {
@@ -258,9 +289,11 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         if (idx >= 0 && idx < (int)(occupancy_grid_.info.width * occupancy_grid_.info.height))
         {
             // if (z_val < 0.1 && y>-0.5 && y<0.1)
-            if(hsv_val > 50 && z_val < 0.3)
+            if(hsv_val > 100 && z_val < z_val_threshold && y>-0.5)
             { // if the point is on the ground and is regolith
                 z_values[idx] += z_val;
+                // z_values[idx] += hsv_val;
+
                 pc_density_grid_right_.data[idx]++;
                 if (z_val > berm_height_right)
                 {
@@ -294,7 +327,12 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         {
             // linear mapping for visualization
             int height = (int) 1000 * (z_values[i] / pc_density_grid_right_.data[i]);
-            occupancy_grid_.data[i] = height;
+            // if(height > 0 && height < 100)
+                occupancy_grid_.data[i] = height;
+            if(height >z_val_threshold*1000 - 20){
+                // printf("i=%d, height=%d", i, height);
+                occupancy_grid_.data[i] = 99;
+            }
         }
     }
 
@@ -329,7 +367,7 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
             berm_idx = dune_count/10-1;
             berm_score = dune_score;
         }
-        dune_count+=10;
+        dune_count+=    10;
     }
     int berm_height_max = 0;    
     int berm_peak2 = -1;
@@ -423,18 +461,18 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     // berm width = 7 * standard deviation
     berm_width_ = std_dev / sqrt(1 + m * m) * 7.0;
     // berm height = altitude of peak / 8
-    berm_height_ =  occupancy_grid_.data[berm_peak2]/8.0;
-    if(debug_mode_){
-        printf("berm_height_ = %f, berm_length_ = %f, berm_width_ = %f\n", berm_height_, berm_length_, berm_width_);
-        printf("done filtering occupancy grid\n");
-    }
+    berm_height_ =  z_val_threshold*50 + occupancy_grid_.data[berm_peak2]/20.0;
+    // if(debug_mode_){
+        // printf("berm_height_ = %f, berm_length_ = %f, berm_width_ = %f\n", berm_height_, berm_length_, berm_width_);
+        // printf("done filtering occupancy grid\n");
+    // }
 
     filtered_occupancy_grid_.data[berm_peak2] = 101;
 
-    if(debug_mode_){
+    // if(debug_mode_){
         publisher_og_->publish(occupancy_grid_);
         publisher_fil_->publish(filtered_occupancy_grid_);
-    }
+    // }
 
     // reset vectors
     dune_indices_x.clear();
