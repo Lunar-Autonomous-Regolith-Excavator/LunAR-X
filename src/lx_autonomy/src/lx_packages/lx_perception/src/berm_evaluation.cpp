@@ -109,14 +109,20 @@ void BermMap::grow_dune(std::vector<int> &dune_indices,int &score, int idx, int 
         }
     }
 }
-
+auto prev_time = std::chrono::high_resolution_clock::now();
 void BermMap::topic_callback_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
     if(!is_initialized_right_) is_initialized_right_ = true;
     msg_right_ = msg;
-    // if(debug_mode_){
-        bool success = process_right(msg_right_);
-    // }
+    auto curr_time = std::chrono::high_resolution_clock::now();
+    //if time since past is greater than 100 ms, process pointcloud
+    if(std::chrono::duration_cast<std::chrono::milliseconds>(curr_time - prev_time).count() > 300){
+        process_right(msg_right_);
+        prev_time = curr_time;
+    }
+    // // if(debug_mode_){
+    //     bool success = process_right(msg_right_);
+    // // }
 }
 
 bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -441,10 +447,10 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     std::vector<int> dune_indices;
     std::vector<int> peak_indices;
 
-    std::cout<<"before add_dune_neighbors"<<std::endl;
+    // std::cout<<"before add_dune_neighbors"<<std::endl;
     // accumulate x and y coordinates of occupancy_grid_ indices having value more than 20
     add_dune_neighbors(dune_indices_x, dune_indices_y, dune_indices, berm_peak, occupancy_grid_.info.width);
-    std::cout<<"after add_dune_neighbors"<<std::endl;
+    // std::cout<<"after add_dune_neighbors"<<std::endl;
 
     // given x and y coordinates of dune, find the best fit line
     double m, intercept;
@@ -522,9 +528,9 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         RCLCPP_INFO(this->get_logger(), "best_x_end = %d", best_x_end);
     }
     // berm length = 2 x (distance between start and end points of bestfit line)
-    berm_length_ = (best_x_end - best_x_start) * sqrt(1 + m * m) * 4 ;
+    berm_length_ = (best_x_end - best_x_start) * sqrt(1 + m * m) * 2.95 ;
     // berm width = 7 * standard deviation
-    berm_width_ = std_dev / sqrt(1 + m * m) * 21.0;
+    berm_width_ = std_dev / sqrt(1 + m * m) * 15.5;
     // berm height = altitude of peak / 8
     berm_height_ =  (z_val_threshold*50 + occupancy_grid_.data[berm_peak2]/10.0)*1.1;
     // if(debug_mode_){
@@ -535,7 +541,8 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         RCLCPP_INFO(this->get_logger(), "berm_height_ = %f, berm_length_ = %f, berm_width_ = %f", berm_height_, berm_length_, berm_width_);
         RCLCPP_INFO(this->get_logger(), "done filtering occupancy grid");
     }
-    RCLCPP_INFO(this->get_logger(), "berm_score = %f", berm_score);
+    // RCLCPP_INFO(this->get_logger(), "berm_score = %f", berm_score);
+    RCLCPP_INFO(this->get_logger(), "length = %f, height = %f", berm_length_, berm_height_);
     filtered_occupancy_grid_.data[berm_peak2] = 101;
 
     // if(debug_mode_){
