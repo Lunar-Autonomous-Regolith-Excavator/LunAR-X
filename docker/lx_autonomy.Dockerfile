@@ -46,7 +46,7 @@ RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && 
 WORKDIR /home/lx_autonomy/lx_autonomy_ws
 RUN apt update && apt install ros-humble-joy-linux -y
 
-RUN apt get install ros-humble-foxglove-bridge -y
+RUN apt-get install ros-humble-foxglove-bridge -y
 
 # Auto source ROS 2 workspace
 RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc

@@ -22,6 +22,7 @@ BermMap::BermMap() : Node("berm_evaluation_node")
     setTargetBermHeight(0.15);
     
     // configuring occupancy grid
+    occupancy_grid_.header.frame_id = "base_link";
     occupancy_grid_.info.resolution = 0.05;
     occupancy_grid_.info.width = 200;
     occupancy_grid_.info.height = 200;
@@ -134,7 +135,7 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     //     return false;
     // }
 
-    occupancy_grid_.header = msg->header;
+    occupancy_grid_.header.stamp = msg->header.stamp;
     occupancy_grid_.data.resize(occupancy_grid_.info.width * occupancy_grid_.info.height);
 
 

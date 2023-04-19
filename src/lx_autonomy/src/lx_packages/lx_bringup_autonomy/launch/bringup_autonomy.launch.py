@@ -33,16 +33,22 @@ def generate_launch_description():
                                 PythonLaunchDescriptionSource(
                                     perception_dir + '/launch/perception.launch.py'))
     
+    localization_dir = get_package_share_directory('lx_localization')
+    localization_launch = IncludeLaunchDescription(
+                                PythonLaunchDescriptionSource(
+                                    localization_dir + '/launch/lx_ekf.launch.py'))
+    
     foxglove_dir = get_package_share_directory('foxglove_bridge')
     # launch xml launch file foxglove_bridge_launch.xml
     foxglove_bridge_launch = IncludeLaunchDescription(
-        AnyLaunchDescriptionSource([foxglove_dir, '/launch/foxglove_bridge_launch.xml']),
+        AnyLaunchDescriptionSource([foxglove_dir, '/foxglove_bridge_launch.xml']),
     )
     
     ld.add_action(param_server_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
     ld.add_action(foxglove_bridge_launch)
-    # ld.add_action(perception_launch)
-
+    ld.add_action(perception_launch)
+    ld.add_action(localization_launch)
+    
     return ld
