@@ -17,12 +17,24 @@ else
     # Launch tmux session
     tmux new-session -d -s autonomy
 
-    # Split window into 3x2 grid
+    # Split window into 2x2
     tmux split-window -v
+    tmux select-pane -t 0
+    tmux split-window -h
+    tmux select-pane -t 2 
+    tmux split-window -h
 
     # Run commands in each pane
     tmux send-keys -t 0 "source /opt/ros/humble/setup.bash; cd /home/lx_autonomy/lx_autonomy_ws && colcon build && source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_bringup_autonomy bringup_autonomy.launch.py" C-m
-    tmux send-keys -t 1 "source /opt/ros/humble/setup.bash; sleep 25; source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_localization lx_ekf.launch.py" C-m
+    sleep 20;
+    tmux send-keys -t 1 "source /opt/ros/humble/setup.bash; colcon build --packages-select lx_localization && \
+        source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_localization lx_ekf.launch.py" C-m
+    
+    tmux send-keys -t 2 "source /opt/ros/humble/setup.bash; \
+        source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch foxglove_bridge foxglove_bridge_launch.xml" C-m
+    
+    tmux send-keys -t 3 "source /opt/ros/humble/setup.bash; colcon build --packages-select lx_perception && \
+        source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_perception perception.launch.py" C-m
 
     # Attach to tmux session
     tmux attach-session -t autonomy

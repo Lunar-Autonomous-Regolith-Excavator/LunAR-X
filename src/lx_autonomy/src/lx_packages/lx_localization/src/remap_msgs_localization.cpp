@@ -66,7 +66,7 @@ private:
             {
                 std::cout<<"No transform found, publishing directly"<<std::endl;
                 msg->header.frame_id = "map";
-                msg->pose.pose.position.z += 3.6;
+                msg->pose.pose.position.z += 4.7;
                 pose_pub_->publish(*msg);
             }
         }
@@ -78,7 +78,7 @@ private:
             tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink);
             pose_map_msg.header.frame_id = "map";
             pose_map_msg.header.stamp = msg->header.stamp;
-            pose_map_msg.pose.pose.position.z += 3.6;
+            pose_map_msg.pose.pose.position.z += 4.7;
 
             pose_pub_->publish(pose_map_msg);
         }

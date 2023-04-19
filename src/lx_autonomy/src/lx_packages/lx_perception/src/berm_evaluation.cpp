@@ -3,7 +3,7 @@
 BermMap::BermMap() : Node("berm_evaluation_node")
 {   
     // set false for dry runs, set true for printf commands and to publish occupancy grids
-    debug_mode_ = false;
+    debug_mode_ = true;
 
     //subscriber
     subscription_right_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -23,9 +23,9 @@ BermMap::BermMap() : Node("berm_evaluation_node")
     
     // configuring occupancy grid
     occupancy_grid_.header.frame_id = "base_link";
-    occupancy_grid_.info.resolution = 0.05;
-    occupancy_grid_.info.width = 200;
-    occupancy_grid_.info.height = 200;
+    occupancy_grid_.info.resolution = 0.1;
+    occupancy_grid_.info.width = 100;
+    occupancy_grid_.info.height = 100;
     occupancy_grid_.info.origin.position.x = -5;
     occupancy_grid_.info.origin.position.y = -5;
     occupancy_grid_.info.origin.position.z = 0;
