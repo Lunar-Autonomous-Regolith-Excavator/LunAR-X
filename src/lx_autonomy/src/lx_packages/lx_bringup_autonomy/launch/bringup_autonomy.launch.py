@@ -67,6 +67,13 @@ def generate_launch_description():
       output='screen',
       arguments=['0.0', '0' ,'0' ,'-0.5' ,'0.5' ,'-0.5', '0.5', 'camera_depth_frame', 'camera_depth_optical_frame'],
     ) 
+
+    pcl_relay = Node(
+      package='lx_perception',
+      executable='pcl_relay_node',
+      name='pcl_relay_node',
+      output='screen',
+    )
     
     ld.add_action(param_server_launch)
     ld.add_action(command_mux_launch)
@@ -74,6 +81,7 @@ def generate_launch_description():
     ld.add_action(tf_node)
     ld.add_action(tf_camera_link)
     ld.add_action(tf_camera_depth_link)
+    ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
     # ld.add_action(perception_launch)
     # ld.add_action(localization_launch)

@@ -30,8 +30,8 @@ else
     tmux send-keys -t 1 "source /opt/ros/humble/setup.bash; colcon build --packages-select lx_localization && \
         source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_localization lx_ekf.launch.py" C-m
     
-    tmux send-keys -t 2 "source /opt/ros/humble/setup.bash; \
-        source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch foxglove_bridge foxglove_bridge_launch.xml" C-m
+    # tmux send-keys -t 2 "source /opt/ros/humble/setup.bash; \
+    #     source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch foxglove_bridge foxglove_bridge_launch.xml" C-m
     
     tmux send-keys -t 3 "source /opt/ros/humble/setup.bash; colcon build --packages-select lx_perception && \
         source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_perception perception.launch.py" C-m

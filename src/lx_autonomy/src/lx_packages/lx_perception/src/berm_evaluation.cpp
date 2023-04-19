@@ -384,7 +384,8 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     std::vector<int> dunes_scores;
     int idx = 0;
     int dune_count = 10;
-    int berm_idx = -1, berm_score = 0;
+    int berm_idx = -1;
+    double berm_score = 0;
     while(idx!=filtered_occupancy_grid_.data.size())
     {
         // set idx to the next index of occupancy_grid_.data having value > 10
@@ -409,9 +410,9 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     int berm_height_max = 0;    
     int berm_peak2 = -1;
     if(debug_mode_){
-        RCLCPP_INFO(this->get_logger(), "berm score = %d", berm_score);
+        RCLCPP_INFO(this->get_logger(), "berm score = %f", berm_score);
     }
-    if(berm_score==0){
+    if(berm_score<10000){
         RCLCPP_ERROR(this->get_logger(), "Error: no berm found");
         return false;
     }
@@ -534,7 +535,7 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         RCLCPP_INFO(this->get_logger(), "berm_height_ = %f, berm_length_ = %f, berm_width_ = %f", berm_height_, berm_length_, berm_width_);
         RCLCPP_INFO(this->get_logger(), "done filtering occupancy grid");
     }
-    RCLCPP_INFO(this->get_logger(), "berm_score = %d", berm_score);
+    RCLCPP_INFO(this->get_logger(), "berm_score = %f", berm_score);
     filtered_occupancy_grid_.data[berm_peak2] = 101;
 
     // if(debug_mode_){
