@@ -47,7 +47,6 @@ def generate_launch_description():
       executable='static_transform_publisher',
       name='base_link_to_imu_link',
       output='screen',
-      # arguments=['0.17', '0', '0.52', '-1.5708', '0', '3.1415', 'base_link', 'vectornav'],
       arguments=['0.17', '0', '0.52', '0', '0', '3.1415', 'base_link', 'vectornav'],
       parameters=[{'use_sim_time': use_sim_time_param}]
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
@@ -58,7 +57,7 @@ def generate_launch_description():
       executable='static_transform_publisher',
       name='base_link_to_total_station',
       output='screen',
-      arguments=['0.27', '-0.185', '0.79', '-1.5708', '0', '0', 'base_link', 'total_station_prism'],
+      arguments=['0.27', '0.19', '0.8', '-1.5708', '0', '0', 'base_link', 'total_station_prism'],
       parameters=[{'use_sim_time': use_sim_time_param}]
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
   

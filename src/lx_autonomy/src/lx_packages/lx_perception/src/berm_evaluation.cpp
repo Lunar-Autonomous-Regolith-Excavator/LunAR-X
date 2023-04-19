@@ -22,6 +22,7 @@ BermMap::BermMap() : Node("berm_evaluation_node")
     setTargetBermHeight(0.15);
     
     // configuring occupancy grid
+    occupancy_grid_.header.frame_id = "base_link";
     occupancy_grid_.info.resolution = 0.05;
     occupancy_grid_.info.width = 200;
     occupancy_grid_.info.height = 200;
@@ -83,8 +84,9 @@ void BermMap::add_dune_neighbors(std::vector<int> &dune_x, std::vector<int> &dun
 }
 
 // recursive function to get berm cells by checking neighbors, starting from peak
-void BermMap::grow_dune(std::vector<int> &dune_indices,int &score, int idx, int width, int dune_counter)
+void BermMap::grow_dune(std::vector<int> &dune_indices,int &score, int idx, int width, int dune_counter, int rec_count)
 {
+    if(rec_count > 1000) return; // this is to prevent infinite recursion
     int x_idx = idx % width;
     int y_idx = idx / width;
     // filtered_occupancy_grid_.data[idx] = 0;
@@ -101,7 +103,7 @@ void BermMap::grow_dune(std::vector<int> &dune_indices,int &score, int idx, int 
                 {
                     dune_indices.push_back(candidate_idx);
                     score += occupancy_grid_.data[candidate_idx]*occupancy_grid_.data[candidate_idx];
-                    grow_dune(dune_indices, score, candidate_idx, width, dune_counter);
+                    grow_dune(dune_indices, score, candidate_idx, width, dune_counter, rec_count+1);
                 }
             }
         }
@@ -133,7 +135,7 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     //     return false;
     // }
 
-    occupancy_grid_.header = msg->header;
+    occupancy_grid_.header.stamp = msg->header.stamp;
     occupancy_grid_.data.resize(occupancy_grid_.info.width * occupancy_grid_.info.height);
 
 
@@ -228,7 +230,7 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         printf("Ground plane: a = %f, b = %f, c = %f, d = %f, max_inliers = %f, num_points = %f\n", a, b, c, d, max_num_inliers, number_of_points);
 
     // pointcloud iterator to get rgb values
-    sensor_msgs::PointCloud2Iterator<uint8_t> iter_rgb(*msg, "rgb");
+    // sensor_msgs::PointCloud2Iterator<uint8_t> iter_rgb(*msg, "rgb");
     double min_z_val = 1000, max_z_val = -1000;
     double z_values[occupancy_grid_.info.width * occupancy_grid_.info.height];
     int berm_peak = -1;
@@ -269,27 +271,32 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
             break;
         }
     }
+    if (z_val_threshold <=0.01){
+        z_val_threshold = 0.02;
+    }
     printf("z_val_threshold = %f\n", z_val_threshold);
 
-    for (sensor_msgs::PointCloud2Iterator<float> iter_x(*msg, "x"); iter_x != iter_x.end(); ++iter_x, ++iter_rgb)
+    // for (sensor_msgs::PointCloud2Iterator<float> iter_x(*msg, "x"); iter_x != iter_x.end(); ++iter_x, ++iter_rgb)
+    for (sensor_msgs::PointCloud2Iterator<float> iter_x(*msg, "x"); iter_x != iter_x.end(); ++iter_x)
     {
         double x = iter_x[0];
         double y = iter_x[1];
         double z = iter_x[2];
-        u_int8_t r = iter_rgb[0];
-        u_int8_t g = iter_rgb[1];
+        // u_int8_t r = iter_rgb[0];
+        // u_int8_t g = iter_rgb[1];
         int x_idx = (int)(3 * x / occupancy_grid_.info.resolution) - 1.25 * occupancy_grid_.info.width / 2;
         int y_idx = (int)(5 * y / occupancy_grid_.info.resolution) + 1.25 * occupancy_grid_.info.height / 2;
 
         double z_val = -(a * x + b * y + c * z + d) / denom;
         int idx = x_idx + y_idx * occupancy_grid_.info.width;
-        int hsv_val = std::max(r, g);
+        // int hsv_val = std::max(r, g);
         // int hsv_val = std::max(std::max(r, g), b);
 
         if (idx >= 0 && idx < (int)(occupancy_grid_.info.width * occupancy_grid_.info.height))
         {
             // if (z_val < 0.1 && y>-0.5 && y<0.1)
-            if(hsv_val > 100 && z_val < z_val_threshold && y>-0.5)
+            // if(hsv_val > 100 && z_val < z_val_threshold && y>-0.5)
+            if(z_val < z_val_threshold && y>-0.5)
             { // if the point is on the ground and is regolith
                 z_values[idx] += z_val;
                 // z_values[idx] += hsv_val;
@@ -358,7 +365,8 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         idx = std::find_if(filtered_occupancy_grid_.data.begin()+idx+1, filtered_occupancy_grid_.data.end(), [](int i){return i>10;}) - filtered_occupancy_grid_.data.begin();
         std::vector<int> dune1_indices;
         int dune_score = 0;
-        grow_dune(dune1_indices, dune_score, idx, filtered_occupancy_grid_.info.width, dune_count);
+        int rec_count = 0;
+        grow_dune(dune1_indices, dune_score, idx, filtered_occupancy_grid_.info.width, dune_count, rec_count);
         dunes_indices.push_back(dune1_indices);
         dunes_scores.push_back(dune_score);
         // choose berm
@@ -380,6 +388,11 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         }
         filtered_occupancy_grid_.data[dunes_indices[berm_idx][j]] = 100;
     }
+    
+    if(berm_peak2==-1){
+        RCLCPP_ERROR(this->get_logger(), "Error: no berm peaks found");
+        return false;
+    }
 
     berm_peak = berm_peak2;
 
@@ -388,8 +401,10 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     std::vector<int> dune_indices;
     std::vector<int> peak_indices;
 
+    std::cout<<"before add_dune_neighbors"<<std::endl;
     // accumulate x and y coordinates of occupancy_grid_ indices having value more than 20
     add_dune_neighbors(dune_indices_x, dune_indices_y, dune_indices, berm_peak, occupancy_grid_.info.width);
+    std::cout<<"after add_dune_neighbors"<<std::endl;
 
     // given x and y coordinates of dune, find the best fit line
     double m, intercept;

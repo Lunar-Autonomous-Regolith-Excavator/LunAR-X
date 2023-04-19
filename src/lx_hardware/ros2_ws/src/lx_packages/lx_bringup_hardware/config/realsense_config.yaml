@@ -19,20 +19,20 @@ camera:
         pointcloud_qos: "SENSOR_DATA" # Use 'Best Effort' publishing
         filters: decimation # Subsamples the point cloud 
         decimation_filter.enable: true
-        decimation_filter.filter_magnitude: 8 # The filter run on kernel sizes [2x2] to [8x8] pixels. For patches sized 2 and 3 the median depth value is selected. For larger kernels, 4-8 pixels, the mean depth is used due to performance considerations. More info: https://dev.intelrealsense.com/docs/post-processing-filters
+        decimation_filter.filter_magnitude: 6 # The filter run on kernel sizes [2x2] to [8x8] pixels. For patches sized 2 and 3 the median depth value is selected. For larger kernels, 4-8 pixels, the mean depth is used due to performance considerations. More info: https://dev.intelrealsense.com/docs/post-processing-filters
         clip_distance: 2.0 # Remove from the depth image all values above a given value (meters), set negative to turn off clipping. More info: https://dev.intelrealsense.com/docs/ros-wrapper
         # 'colorizer' filter applies RGB normalization coloring to depth image, and 
         colorizer.enable: true
-        pointcloud.stream_filter: 0 # = 0 Allows any filter for streaming point cloud
+        pointcloud.stream_filter: 2 # = 0 Allows any filter for streaming point cloud
         pointcloud_stream_format_filter: 0 # = 0 Allows any filter format for streaming point cloud
-        pointcloud_texture_index: 0 # = 0 Allows any texture for streaming point cloud
-        pointcloud_texture_stream: RS2_STREAM_COLOR # = RS2_STREAM_COLOR is the default
+        # pointcloud_texture_index: 0 # = 0 Allows any texture for streaming point cloud
+        # pointcloud_texture_stream: RS2_STREAM_COLOR # = RS2_STREAM_COLOR is the default
         
-        odom_frame_id: "map"
+        # odom_frame_id: "map"
 
         # Data sources 
         enable_depth: true # True to allow depth processing; necessary for point cloud
-        enable_color: false # True to allow rgb image processing; not necessary for point cloud
+        enable_color: true # True to allow rgb image processing; not necessary for point cloud
 
         enable_infra: false # True to allow joint infrared imaging; not necessary for point cloud
         enable_infra1: false # True to allow infrared processing on imager cam 1; not necessary for point cloud
@@ -46,7 +46,7 @@ camera:
         enable_accel: false # True to enable accel data; not necessary for point cloud
         enable_pose: false # True to enable pose data; not necessary for point cloud
         
-        enable_sync: false # True to sync sensor frames (e.g. ir, rgb, depth); not necessary for point cloud
+        enable_sync: true # True to sync sensor frames (e.g. ir, rgb, depth); not necessary for point cloud
         align_depth: false # True to publish additional alignment between rgb and depth images; not necessary for point cloud
         enable_confidence: false # Additional parameter from rqt_reconfigurel; not necessary for point cloud
 
