@@ -359,6 +359,8 @@ void ExternalInterface::callBermEvaluation(){
 
     set_request->need_metrics = true;
 
+    RCLCPP_INFO(this->get_logger(), "Calling berm evaluation service");
+
     auto future_result = evaluate_berm_client_->async_send_request(set_request, std::bind(&ExternalInterface::bermEvalCB, this, std::placeholders::_1));
 }
 
@@ -372,8 +374,13 @@ void ExternalInterface::bermEvalCB(rclcpp::Client<lx_msgs::srv::BermMetrics>::Sh
             received_berm_msg.width = future.get()->width;
             received_berm_msg.length = future.get()->length;
 
+            RCLCPP_INFO(this->get_logger(), "Berm evaluated: L: %.2f, H: %.2f", future.get()->length, future.get()->height);
+
             // Publish last berm evaluation
             last_berm_eval_publisher_->publish(received_berm_msg);
+        }
+        else{
+            RCLCPP_WARN(this->get_logger(), "Berm evaluation returned 'unsuccesful'");
         }
     } 
     else{
