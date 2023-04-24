@@ -69,5 +69,13 @@ def generate_launch_description():
       output='screen',
       parameters=[{'use_sim_time': use_sim_time_param}],
     ),    
+
+    Node(
+      package='lx_localization',
+      executable='husky_goal_relay',
+      name='husky_goal_relay',
+      output='screen',
+      parameters=[{'use_sim_time': use_sim_time_param}],
+    ),
     
   ])

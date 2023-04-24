@@ -44,6 +44,11 @@ add_executable(remap_msgs_localization src/remap_msgs_localization.cpp)
 ament_target_dependencies(remap_msgs_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs)
 install(TARGETS remap_msgs_localization DESTINATION lib/${PROJECT_NAME})
 
+#make husky_goal_relay.cpp
+add_executable(husky_goal_relay src/husky_goal_relay.cpp)
+ament_target_dependencies(husky_goal_relay rclcpp geometry_msgs)
+install(TARGETS husky_goal_relay DESTINATION lib/${PROJECT_NAME})
+
 install(DIRECTORY
   params
   launch

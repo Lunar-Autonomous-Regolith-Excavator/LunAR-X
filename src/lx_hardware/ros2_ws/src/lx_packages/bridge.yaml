@@ -11,10 +11,10 @@ topics:
     topic: /tool_raw_info  # Topic name on both ROS 1 and ROS 2
     type: std_msgs/msg/Float64MultiArray  # Type of topic to bridge
     queue_size: 1  # Queue size   
-  -
-    topic: /cmd_vel  # Topic name on both ROS 1 and ROS 2
-    type: geometry_msgs/msg/Twist  # Type of topic to bridge
-    queue_size: 1  # Queue size   
+  # -
+  #   topic: /cmd_vel  # Topic name on both ROS 1 and ROS 2
+  #   type: geometry_msgs/msg/Twist  # Type of topic to bridge
+  #   queue_size: 1  # Queue size   
   -
     topic: /husky_velocity_controller/odom  # Topic name on both ROS 1 and ROS 2
     type: nav_msgs/msg/Odometry  # Type of topic to bridge
@@ -36,5 +36,22 @@ topics:
     topic: /lock_status_nano  # Topic name on both ROS 1 and ROS 2
     type: std_msgs/msg/Bool  # Type of topic to bridge
     queue_size: 1  # Queue size 
+
+    # bridge tf
+  -
+    topic: /tf  # Topic name on both ROS 1 and ROS 2
+    type: tf2_msgs/msg/TFMessage  # Type of topic to bridge
+    queue_size: 1  # Queue size
+    # bridge tf_static
+  -
+    topic: /tf_static  # Topic name on both ROS 1 and ROS 2
+    type: tf2_msgs/msg/TFMessage  # Type of topic to bridge
+    queue_size: 1  # Queue size
+
+  - 
+    topic: /husky_goal  # Topic name on both ROS 1 and ROS 2
+    type: geometry_msgs/msg/PoseStamped
+    queue_size: 1  # Queue size
+
  
     
