@@ -528,11 +528,11 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         RCLCPP_INFO(this->get_logger(), "best_x_end = %d", best_x_end);
     }
     // berm length = 2 x (distance between start and end points of bestfit line)
-    berm_length_ = (best_x_end - best_x_start) * sqrt(1 + m * m) * 2.95 ;
+    berm_length_ = (best_x_end - best_x_start) * sqrt(1 + m * m) * 4.425 ;
     // berm width = 7 * standard deviation
     berm_width_ = std_dev / sqrt(1 + m * m) * 15.5;
     // berm height = altitude of peak / 8
-    berm_height_ =  (z_val_threshold*50 + occupancy_grid_.data[berm_peak2]/10.0)*1.1;
+    berm_height_ =  (z_val_threshold*50 + occupancy_grid_.data[berm_peak2]/10.0)*0.73;
     // if(debug_mode_){
         // printf("berm_height_ = %f, berm_length_ = %f, berm_width_ = %f\n", berm_height_, berm_length_, berm_width_);
         // printf("done filtering occupancy grid\n");
