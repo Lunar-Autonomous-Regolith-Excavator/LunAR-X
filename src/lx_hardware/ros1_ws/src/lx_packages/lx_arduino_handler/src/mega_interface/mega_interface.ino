@@ -214,14 +214,14 @@ void loop()
     pub_arr.data[2]= analogRead(CURR_SENS_DRUM);
     pub_arr.data[3]= analogRead(CURR_SENS_ACC);
     tool_raw_msg_pub.publish(&pub_arr);
-    nh.loginfo( (String("Current Commands: ")+ String(acc_pwm)+ " "+String(drum_pwm)).c_str() );
+    // nh.loginfo( (String("Current Commands: ")+ String(acc_pwm)+ " "+String(drum_pwm)).c_str() );
     // nh.loginfo( (String("Current Readings: Drum Ticks")+ String(drum_ticks)+ " Acc ticks "+String(acc_ticks)).c_str() );
 
     //Update previous values
     drum_read_prev = drum_read_curr; acc_read_prev = acc_read_curr;
     t_prev = t_curr;
     nh.spinOnce(); // Spin node
-    delay(100);
-    drum_msg_dT+=100; 
-    acc_msg_dT+=100;
+    delay(200);
+    drum_msg_dT+=200; 
+    acc_msg_dT+=200;
 }
