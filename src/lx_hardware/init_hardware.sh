@@ -32,7 +32,7 @@ else
     tmux send-keys -t 4 "sr1; roscore" C-m
     tmux send-keys -t 5 "bash" C-m
     sleep 8;
-    tmux send-keys -t 0 "sr1; roslaunch lx_arduino_handler arduino_handler.launch" C-m
+    tmux send-keys -t 0 "sr1; cd /home/lx_hardware/ros1_ws; catkin_make; sr1; rosrun lx_arduino_handler arduino_watchdog.py" C-m
     tmux send-keys -t 2 "sr1; roslaunch husky_launch husky_launch.launch" C-m
     tmux send-keys -t 3 "sr1; rosparam load /home/lx_hardware/ros2_ws/src/lx_packages/bridge.yaml; sr2; ros2 run ros1_bridge parameter_bridge" C-m
 

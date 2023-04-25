@@ -10,6 +10,11 @@ find_package(catkin REQUIRED COMPONENTS
 # catkin specific configuration 
 catkin_package()
 
+#build rospy node
+catkin_install_python(PROGRAMS src/arduino_watchdog.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 # Build 
 include_directories(
   ${catkin_INCLUDE_DIRS}

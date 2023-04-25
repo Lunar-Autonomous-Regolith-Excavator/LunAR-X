@@ -1,0 +1,14 @@
+<launch>
+    <!-- Serial port -->
+    <arg name="port_mega" default="/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_24235313336351C0E1A0-if00" />
+
+    <arg name="baud" default="57600" />
+
+    <!-- Start the rosserial_python node -->
+    <node pkg="rosserial_python" type="serial_node.py" name="serial_node_mega" output="screen">
+        <param name="port" value="$(arg port_mega)" />
+        <param name="baud" value="$(arg baud)" />
+    </node>
+
+    <!-- Add any other nodes that you want to start -->
+</launch>
