@@ -30,33 +30,19 @@ find_package(tf2 REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
-# find_package(rosidl_default_generators REQUIRED)
-# rosidl_generate_interfaces(${PROJECT_NAME}
-#   "srv/ComputeMap.srv"
-# )
+include_directories(include)
 
 add_executable(berm_evaluation_node src/berm_evaluation_node.cpp src/berm_evaluation.cpp)
 ament_target_dependencies(berm_evaluation_node rclcpp lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
-target_include_directories(berm_evaluation_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>) 
 
-install(TARGETS berm_evaluation_node
-  DESTINATION lib/${PROJECT_NAME})
+add_executable(pcl_relay_node src/pcl_relay_node.cpp src/pcl_relay.cpp)
+ament_target_dependencies(pcl_relay_node rclcpp sensor_msgs)
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-endif()
+install(TARGETS 
+  berm_evaluation_node
+  pcl_relay_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(DIRECTORY
   launch

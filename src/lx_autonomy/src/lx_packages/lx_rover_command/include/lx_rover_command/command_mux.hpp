@@ -28,7 +28,7 @@ class CommandMux: public rclcpp::Node
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
         TaskModeEnum current_rover_task_mode_ = TaskModeEnum::IDLE;
         float max_mob_lin_vel_ = 0.6; // Reflect any default param changes here 
-        float max_mob_ang_vel_ = 0.12; // Reflect any default param changes here
+        float max_mob_ang_vel_ = 0.3; // Reflect any default param changes here
         float max_drum_speed_ = 0.1;  // Reflect any default param changes here
         float max_mob_lin_acc_ = 0.01; // Reflect any default param changes here 
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
