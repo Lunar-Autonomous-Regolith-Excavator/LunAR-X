@@ -8,12 +8,21 @@ PCLRelay::PCLRelay(): Node("pcl_relay_node"){
 }
 
 void PCLRelay::setupCommunications(){
-    // Subscriber
-    pcl_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("camera/depth/color/points", 10 , 
+    pcl_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/camera/depth/color/points", 1 , 
                             std::bind(&PCLRelay::pclCallBack, this, std::placeholders::_1));
+    
+    relay_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("pcl_relay", 1);
 
-    // Publisher
-    relay_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("pcl_relay", 10);
+    // Set the QoS settings best effort
+    rclcpp::QoS qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
+
+
+    // Create the subscriber
+    cam_subscriber_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "/camera/color/image_raw", qos, std::bind(&PCLRelay::camCallBack, this, std::placeholders::_1));
+
+    // Create the publisher
+    cam_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("cam_relay", qos);
 }
 
 void PCLRelay::pclCallBack(const sensor_msgs::msg::PointCloud2::SharedPtr pcl_rcvd_msg){
@@ -32,3 +41,8 @@ void PCLRelay::pclCallBack(const sensor_msgs::msg::PointCloud2::SharedPtr pcl_rc
 
     relay_publisher_->publish(pcl_pub_msg);
 }
+
+void PCLRelay::camCallBack(const sensor_msgs::msg::Image::SharedPtr cam_rcvd_msg){
+    // print some info about the image
+    cam_publisher_->publish(*cam_rcvd_msg);
+}   
