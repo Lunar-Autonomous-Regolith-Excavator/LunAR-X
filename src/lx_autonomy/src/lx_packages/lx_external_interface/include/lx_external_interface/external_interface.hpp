@@ -80,6 +80,11 @@ class ExternalInterface: public rclcpp::Node
         void joyCallBack(const sensor_msgs::msg::Joy::SharedPtr );
 
         /*
+        * Due to an unclear issue, the mobility and actuation lock statuses flip. This function will correct for this undesirable behaviour 
+        * */
+        void lockCheck();
+        
+        /*
         * Argument(s):
         *   - joystick message
         * 

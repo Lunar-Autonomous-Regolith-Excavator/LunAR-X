@@ -13,7 +13,8 @@
  * 
  * TODO
  * - Add berm inputs
- * - Add initial getting of parameters
+ * - Add initial getting of parameters (To be tested)
+ * - Test lock flipping check
  * */
 
 #include "lx_external_interface/external_interface.hpp"
@@ -69,22 +70,34 @@ void ExternalInterface::setupCommunications(){
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
 }
 
+void ExternalInterface::lockCheck(){
+    // Check if the lock statuses have flipped
+    if(rover_soft_lock_.mobility_lock != rover_soft_lock_.actuation_lock){
+        // If so, lock both
+        switchRoverLockStatus(true, true);
+        RCLCPP_WARN(this->get_logger(), "Mobility and actuation locks are not in sync, locking both");
+    }
+}
+
 void ExternalInterface::getParams(){
     while(!get_params_client_->wait_for_service(std::chrono::seconds(2))){
       RCLCPP_INFO(this->get_logger(), "Could not contact param server");
       return;
     }
 
+    // Get important parameters
     auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
     get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
                           "rover.op_mode", "rover.task_mode", 
                           "limits.max_lin_mob_vel", "limits.max_ang_mob_vel"};
 
+    // Send request
     auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&ExternalInterface::paramCB, this, std::placeholders::_1));
 }
 
 void ExternalInterface::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture future){
     auto status = future.wait_for(std::chrono::milliseconds(100));
+    // If request successful, save all params in global variables
     if (status == std::future_status::ready) {
         // params_timer_ = this->create_wall_timer(std::chrono::seconds(10), 
         //                     std::bind(&LXGUIBackend::getParameters, this));
