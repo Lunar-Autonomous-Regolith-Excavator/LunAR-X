@@ -311,10 +311,10 @@ void ExternalInterface::passRoverTeleopCmd(const sensor_msgs::msg::Joy::SharedPt
     rover_teleop_msg.mobility_twist.linear.x = joy_msg->axes[int(JoyAxes::LEFT_STICK_V)] * mob_lin_vel_;
     
     // Angular vel sign depends on forward or reverse (inverted)
-    if(rover_teleop_msg.mobility_twist.linear.x >= 0){
+    if(rover_teleop_msg.mobility_twist.linear.x >= 0.05){
         rover_teleop_msg.mobility_twist.angular.z = joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     }
-    else{
+    else if(rover_teleop_msg.mobility_twist.linear.x <= -0.05){
         rover_teleop_msg.mobility_twist.angular.z = -joy_msg->axes[int(JoyAxes::LEFT_STICK_H)] * mob_ang_vel_;
     }
     
