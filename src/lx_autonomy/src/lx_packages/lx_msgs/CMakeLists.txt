@@ -13,6 +13,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RoverCommand.msg"
   "msg/ToolInfo.msg"
   "msg/BermMetrics.msg"
+  "msg/BermNode.msg"
   "srv/BermMetrics.srv"
   DEPENDENCIES geometry_msgs
 )

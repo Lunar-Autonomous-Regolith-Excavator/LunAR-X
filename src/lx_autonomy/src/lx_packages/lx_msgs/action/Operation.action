@@ -1,0 +1,5 @@
+BermNode[] requested_berm_configuration
+---
+bool success
+---
+int32 progress
