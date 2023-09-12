@@ -9,13 +9,16 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(lx_library REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
 include_directories(include)
 
 # Operations handler node
 add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
-ament_target_dependencies(operations_handler_node rclcpp lx_msgs lx_library)
+ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs lx_library)
 
 # Autodig node
 add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)

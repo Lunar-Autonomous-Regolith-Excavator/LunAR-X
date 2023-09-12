@@ -1,4 +1,4 @@
-BermNode[] requested_berm_configuration
+BermConfig requested_berm_config
 ---
 bool success
 ---

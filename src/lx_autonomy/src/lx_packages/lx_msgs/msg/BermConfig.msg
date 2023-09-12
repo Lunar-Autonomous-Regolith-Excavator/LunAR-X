@@ -1,0 +1,1 @@
+Point[] berm_configuration
