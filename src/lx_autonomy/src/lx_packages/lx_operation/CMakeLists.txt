@@ -17,8 +17,13 @@ include_directories(include)
 add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
 ament_target_dependencies(operations_handler_node rclcpp lx_msgs lx_library)
 
+# Autodig node
+add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)
+ament_target_dependencies(autodig_node rclcpp lx_msgs lx_library)
+
 install(TARGETS
-operations_handler_node
+  operations_handler_node
+  autodig_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
