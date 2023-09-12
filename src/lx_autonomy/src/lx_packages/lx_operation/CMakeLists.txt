@@ -20,29 +20,44 @@ include_directories(include)
 add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
 ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs lx_library)
 
-# Autodig node
-add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)
-ament_target_dependencies(autodig_node rclcpp lx_msgs lx_library)
+# # Autodig node
+# add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)
+# ament_target_dependencies(autodig_node rclcpp lx_msgs lx_library)
 
-# Autodump node
-add_executable(autodump_node src/autodump_node.cpp src/autodump.cpp)
-ament_target_dependencies(autodump_node rclcpp lx_msgs lx_library)
+# # Autodump node
+# add_executable(autodump_node src/autodump_node.cpp src/autodump.cpp)
+# ament_target_dependencies(autodump_node rclcpp lx_msgs lx_library)
 
-# Rover navigate node
-add_executable(rover_navigate_node src/rover_navigate_node.cpp src/rover_navigate.cpp)
-ament_target_dependencies(rover_navigate_node rclcpp lx_msgs lx_library)
+# # Rover navigate node
+# add_executable(rover_navigate_node src/rover_navigate_node.cpp src/rover_navigate.cpp)
+# ament_target_dependencies(rover_navigate_node rclcpp lx_msgs lx_library)
 
-install(TARGETS
-  operations_handler_node
-  autodig_node
-  autodump_node
-  rover_navigate_node
-  DESTINATION lib/${PROJECT_NAME}
-)
+# install(TARGETS
+#   operations_handler_node
+#   # autodig_node
+#   # autodump_node
+#   # rover_navigate_node
+#   DESTINATION lib/${PROJECT_NAME}
+# )
 
 # install(DIRECTORY
 #   launch
 #   DESTINATION share/${PROJECT_NAME}
 # )
+add_library(operations_handler_node SHARED src/operations_handler_node.cpp src/operations_handler.cpp)
+target_include_directories(operations_handler_node PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_definitions(operations_handler_node
+  PRIVATE "ACTION_TUTORIALS_CPP_BUILDING_DLL")
+  ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs lx_library)
+
+rclcpp_components_register_node(operations_handler_node PLUGIN "OperationsHandler" EXECUTABLE operations_handler_node)
+install(TARGETS
+  operations_handler_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
 
 ament_package()
