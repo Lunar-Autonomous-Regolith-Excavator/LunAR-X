@@ -21,6 +21,10 @@ ament_target_dependencies(operations_handler_node rclcpp lx_msgs lx_library)
 add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)
 ament_target_dependencies(autodig_node rclcpp lx_msgs lx_library)
 
+# Autodump node
+add_executable(autodump_node src/autodump_node.cpp src/autodump.cpp)
+ament_target_dependencies(autodump_node rclcpp lx_msgs lx_library)
+
 # Rover navigate node
 add_executable(rover_navigate_node src/rover_navigate_node.cpp src/rover_navigate.cpp)
 ament_target_dependencies(rover_navigate_node rclcpp lx_msgs lx_library)
@@ -28,6 +32,7 @@ ament_target_dependencies(rover_navigate_node rclcpp lx_msgs lx_library)
 install(TARGETS
   operations_handler_node
   autodig_node
+  autodump_node
   rover_navigate_node
   DESTINATION lib/${PROJECT_NAME}
 )
