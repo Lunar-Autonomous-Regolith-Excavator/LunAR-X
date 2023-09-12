@@ -19,7 +19,7 @@ Task::Task(unsigned int id, TaskTypeEnum type){
     this->task_type_ = type;
 }
 
-bool Task::execute(){
+bool Task::executeTask(){
     // Add exception handling
     switch(this->task_type_){
         case TaskTypeEnum::NAV:

@@ -17,6 +17,8 @@ class OperationsHandler: public rclcpp::Node
         // Functions
         std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> planner();
 
+        bool executeTaskQueue();
+
     public:
         OperationsHandler();
         ~OperationsHandler(){}

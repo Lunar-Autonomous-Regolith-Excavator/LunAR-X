@@ -24,7 +24,7 @@ class Task
         /*
         * Execute task
         * */
-        bool execute();
+        bool executeTask();
 
         // --------------------------------------
 
