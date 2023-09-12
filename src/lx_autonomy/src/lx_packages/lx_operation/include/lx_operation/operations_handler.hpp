@@ -20,6 +20,7 @@ class OperationsHandler: public rclcpp::Node
     private:
         using Operation = lx_msgs::action::Operation;
         using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
+        std::vector<unsigned int> executed_task_ids_ {};
 
         std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> task_queue_ {};
         lx_msgs::msg::BermConfig berm_config_;

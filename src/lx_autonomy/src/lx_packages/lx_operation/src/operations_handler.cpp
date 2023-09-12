@@ -19,6 +19,7 @@
 #include "lx_operation/operations_handler.hpp"
 
 OperationsHandler::OperationsHandler(): Node("operations_handler_node"){
+    executed_task_ids_.clear();
     setupCommunications();
     RCLCPP_INFO(this->get_logger(), "Operations handler initialized");
 }
@@ -85,12 +86,16 @@ std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> OperationsHa
     // TODO
 
     // Decide planner inputs
+
+    // Planner should give task ids. Check already executed tasks by accessing executed_task_ids_
 }
 
 bool OperationsHandler::executeTaskQueue(){
     // TODO
 
     // Execute task queue
+
+    // Append successful tasks to executed_task_ids_
 }
 
 bool checkBermBuilt(){
