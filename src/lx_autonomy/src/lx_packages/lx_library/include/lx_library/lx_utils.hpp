@@ -34,6 +34,12 @@ enum class TaskModeEnum : int {
                             DMP = 3
                           };
 
+enum class TaskTypeEnum : int {
+                            NAV = 0, 
+                            AUTODIG = 1, 
+                            AUTODUMP = 2
+                          };
+
 void placeHolderFunction();
 
 #endif
