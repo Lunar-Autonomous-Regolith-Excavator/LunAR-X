@@ -15,9 +15,7 @@ class OperationsHandler: public rclcpp::Node
         // Action server
 
         // Functions
-        Task excavationPlanner();
-        Task dumpPlanner();
-        Task navigationPlanner();
+        std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> planner();
 
     public:
         OperationsHandler();

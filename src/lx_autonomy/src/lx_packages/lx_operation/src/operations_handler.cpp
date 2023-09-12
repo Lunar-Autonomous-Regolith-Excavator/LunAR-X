@@ -18,14 +18,6 @@ OperationsHandler::OperationsHandler(): Node("operations_handler_node"){
 
 }
 
-Task OperationsHandler::excavationPlanner(){
-
-}
-
-Task OperationsHandler::dumpPlanner(){
-
-}
-
-Task OperationsHandler::navigationPlanner(){
+std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> OperationsHandler::planner(){
 
 }
