@@ -180,28 +180,38 @@ void OperationsHandler::setupParams(){
 }
 
 rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Operation::Goal> goal){
+    // Get requested berm configuration
     berm_config_.berm_configuration = goal->requested_berm_config.berm_configuration;
+    
     RCLCPP_INFO(this->get_logger(), "Received berm goal request with configuration:");
     for(auto &berm_node: berm_config_.berm_configuration){
         RCLCPP_INFO(this->get_logger(), "%f, %f", berm_node.x, berm_node.y);
     }
     (void)uuid;
+    
+    // Accept and execute action
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
 rclcpp_action::CancelResponse OperationsHandler::handle_cancel(const std::shared_ptr<GoalHandleOperation> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
     (void)goal_handle;
+    
+    // Cancel action
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
 void OperationsHandler::handle_accepted(const std::shared_ptr<GoalHandleOperation> goal_handle){
     using namespace std::placeholders;
+    
+    // Start thread to execute action and detach
     std::thread{std::bind(&OperationsHandler::executeOperation, this, _1), goal_handle}.detach();
 }
 
 void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperation> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Executing operation goal");
+    
+    // Get goal, feedback and result
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<Operation::Feedback>();
     auto result = std::make_shared<Operation::Result>();
@@ -211,19 +221,20 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
         // Get task queue from planner
         task_queue_ = planner();
 
-        // Only keep first N tasks in queue
+        // TODO Only keep first N tasks in queue
 
         // Execute task queue
         if(!executeTaskQueue()){
             // If any task fails, return goal failure
+            result->success = false;
+            goal_handle->abort(result);
+            RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
         }
-        
         // If all tasks successful, continue next loop iteration
     } 
     while(!checkBermBuilt());
     
     // If berm is built, return goal success
-
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
@@ -255,6 +266,8 @@ bool OperationsHandler::executeTaskQueue(){
 }
 
 bool checkBermBuilt(){
+    // TODO
+
     // Call berm evaluation service
 
     // Send action feedback on progress

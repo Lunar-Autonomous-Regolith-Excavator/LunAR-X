@@ -41,7 +41,7 @@ class OperationsHandler: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
         // --------------------------------------
 
-        // Functions
+        // Functions ----------------------------
         /*
         * Set up subscribers, publishers, clients & servers of the node
         * */
@@ -62,16 +62,74 @@ class OperationsHandler: public rclcpp::Node
         * */
         void paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture );
 
+        /*
+        * Argument(s):
+        *   - Goal UUID
+        *   - Goal shared pointer
+        * 
+        * Handle goal request
+        * */
         rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& , std::shared_ptr<const Operation::Goal> );
+
+        /*
+        * Argument(s):
+        *   - Goal handle shared pointer
+        * 
+        * Handle action cancel request
+        * */
         rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleOperation> );
+
+        /*
+        * Argument(s):
+        *   - Goal handle shared pointer
+        * 
+        * Handle action accepted
+        * */
         void handle_accepted(const std::shared_ptr<GoalHandleOperation> );
+
+        /*
+        * Argument(s):
+        *   - Goal handle shared pointer
+        * 
+        * Execute requested action
+        * */
         void executeOperation(const std::shared_ptr<GoalHandleOperation> );
+
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO Planner
+        * */
         std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> planner();
+
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO Call berm evaluation
+        * */
         bool checkBermBuilt();
+
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO Task Queue Execution
+        * */
         bool executeTaskQueue();
+        // --------------------------------------
 
     public:
+        // Functions
+        /*
+        * Constructor
+        * */
         OperationsHandler(const rclcpp::NodeOptions&);
+
+        /*
+        * Destructor
+        * */
         ~OperationsHandler(){}
 };
 
