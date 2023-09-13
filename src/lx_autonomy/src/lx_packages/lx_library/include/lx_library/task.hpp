@@ -1,30 +1,28 @@
 #ifndef TASK_H
 #define TASK_H
 
+#include <rclcpp/rclcpp.hpp>
 #include "lx_library/lx_utils.hpp"
+#include <geometry_msgs/msg/pose_array.hpp>
 
 class Task
 {
     private:
-        unsigned int task_id_ = 0;
+        unsigned int task_id_;
         TaskTypeEnum task_type_;
+        geometry_msgs::msg::PoseArray pose_array_;
 
     public:
         // Functions ----------------------------
         /*
         * Constructor
         * */
-        Task(unsigned int, TaskTypeEnum);
+        Task(unsigned int, TaskTypeEnum, geometry_msgs::msg::PoseArray);
 
         /*
         * Destructor
         * */
         ~Task(){}
-
-        /*
-        * Execute task
-        * */
-        bool executeTask();
 
         // --------------------------------------
 
