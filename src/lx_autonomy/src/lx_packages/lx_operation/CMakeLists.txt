@@ -40,24 +40,24 @@ include_directories(include)
 #   DESTINATION lib/${PROJECT_NAME}
 # )
 
-# install(DIRECTORY
-#   launch
-#   DESTINATION share/${PROJECT_NAME}
-# )
+# Operations handler action server
 add_library(operations_handler_server SHARED src/operations_handler.cpp)
-target_include_directories(operations_handler_server PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_compile_definitions(operations_handler_server
-  PRIVATE "ACTION_TUTORIALS_CPP_BUILDING_DLL")
-  ament_target_dependencies(operations_handler_server rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
-
+target_include_directories(operations_handler_server PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_compile_definitions(operations_handler_server PRIVATE "ACTION_TUTORIALS_CPP_BUILDING_DLL")
+ament_target_dependencies(operations_handler_server rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
 rclcpp_components_register_node(operations_handler_server PLUGIN "OperationsHandler" EXECUTABLE operations_handler_node)
+
 install(TARGETS
   operations_handler_server
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
+  # ARCHIVE 
+  DESTINATION lib/${PROJECT_NAME}
+  # LIBRARY DESTINATION lib
+  # RUNTIME DESTINATION bin
+)
 
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()
