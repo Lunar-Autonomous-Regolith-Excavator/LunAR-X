@@ -14,22 +14,27 @@
 
 #include "lx_library/task.hpp"
 
-Task::Task(unsigned int id){
+Task::Task(unsigned int id, TaskTypeEnum type){
     this->task_id_ = id;
+    this->task_type_ = type;
 }
 
-bool Task::pushSubTask(std::shared_ptr<SubTask> new_sub_task){
-    subtask_queue.push(new_sub_task);
-    return true;
-}
-
-bool Task::popSubTask(){
-    subtask_queue.pop();
-    return true;
-}
-
-bool Task::executeNextSubTask(){
+bool Task::executeTask(){
     // Add exception handling
-    // TODO
-    return subtask_queue.front()->execute();
+    switch(this->task_type_){
+        case TaskTypeEnum::AUTONAV:
+            // Call Rover navigate action
+            break;
+
+        case TaskTypeEnum::AUTODIG:
+            // Call Autodig action
+            break;
+
+        case TaskTypeEnum::AUTODUMP:
+            // Call Autodump action
+            break;
+            
+        default:
+            return false;
+    }
 }

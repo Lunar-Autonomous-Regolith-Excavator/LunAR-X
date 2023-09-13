@@ -13,7 +13,8 @@
  * 
  * TODO
  * - Add berm inputs
- * - Add initial getting of parameters
+ * - Add initial getting of parameters (To be tested)
+ * - Test lock flipping check
  * */
 
 #include "lx_external_interface/external_interface.hpp"
@@ -35,6 +36,9 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     
     // Set up subscriptions & publishers
     setupCommunications();
+
+    // Get parameters from the global parameter server
+    getParams();
 
     // Set up parameters from the global parameter server
     setupParams();
@@ -63,6 +67,88 @@ void ExternalInterface::setupCommunications(){
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
     evaluate_berm_client_ = this->create_client<lx_msgs::srv::BermMetrics>("/evaluate_berm");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+}
+
+void ExternalInterface::lockCheck(){
+    // Check if the lock statuses have flipped
+    if(rover_soft_lock_.mobility_lock != rover_soft_lock_.actuation_lock){
+        // If so, lock both
+        switchRoverLockStatus(true, true);
+        RCLCPP_WARN(this->get_logger(), "Mobility and actuation locks are not in sync, locking both");
+    }
+}
+
+void ExternalInterface::getParams(){
+    while(!get_params_client_->wait_for_service(std::chrono::seconds(2))){
+      RCLCPP_INFO(this->get_logger(), "Could not contact param server");
+      return;
+    }
+
+    // Get important parameters
+    auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
+    get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
+                          "rover.op_mode", "rover.task_mode", 
+                          "limits.max_lin_mob_vel", "limits.max_ang_mob_vel"};
+
+    // Send request
+    auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&ExternalInterface::paramCB, this, std::placeholders::_1));
+}
+
+void ExternalInterface::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    // If request successful, save all params in global variables
+    if (status == std::future_status::ready) {
+        // params_timer_ = this->create_wall_timer(std::chrono::seconds(10), 
+        //                     std::bind(&LXGUIBackend::getParameters, this));
+        
+        rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
+        rover_soft_lock_.actuation_lock = future.get()->values.at(1).bool_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Actuation: %s", (rover_soft_lock_.actuation_lock?"Locked":"Unlocked"));
+
+        switch(future.get()->values.at(2).integer_value){
+            case 0:
+               current_rover_op_mode_ = OpModeEnum::STANDBY;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Standby");
+               break;
+            case 1:
+               current_rover_op_mode_ = OpModeEnum::TELEOP;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Teleop");
+               break;
+            case 2:
+               current_rover_op_mode_ = OpModeEnum::AUTONOMOUS;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Autonomous");
+               break;
+        }
+
+        switch(future.get()->values.at(3).integer_value){
+            case 0:
+               current_rover_task_mode_ = TaskModeEnum::IDLE;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Idle");
+               break;
+            case 1:
+               current_rover_task_mode_ = TaskModeEnum::NAV;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Navigation");
+               break;
+            case 2:
+               current_rover_task_mode_ = TaskModeEnum::EXC;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Excavation");
+               break;
+            case 3:
+               current_rover_task_mode_ = TaskModeEnum::DMP;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Dumping");
+               break;
+        }
+
+        mob_lin_vel_ = future.get()->values.at(4).double_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Max Linear Vel: %.2f", mob_lin_vel_);
+        mob_ang_vel_ = future.get()->values.at(5).double_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Max Angular Vel: %.2f", mob_ang_vel_);
+    } 
+    else {
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
 }
 
 void ExternalInterface::setupParams(){
