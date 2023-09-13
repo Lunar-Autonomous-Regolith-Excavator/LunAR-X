@@ -22,7 +22,7 @@ Task::Task(unsigned int id, TaskTypeEnum type){
 bool Task::executeTask(){
     // Add exception handling
     switch(this->task_type_){
-        case TaskTypeEnum::NAV:
+        case TaskTypeEnum::AUTONAV:
             // Call Rover navigate action
             break;
 

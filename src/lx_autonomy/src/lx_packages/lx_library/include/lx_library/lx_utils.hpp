@@ -35,7 +35,7 @@ enum class TaskModeEnum : int {
                           };
 
 enum class TaskTypeEnum : int {
-                            NAV = 0, 
+                            AUTONAV = 0, 
                             AUTODIG = 1, 
                             AUTODUMP = 2
                           };
