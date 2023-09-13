@@ -92,6 +92,12 @@ std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> OperationsHa
     // Decide planner inputs
 
     // Planner should give task ids. Check already executed tasks by accessing executed_task_ids_
+
+    std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> build_task_queue {};
+
+    // Add tasks to task queue
+
+    return build_task_queue;
 }
 
 bool OperationsHandler::executeTaskQueue(){
@@ -100,6 +106,7 @@ bool OperationsHandler::executeTaskQueue(){
     // Execute task queue
 
     // Append successful tasks to executed_task_ids_
+    return true;
 }
 
 bool checkBermBuilt(){
@@ -108,4 +115,5 @@ bool checkBermBuilt(){
     // Send action feedback on progress
 
     // Return true if berm is built
+    return true;
 }
