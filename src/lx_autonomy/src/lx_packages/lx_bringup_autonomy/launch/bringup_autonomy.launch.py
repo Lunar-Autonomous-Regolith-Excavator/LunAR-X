@@ -34,10 +34,10 @@ def generate_launch_description():
                                 PythonLaunchDescriptionSource(
                                     operation_dir + '/launch/operation.launch.py'))
                                     
-    perception_dir = get_package_share_directory('lx_perception')
-    perception_launch = IncludeLaunchDescription(
+    mapping_dir = get_package_share_directory('lx_mapping')
+    mapping_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
-                                    perception_dir + '/launch/perception.launch.py'))
+                                    mapping_dir + '/launch/mapping.launch.py'))
     
     localization_dir = get_package_share_directory('lx_localization')
     localization_launch = IncludeLaunchDescription(
@@ -90,7 +90,7 @@ def generate_launch_description():
     ld.add_action(tf_camera_depth_link)
     ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
-    # ld.add_action(perception_launch)
+    # ld.add_action(mapping_launch)
     # ld.add_action(localization_launch)
     
     return ld
