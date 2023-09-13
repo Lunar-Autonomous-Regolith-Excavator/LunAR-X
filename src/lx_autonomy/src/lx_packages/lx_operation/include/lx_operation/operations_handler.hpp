@@ -8,6 +8,7 @@
 #include <functional>
 #include <thread>
 #include "lx_library/task.hpp"
+#include "lx_library/lx_utils.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "lx_msgs/msg/berm_config.hpp"
 #include "lx_msgs/action/operation.hpp"
@@ -125,7 +126,7 @@ class OperationsHandler: public rclcpp::Node
         /*
         * Constructor
         * */
-        OperationsHandler(const rclcpp::NodeOptions&);
+        explicit OperationsHandler(const rclcpp::NodeOptions&);
 
         /*
         * Destructor
@@ -133,6 +134,6 @@ class OperationsHandler: public rclcpp::Node
         ~OperationsHandler(){}
 };
 
-RCLCPP_COMPONENTS_REGISTER_NODE(OperationsHandler)
+// RCLCPP_COMPONENTS_REGISTER_NODE(OperationsHandler)
 
 #endif

@@ -24,7 +24,7 @@ OperationsHandler::OperationsHandler(const rclcpp::NodeOptions& options = rclcpp
     (void)options;
     // Clear executed task queue
     executed_task_ids_.clear();
-    
+
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
 
@@ -43,12 +43,12 @@ void OperationsHandler::getParams(){
       RCLCPP_INFO(this->get_logger(), "Could not contact param server");
       return;
     }
-
+    RCLCPP_INFO(this->get_logger(), "Operations handler ...1");
     // Get important parameters
     auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
     get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
                           "rover.op_mode", "rover.task_mode"};
-
+    RCLCPP_INFO(this->get_logger(), "Operations handler ...2");
     // Send request
     auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&OperationsHandler::paramCB, this, std::placeholders::_1));
 }
@@ -107,6 +107,8 @@ void OperationsHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
 void OperationsHandler::setupCommunications(){
     // Add all subscriptions, publishers and services here
 
+    // Clients
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
     // Action server
     using namespace std::placeholders;
     this->operation_action_server_ = rclcpp_action::create_server<Operation>(this, "operations/berm_build_action",
@@ -185,7 +187,7 @@ rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::
     
     RCLCPP_INFO(this->get_logger(), "Received berm goal request with configuration:");
     for(auto &berm_node: berm_config_.berm_configuration){
-        RCLCPP_INFO(this->get_logger(), "%f, %f", berm_node.x, berm_node.y);
+        RCLCPP_INFO(this->get_logger(), "%.2f, %.2f", berm_node.x, berm_node.y);
     }
     (void)uuid;
     
@@ -265,7 +267,7 @@ bool OperationsHandler::executeTaskQueue(){
     return true;
 }
 
-bool checkBermBuilt(){
+bool OperationsHandler::checkBermBuilt(){
     // TODO
 
     // Call berm evaluation service

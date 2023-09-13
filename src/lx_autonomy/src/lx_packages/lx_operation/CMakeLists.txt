@@ -17,8 +17,8 @@ find_package(rclcpp_components REQUIRED)
 include_directories(include)
 
 # Operations handler node
-# add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
-# ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs lx_library)
+add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
+ament_target_dependencies(operations_handler_node rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
 
 # # Autodig node
 # add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)
@@ -32,27 +32,12 @@ include_directories(include)
 # add_executable(rover_navigate_node src/rover_navigate_node.cpp src/rover_navigate.cpp)
 # ament_target_dependencies(rover_navigate_node rclcpp lx_msgs lx_library)
 
-# install(TARGETS
-#   operations_handler_node
-#   # autodig_node
-#   # autodump_node
-#   # rover_navigate_node
-#   DESTINATION lib/${PROJECT_NAME}
-# )
-
-# Operations handler action server
-add_library(operations_handler_server SHARED src/operations_handler.cpp)
-target_include_directories(operations_handler_server PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
-target_compile_definitions(operations_handler_server PRIVATE "ACTION_TUTORIALS_CPP_BUILDING_DLL")
-ament_target_dependencies(operations_handler_server rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
-rclcpp_components_register_node(operations_handler_server PLUGIN "OperationsHandler" EXECUTABLE operations_handler_node)
-
 install(TARGETS
-  operations_handler_server
-  # ARCHIVE 
+  operations_handler_node
+  # autodig_node
+  # autodump_node
+  # rover_navigate_node
   DESTINATION lib/${PROJECT_NAME}
-  # LIBRARY DESTINATION lib
-  # RUNTIME DESTINATION bin
 )
 
 install(DIRECTORY

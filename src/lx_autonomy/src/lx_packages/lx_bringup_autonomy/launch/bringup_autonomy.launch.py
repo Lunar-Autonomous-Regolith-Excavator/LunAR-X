@@ -75,7 +75,7 @@ def generate_launch_description():
     ) 
 
     pcl_relay = Node(
-      package='lx_perception',
+      package='lx_mapping',
       executable='pcl_relay_node',
       name='pcl_relay_node',
       output='screen',
