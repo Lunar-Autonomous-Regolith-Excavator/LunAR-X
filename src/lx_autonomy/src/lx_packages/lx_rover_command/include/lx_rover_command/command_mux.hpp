@@ -23,14 +23,16 @@ class CommandMux: public rclcpp::Node
         std::thread auto_cmd_pub_thread_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_publisher_;
+        // Clients
+        rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
         TaskModeEnum current_rover_task_mode_ = TaskModeEnum::IDLE;
-        float max_mob_lin_vel_ = 0.6; // Reflect any default param changes here 
-        float max_mob_ang_vel_ = 0.3; // Reflect any default param changes here
-        float max_drum_speed_ = 0.1;  // Reflect any default param changes here
-        float max_mob_lin_acc_ = 0.01; // Reflect any default param changes here 
+        float max_mob_lin_vel_ = 0.0;
+        float max_mob_ang_vel_ = 0.0;
+        float max_drum_speed_ = 0.0;
+        float max_mob_lin_acc_ = 0.0;
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
@@ -47,6 +49,16 @@ class CommandMux: public rclcpp::Node
         * Set up subscribers and publishers of the node
         * */
         void setupCommunications();
+
+        /*
+        * Get starting values of global parameters
+        * */
+        void getParams();
+
+        /*
+        * Callback function for starting values of global parameters
+        * */
+        void paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture );
 
         /*
         * Set up tracking of global parameters
