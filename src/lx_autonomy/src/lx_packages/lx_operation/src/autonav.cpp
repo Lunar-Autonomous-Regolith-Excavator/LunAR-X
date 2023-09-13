@@ -12,8 +12,8 @@
  * - Add todos
  * */
 
-#include "lx_operation/rover_navigate.hpp"
+#include "lx_operation/autonav.hpp"
 
-RoverNavigate::RoverNavigate(): Node("rover_navigate_node"){
+AutoNav::AutoNav(): Node("autonav_node"){
 
 }
