@@ -10,7 +10,6 @@
  * 
  * TODO
  * - Test autonomous input handling
- * - Add initial getting of parameters
  * - Test acceleration clipping
  * */
 
