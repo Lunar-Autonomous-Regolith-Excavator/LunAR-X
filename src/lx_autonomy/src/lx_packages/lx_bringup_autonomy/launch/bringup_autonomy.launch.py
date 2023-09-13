@@ -27,6 +27,12 @@ def generate_launch_description():
     external_interface_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     external_interface_dir + '/launch/external_interface.launch.py'))
+    
+    # operation_handler launch
+    operation_dir = get_package_share_directory('lx_operation')
+    operation_launch = IncludeLaunchDescription(
+                                PythonLaunchDescriptionSource(
+                                    operation_dir + '/launch/operation.launch.py'))
                                     
     perception_dir = get_package_share_directory('lx_perception')
     perception_launch = IncludeLaunchDescription(
@@ -78,6 +84,7 @@ def generate_launch_description():
     ld.add_action(param_server_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
+    ld.add_action(operation_launch)
     ld.add_action(tf_node)
     ld.add_action(tf_camera_link)
     ld.add_action(tf_camera_depth_link)
