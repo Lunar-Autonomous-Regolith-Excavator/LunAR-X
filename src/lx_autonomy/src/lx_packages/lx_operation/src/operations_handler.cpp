@@ -14,21 +14,30 @@
  * - Write executeTaskQueue
  * - Write checkBermBuilt
  * - Finish executeOperation
+ * - Add documentation
+ * - Add parameters
  * */
 
 #include "lx_operation/operations_handler.hpp"
 
 OperationsHandler::OperationsHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("operations_handler_node"){
     (void)options;
+    // Clear executed task queue
     executed_task_ids_.clear();
+    
+    // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
+
+
     RCLCPP_INFO(this->get_logger(), "Operations handler initialized");
 }
 
 void OperationsHandler::setupCommunications(){
+    // Add all subscriptions, publishers and services here
+
     // Action server
     using namespace std::placeholders;
-    this->operation_action_server_ = rclcpp_action::create_server<Operation>(this, "operations_action",
+    this->operation_action_server_ = rclcpp_action::create_server<Operation>(this, "operations/berm_build_action",
                                             std::bind(&OperationsHandler::handle_goal, this, _1, _2),
                                             std::bind(&OperationsHandler::handle_cancel, this, _1),
                                             std::bind(&OperationsHandler::handle_accepted, this, _1));
