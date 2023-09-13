@@ -95,9 +95,13 @@ void AutoDumpHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>
 }
 
 void AutoDumpHandler::setupCommunications(){
-    // Add all subscriptions, publishers and services here
+    // Subscribers 
 
-    // Clients
+    // Publishers
+    
+    // Service servers
+
+    // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
     // Action server
     using namespace std::placeholders;
