@@ -26,7 +26,7 @@ ament_target_dependencies(auto_dig_handler_node rclcpp rclcpp_action rclcpp_comp
 
 # Auto Dump Handler node
 add_executable(auto_dump_handler_node src/auto_dump_handler_node.cpp src/auto_dump_handler.cpp)
-ament_target_dependencies(autodump_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
+ament_target_dependencies(auto_dump_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
 
 # Auto Nav Handler node
 add_executable(auto_nav_handler_node src/auto_nav_handler_node.cpp src/auto_nav_handler.cpp)
