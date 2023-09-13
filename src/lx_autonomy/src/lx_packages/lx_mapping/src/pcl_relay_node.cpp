@@ -1,4 +1,4 @@
-#include "lx_perception/pcl_relay.hpp"
+#include "lx_mapping/pcl_relay.hpp"
 
 int main(int argc, char** argv){
     rclcpp::init(argc, argv);
