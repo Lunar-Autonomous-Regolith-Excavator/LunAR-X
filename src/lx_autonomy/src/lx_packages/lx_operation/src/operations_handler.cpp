@@ -18,7 +18,8 @@
 
 #include "lx_operation/operations_handler.hpp"
 
-OperationsHandler::OperationsHandler(): Node("operations_handler_node"){
+OperationsHandler::OperationsHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("operations_handler_node"){
+    (void)options;
     executed_task_ids_.clear();
     setupCommunications();
     RCLCPP_INFO(this->get_logger(), "Operations handler initialized");
@@ -28,9 +29,9 @@ void OperationsHandler::setupCommunications(){
     // Action server
     using namespace std::placeholders;
     this->operation_action_server_ = rclcpp_action::create_server<Operation>(this, "operations_action",
-                                            std::bind(&OperationsHandler::::handle_goal, this, _1, _2),
-                                            std::bind(&OperationsHandler::::handle_cancel, this, _1),
-                                            std::bind(&OperationsHandler::::handle_accepted, this, _1));
+                                            std::bind(&OperationsHandler::handle_goal, this, _1, _2),
+                                            std::bind(&OperationsHandler::handle_cancel, this, _1),
+                                            std::bind(&OperationsHandler::handle_accepted, this, _1));
 }
 
 rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Operation::Goal> goal){
@@ -56,6 +57,9 @@ void OperationsHandler::handle_accepted(const std::shared_ptr<GoalHandleOperatio
 
 void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperation> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Executing operation goal");
+    const auto goal = goal_handle->get_goal();
+    auto feedback = std::make_shared<Operation::Feedback>();
+    auto result = std::make_shared<Operation::Result>();
 
     do{
         // Call planner to plan full path

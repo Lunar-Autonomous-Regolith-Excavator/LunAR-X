@@ -8,8 +8,8 @@
 #include <functional>
 #include <thread>
 #include "lx_library/task.hpp"
-#include "geometry_msgs/msg/point.msg"
-#include "lx_msgs/msg/berm_config.msg"
+#include "geometry_msgs/msg/point.hpp"
+#include "lx_msgs/msg/berm_config.hpp"
 #include "lx_msgs/action/operation.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
@@ -39,7 +39,7 @@ class OperationsHandler: public rclcpp::Node
         bool executeTaskQueue();
 
     public:
-        OperationsHandler();
+        OperationsHandler(const rclcpp::NodeOptions&);
         ~OperationsHandler(){}
 };
 

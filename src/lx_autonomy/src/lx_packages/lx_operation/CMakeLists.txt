@@ -17,8 +17,8 @@ find_package(rclcpp_components REQUIRED)
 include_directories(include)
 
 # Operations handler node
-add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
-ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs lx_library)
+# add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
+# ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs lx_library)
 
 # # Autodig node
 # add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)
@@ -44,17 +44,17 @@ ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs l
 #   launch
 #   DESTINATION share/${PROJECT_NAME}
 # )
-add_library(operations_handler_node SHARED src/operations_handler_node.cpp src/operations_handler.cpp)
-target_include_directories(operations_handler_node PRIVATE
+add_library(operations_handler_server SHARED src/operations_handler.cpp)
+target_include_directories(operations_handler_server PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_definitions(operations_handler_node
+target_compile_definitions(operations_handler_server
   PRIVATE "ACTION_TUTORIALS_CPP_BUILDING_DLL")
-  ament_target_dependencies(operations_handler_node rclcpp geometry_msgs lx_msgs lx_library)
+  ament_target_dependencies(operations_handler_server rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
 
-rclcpp_components_register_node(operations_handler_node PLUGIN "OperationsHandler" EXECUTABLE operations_handler_node)
+rclcpp_components_register_node(operations_handler_server PLUGIN "OperationsHandler" EXECUTABLE operations_handler_node)
 install(TARGETS
-  operations_handler_node
+  operations_handler_server
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
