@@ -1,4 +1,4 @@
-/* Author: 
+/* Author: Dhruv Tyagi
  * Subscribers:
  *    - /topic: description
  * Publishers:
@@ -43,12 +43,10 @@ void OperationsHandler::getParams(){
       RCLCPP_INFO(this->get_logger(), "Could not contact param server");
       return;
     }
-    RCLCPP_INFO(this->get_logger(), "Operations handler ...1");
     // Get important parameters
     auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
     get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
                           "rover.op_mode", "rover.task_mode"};
-    RCLCPP_INFO(this->get_logger(), "Operations handler ...2");
     // Send request
     auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&OperationsHandler::paramCB, this, std::placeholders::_1));
 }

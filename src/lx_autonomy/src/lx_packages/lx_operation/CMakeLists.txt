@@ -20,23 +20,23 @@ include_directories(include)
 add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
 ament_target_dependencies(operations_handler_node rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
 
-# # Autodig node
-# add_executable(autodig_node src/autodig_node.cpp src/autodig.cpp)
-# ament_target_dependencies(autodig_node rclcpp lx_msgs lx_library)
+# Auto Dig Handler node
+add_executable(auto_dig_handler_node src/auto_dig_handler_node.cpp src/auto_dig_handler.cpp)
+ament_target_dependencies(auto_dig_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
 
-# # Autodump node
-# add_executable(autodump_node src/autodump_node.cpp src/autodump.cpp)
-# ament_target_dependencies(autodump_node rclcpp lx_msgs lx_library)
+# Auto Dump Handler node
+add_executable(auto_dump_handler_node src/auto_dump_handler_node.cpp src/auto_dump_handler.cpp)
+ament_target_dependencies(autodump_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
 
-# # Rover navigate node
-# add_executable(rover_navigate_node src/rover_navigate_node.cpp src/rover_navigate.cpp)
-# ament_target_dependencies(rover_navigate_node rclcpp lx_msgs lx_library)
+# Auto Nav Handler node
+add_executable(auto_nav_handler_node src/auto_nav_handler_node.cpp src/auto_nav_handler.cpp)
+ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
 
 install(TARGETS
   operations_handler_node
-  # autodig_node
-  # autodump_node
-  # rover_navigate_node
+  auto_dig_handler_node
+  auto_dump_handler_node
+  auto_nav_handler_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -1,5 +1,5 @@
-#ifndef OPERATIONS_HANDLER_H
-#define OPERATIONS_HANDLER_H
+#ifndef AUTO_DUMP_HANDLER_H
+#define AUTO_DUMP_HANDLER_H
 
 #include <rclcpp/rclcpp.hpp>
 #include <queue>
@@ -9,28 +9,21 @@
 #include <thread>
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
-#include "geometry_msgs/msg/point.hpp"
-#include "lx_msgs/msg/berm_config.hpp"
-#include "lx_msgs/action/operation.hpp"
+#include "lx_msgs/action/auto_dump.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
 
-
-class OperationsHandler: public rclcpp::Node
+class AutoDumpHandler: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        using Operation = lx_msgs::action::Operation;
-        using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
-        std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> task_queue_ {};
-        lx_msgs::msg::BermConfig berm_config_;
-        std::vector<unsigned int> executed_task_ids_ {};
+        using AutoDump = lx_msgs::action::AutoDump;
+        using GoalHandleAutoDump = rclcpp_action::ServerGoalHandle<AutoDump>;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
-        rclcpp_action::Server<Operation>::SharedPtr operation_action_server_;
+        rclcpp_action::Server<AutoDump>::SharedPtr autodump_action_server_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -70,7 +63,7 @@ class OperationsHandler: public rclcpp::Node
         * 
         * Handle goal request
         * */
-        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& , std::shared_ptr<const Operation::Goal> );
+        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& , std::shared_ptr<const AutoDump::Goal> );
 
         /*
         * Argument(s):
@@ -78,7 +71,7 @@ class OperationsHandler: public rclcpp::Node
         * 
         * Handle action cancel request
         * */
-        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleOperation> );
+        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleAutoDump> );
 
         /*
         * Argument(s):
@@ -86,7 +79,7 @@ class OperationsHandler: public rclcpp::Node
         * 
         * Handle action accepted
         * */
-        void handle_accepted(const std::shared_ptr<GoalHandleOperation> );
+        void handle_accepted(const std::shared_ptr<GoalHandleAutoDump> );
 
         /*
         * Argument(s):
@@ -94,44 +87,19 @@ class OperationsHandler: public rclcpp::Node
         * 
         * Execute requested action
         * */
-        void executeOperation(const std::shared_ptr<GoalHandleOperation> );
-
-        /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO Planner
-        * */
-        std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> planner();
-
-        /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO Call berm evaluation
-        * */
-        bool checkBermBuilt();
-
-        /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO Task Queue Execution
-        * */
-        bool executeTaskQueue();
-        // --------------------------------------
+        void executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> );
 
     public:
         // Functions
         /*
         * Constructor
         * */
-        explicit OperationsHandler(const rclcpp::NodeOptions&);
+        AutoDumpHandler(const rclcpp::NodeOptions&);
 
         /*
         * Destructor
         * */
-        ~OperationsHandler(){}
+        ~AutoDumpHandler(){}
 };
 
 #endif
