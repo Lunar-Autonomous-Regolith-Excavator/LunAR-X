@@ -24,6 +24,9 @@ CommandMux::CommandMux(): Node("command_mux_node"){
     // Set up subscriptions & publishers
     setupCommunications();
 
+    // Get parameters from the global parameter server
+    getParams();
+
     // Set up parameters from the global parameter server
     setupParams();
 
@@ -39,6 +42,86 @@ void CommandMux::setupCommunications(){
 
     // Publishers
     rover_hw_cmd_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_hw_cmd", 10);
+
+    // Clients
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+}
+
+void CommandMux::getParams(){
+    while(!get_params_client_->wait_for_service(std::chrono::seconds(2))){
+      RCLCPP_INFO(this->get_logger(), "Could not contact param server");
+      return;
+    }
+
+    // Get important parameters
+    auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
+    get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
+                          "rover.op_mode", "rover.task_mode", 
+                          "limits.max_lin_mob_vel", "limits.max_ang_mob_vel",
+                          "limits.max_drum_speed", "limits.max_lin_mob_acc"};
+
+    // Send request
+    auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&CommandMux::paramCB, this, std::placeholders::_1));
+}
+
+void CommandMux::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    // If request successful, save all params in global variables
+    if (status == std::future_status::ready) {
+        // params_timer_ = this->create_wall_timer(std::chrono::seconds(10), 
+        //                     std::bind(&LXGUIBackend::getParameters, this));
+        
+        rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
+        rover_soft_lock_.actuation_lock = future.get()->values.at(1).bool_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Actuation: %s", (rover_soft_lock_.actuation_lock?"Locked":"Unlocked"));
+
+        switch(future.get()->values.at(2).integer_value){
+            case 0:
+               current_rover_op_mode_ = OpModeEnum::STANDBY;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Standby");
+               break;
+            case 1:
+               current_rover_op_mode_ = OpModeEnum::TELEOP;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Teleop");
+               break;
+            case 2:
+               current_rover_op_mode_ = OpModeEnum::AUTONOMOUS;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Autonomous");
+               break;
+        }
+
+        switch(future.get()->values.at(3).integer_value){
+            case 0:
+               current_rover_task_mode_ = TaskModeEnum::IDLE;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Idle");
+               break;
+            case 1:
+               current_rover_task_mode_ = TaskModeEnum::NAV;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Navigation");
+               break;
+            case 2:
+               current_rover_task_mode_ = TaskModeEnum::EXC;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Excavation");
+               break;
+            case 3:
+               current_rover_task_mode_ = TaskModeEnum::DMP;
+               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Dumping");
+               break;
+        }
+
+        max_mob_lin_vel_ = future.get()->values.at(4).double_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Max Linear Vel: %.2f", max_mob_lin_vel_);
+        max_mob_ang_vel_ = future.get()->values.at(5).double_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Max Angular Vel: %.2f", max_mob_ang_vel_);
+        max_drum_speed_ = future.get()->values.at(6).double_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Max Drum Speed: %.2f", max_drum_speed_);
+        max_mob_lin_acc_ = future.get()->values.at(7).double_value;
+        RCLCPP_INFO(this->get_logger(), "Parameter set Max Mob Linear Acceleration: %.2f", max_mob_lin_acc_);
+    } 
+    else {
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
 }
 
 void CommandMux::setupParams(){
