@@ -119,6 +119,12 @@ class OperationsHandler: public rclcpp::Node
         * TODO Task Queue Execution
         * */
         bool executeTaskQueue();
+
+        bool callAutoNav(Task );
+
+        bool callAutoDig(Task );
+
+        bool callAutoDump(Task );
         // --------------------------------------
 
     public:

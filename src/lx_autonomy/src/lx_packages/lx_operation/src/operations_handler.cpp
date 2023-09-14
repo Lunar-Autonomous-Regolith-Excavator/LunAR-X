@@ -217,6 +217,8 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     auto result = std::make_shared<Operation::Result>();
 
     do{
+        // Set task mode as IDLE
+        
         // Call planner to plan full path
         // Get task queue from planner
         task_queue_ = planner();
@@ -260,8 +262,78 @@ bool OperationsHandler::executeTaskQueue(){
     // TODO
 
     // Execute task queue
+    while(!task_queue_.empty()){
+        // Execute task
+        Task current_task = task_queue_.front();
+        task_queue_.pop();
+        switch(current_task.getType()){
+            case TaskTypeEnum::AUTONAV:
+                if(!callAutoNav(current_task)){
+                    return false;
+                }
+                break;
+            case TaskTypeEnum::AUTODIG:
+                if(!callAutoDig(current_task)){
+                    return false;
+                }
+                break;
+            case TaskTypeEnum::AUTODUMP:
+                if(!callAutoDump(current_task)){
+                    return false;
+                }
+                break;
+            default:
+                RCLCPP_ERROR(this->get_logger(), "Invalid task type");
+                return false;
+        }
+    }
 
     // Append successful tasks to executed_task_ids_
+    return true;
+}
+
+bool OperationsHandler::callAutoNav(Task current_task){
+    // TODO
+
+    // Set task mode as NAV
+
+    // Call autonav action
+
+    // Block till action complete
+
+    // Set task mode as IDLE
+
+    // Return true if autonav successful
+    return true;
+}
+
+bool OperationsHandler::callAutoDig(Task current_task){
+    // TODO
+
+    // Set task mode as EXC
+
+    // Call autodig action
+
+    // Block till action complete
+
+    // Set task mode as IDLE
+
+    // Return true if autodig successful
+    return true;
+}
+
+bool OperationsHandler::callAutoDump(Task current_task){
+    // TODO
+
+    // Set task mode as DMP
+
+    // Call autodump action
+
+    // Block till action complete
+
+    // Set task mode as IDLE
+
+    // Return true if autodump successful
     return true;
 }
 

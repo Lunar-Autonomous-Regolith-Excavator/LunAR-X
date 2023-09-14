@@ -19,3 +19,15 @@ Task::Task(unsigned int id, TaskTypeEnum type, geometry_msgs::msg::PoseArray pos
     this->task_type_ = type;
     this->pose_array_ = pose_array;
 }
+
+unsigned int Task::getID(){
+    return task_id_;
+}
+
+TaskTypeEnum Task::getType(){
+    return task_type_;
+}
+
+geometry_msgs::msg::PoseArray Task::getPoseArray(){
+    return pose_array_;
+}

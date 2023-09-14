@@ -10,10 +10,16 @@ class Task
     private:
         unsigned int task_id_;
         TaskTypeEnum task_type_;
-        geometry_msgs::msg::PoseArray pose_array_;
+        auto pose_array_ = geometry_msgs::msg::PoseArray();
 
     public:
         // Functions ----------------------------
+        unsigned int getID();
+
+        TaskTypeEnum getType();
+
+        geometry_msgs::msg::PoseArray getPoseArray();
+
         /*
         * Constructor
         * */
@@ -23,7 +29,6 @@ class Task
         * Destructor
         * */
         ~Task(){}
-
         // --------------------------------------
 
 };
