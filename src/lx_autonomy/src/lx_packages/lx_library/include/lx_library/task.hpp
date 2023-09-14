@@ -10,7 +10,7 @@ class Task
     private:
         unsigned int task_id_;
         TaskTypeEnum task_type_;
-        auto pose_array_ = geometry_msgs::msg::PoseArray();
+        geometry_msgs::msg::PoseArray pose_array_ = geometry_msgs::msg::PoseArray();
 
     public:
         // Functions ----------------------------

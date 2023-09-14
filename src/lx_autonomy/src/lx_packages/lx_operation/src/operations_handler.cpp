@@ -106,6 +106,7 @@ void OperationsHandler::setupCommunications(){
     // Add all subscriptions, publishers and services here
 
     // Clients
+    set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
     // Action server
     using namespace std::placeholders;
@@ -179,6 +180,22 @@ void OperationsHandler::setupParams(){
     task_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(task_mode_param_name, task_mode_params_callback, param_server_name);
 }
 
+void OperationsHandler::switchRoverTaskMode(TaskModeEnum mode_to_set){
+    while(!set_params_client_->wait_for_service(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
+    }
+
+    auto set_request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+    auto task_mode_param_req = rcl_interfaces::msg::Parameter();
+    task_mode_param_req.name = "rover.task_mode";
+    task_mode_param_req.value.type = 2;
+    task_mode_param_req.value.integer_value = uint16_t(mode_to_set);
+
+    set_request->parameters = {task_mode_param_req};
+
+    auto future_result = set_params_client_->async_send_request(set_request);
+}
+
 rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Operation::Goal> goal){
     // Get requested berm configuration
     berm_config_.berm_configuration = goal->requested_berm_config.berm_configuration;
@@ -218,7 +235,8 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
 
     do{
         // Set task mode as IDLE
-        
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+
         // Call planner to plan full path
         // Get task queue from planner
         task_queue_ = planner();
@@ -235,6 +253,8 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
         // If all tasks successful, continue next loop iteration
     } 
     while(!checkBermBuilt());
+
+    switchRoverTaskMode(TaskModeEnum::IDLE);
     
     // If berm is built, return goal success
     if (rclcpp::ok()) {
@@ -244,16 +264,22 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     }
 }
 
-std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> OperationsHandler::planner(){
+std::queue<Task, std::list<Task>> OperationsHandler::planner(){
     // TODO
 
     // Decide planner inputs
 
     // Planner should give task ids. Check already executed tasks by accessing executed_task_ids_
 
-    std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> build_task_queue {};
+    std::queue<Task, std::list<Task>> build_task_queue {};
 
     // Add tasks to task queue
+
+    // TEST TASKS - TO BE REMOVED
+    auto test_pose = geometry_msgs::msg::PoseArray();
+    build_task_queue.push(Task(0, TaskTypeEnum::AUTONAV, test_pose));
+    build_task_queue.push(Task(1, TaskTypeEnum::AUTODIG, test_pose));
+    build_task_queue.push(Task(2, TaskTypeEnum::AUTODUMP, test_pose));
 
     return build_task_queue;
 }
@@ -263,32 +289,40 @@ bool OperationsHandler::executeTaskQueue(){
 
     // Execute task queue
     while(!task_queue_.empty()){
-        // Execute task
-        Task current_task = task_queue_.front();
-        task_queue_.pop();
-        switch(current_task.getType()){
-            case TaskTypeEnum::AUTONAV:
-                if(!callAutoNav(current_task)){
+        // Check if rover locked
+        if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
+            RCLCPP_ERROR(this->get_logger(), "Rover locked - Task queue can not be executed");
+            return false;
+        }
+        else{
+            // Execute task
+            Task current_task = task_queue_.front();
+            task_queue_.pop();
+            switch(current_task.getType()){
+                case TaskTypeEnum::AUTONAV:
+                    if(!callAutoNav(current_task)){
+                        return false;
+                    }
+                    break;
+                case TaskTypeEnum::AUTODIG:
+                    if(!callAutoDig(current_task)){
+                        return false;
+                    }
+                    break;
+                case TaskTypeEnum::AUTODUMP:
+                    if(!callAutoDump(current_task)){
+                        return false;
+                    }
+                    break;
+                default:
+                    RCLCPP_ERROR(this->get_logger(), "Invalid task type");
                     return false;
-                }
-                break;
-            case TaskTypeEnum::AUTODIG:
-                if(!callAutoDig(current_task)){
-                    return false;
-                }
-                break;
-            case TaskTypeEnum::AUTODUMP:
-                if(!callAutoDump(current_task)){
-                    return false;
-                }
-                break;
-            default:
-                RCLCPP_ERROR(this->get_logger(), "Invalid task type");
-                return false;
+            }
+            // Append executed task id to executed_task_ids_
+            executed_task_ids_.push_back(current_task.getID());
         }
     }
 
-    // Append successful tasks to executed_task_ids_
     return true;
 }
 
@@ -296,12 +330,14 @@ bool OperationsHandler::callAutoNav(Task current_task){
     // TODO
 
     // Set task mode as NAV
+    switchRoverTaskMode(TaskModeEnum::NAV);
 
     // Call autonav action
 
     // Block till action complete
 
     // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
 
     // Return true if autonav successful
     return true;
@@ -311,12 +347,14 @@ bool OperationsHandler::callAutoDig(Task current_task){
     // TODO
 
     // Set task mode as EXC
+    switchRoverTaskMode(TaskModeEnum::EXC);
 
     // Call autodig action
 
     // Block till action complete
 
     // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
 
     // Return true if autodig successful
     return true;
@@ -326,12 +364,14 @@ bool OperationsHandler::callAutoDump(Task current_task){
     // TODO
 
     // Set task mode as DMP
+    switchRoverTaskMode(TaskModeEnum::DMP);
 
     // Call autodump action
 
     // Block till action complete
 
     // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
 
     // Return true if autodump successful
     return true;

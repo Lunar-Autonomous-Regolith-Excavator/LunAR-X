@@ -14,6 +14,7 @@
 #include "lx_msgs/action/operation.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
+#include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
@@ -24,10 +25,11 @@ class OperationsHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using Operation = lx_msgs::action::Operation;
         using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
-        std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> task_queue_ {};
+        std::queue<Task, std::list<Task>> task_queue_ {};
         lx_msgs::msg::BermConfig berm_config_;
         std::vector<unsigned int> executed_task_ids_ {};
         // Service clients
+        rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
         rclcpp_action::Server<Operation>::SharedPtr operation_action_server_;
@@ -62,6 +64,14 @@ class OperationsHandler: public rclcpp::Node
         * Callback function for starting values of global parameters
         * */
         void paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture );
+
+        /*
+        * Argument(s):
+        *   - desired task mode
+        * 
+        * Publish required rover task mode
+        * */
+        void switchRoverTaskMode(TaskModeEnum );
 
         /*
         * Argument(s):
@@ -102,7 +112,7 @@ class OperationsHandler: public rclcpp::Node
         * 
         * TODO Planner
         * */
-        std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> planner();
+        std::queue<Task, std::list<Task>> planner();
 
         /*
         * Argument(s):
