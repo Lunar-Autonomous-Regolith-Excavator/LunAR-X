@@ -29,8 +29,12 @@ class OperationsHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using Operation = lx_msgs::action::Operation;
         using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
+        using AutoNav = lx_msgs::action::AutoNav;
+        using GoalHandleAutoNav = rclcpp_action::ClientGoalHandle<AutoNav>;
         using AutoDig = lx_msgs::action::AutoDig;
         using GoalHandleAutoDig = rclcpp_action::ClientGoalHandle<AutoDig>;
+        using AutoDump = lx_msgs::action::AutoDump;
+        using GoalHandleAutoDump = rclcpp_action::ClientGoalHandle<AutoDump>;
         std::queue<Task, std::list<Task>> task_queue_ {};
         lx_msgs::msg::BermConfig berm_config_;
         std::vector<unsigned int> executed_task_ids_ {};
@@ -47,7 +51,9 @@ class OperationsHandler: public rclcpp::Node
         // Action server
         rclcpp_action::Server<Operation>::SharedPtr operation_action_server_;
         // Action clients
+        rclcpp_action::Client<AutoNav>::SharedPtr auto_nav_action_client_;
         rclcpp_action::Client<AutoDig>::SharedPtr auto_dig_action_client_;
+        rclcpp_action::Client<AutoDump>::SharedPtr auto_dump_action_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -151,11 +157,23 @@ class OperationsHandler: public rclcpp::Node
 
         bool callAutoDump(Task );
 
+        void autoNavResponseCB(GoalHandleAutoNav::SharedPtr );
+
+        void autoNavFeedbackCB(GoalHandleAutoNav::SharedPtr, const std::shared_ptr<const AutoNav::Feedback> );
+
+        void autoNavResultCB(const GoalHandleAutoNav::WrappedResult& );
+
         void autoDigResponseCB(GoalHandleAutoDig::SharedPtr );
 
         void autoDigFeedbackCB(GoalHandleAutoDig::SharedPtr, const std::shared_ptr<const AutoDig::Feedback> );
 
         void autoDigResultCB(const GoalHandleAutoDig::WrappedResult& );
+
+        void autoDumpResponseCB(GoalHandleAutoDump::SharedPtr );
+
+        void autoDumpFeedbackCB(GoalHandleAutoDump::SharedPtr, const std::shared_ptr<const AutoDump::Feedback> );
+
+        void autoDumpResultCB(const GoalHandleAutoDump::WrappedResult& );
         // --------------------------------------
 
     public:

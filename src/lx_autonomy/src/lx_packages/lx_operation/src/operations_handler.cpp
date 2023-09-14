@@ -115,8 +115,9 @@ void OperationsHandler::setupCommunications(){
                                             std::bind(&OperationsHandler::handle_cancel, this, _1),
                                             std::bind(&OperationsHandler::handle_accepted, this, _1));
     // Action clients
-    // auto_dig_action_client_ = rclcpp_action::create_client<AutoDig>("operations/autodig_action");
+    this->auto_nav_action_client_ = rclcpp_action::create_client<AutoNav>(this, "operations/autonav_action");
     this->auto_dig_action_client_ = rclcpp_action::create_client<AutoDig>(this, "operations/autodig_action");
+    this->auto_dump_action_client_ = rclcpp_action::create_client<AutoDump>(this, "operations/autodump_action");
 }
 
 void OperationsHandler::setupParams(){
@@ -330,25 +331,57 @@ bool OperationsHandler::executeTaskQueue(){
 }
 
 bool OperationsHandler::callAutoNav(Task current_task){
-    // TODO
-
     // Set task mode as NAV
     switchRoverTaskMode(TaskModeEnum::NAV);
 
     // Call autonav action
+    using namespace std::placeholders;
+    if (!auto_nav_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Auto Nav action server not available after waiting");
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+        return false;
+    }
+    // Block till action returns result or rejection
+    auto_action_blocking_ = true;
+    auto_action_server_responded_ = false;
+    auto_action_accepted_ = false;
+    auto_action_success_ = false;
+
+    auto autonav_request_msg = AutoNav::Goal();
+    // TODO Create Autonav Request from the Task
+    
+    RCLCPP_INFO(this->get_logger(), "Sending Auto Nav goal");
+    
+    auto send_goal_options = rclcpp_action::Client<AutoNav>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&OperationsHandler::autoNavResponseCB, this, _1);
+    send_goal_options.feedback_callback = std::bind(&OperationsHandler::autoNavFeedbackCB, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&OperationsHandler::autoNavResultCB, this, _1);
+
+    auto goal_handle_future = auto_nav_action_client_->async_send_goal(autonav_request_msg, send_goal_options);
 
     // Block till action complete
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(auto_action_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
 
     // Set task mode as IDLE
     switchRoverTaskMode(TaskModeEnum::IDLE);
 
     // Return true if autonav successful
-    return true;
+    if(!auto_action_accepted_){
+        return false;
+    }
+    else if(auto_action_success_){
+        return true;
+    }
+
+    return false;
 }
 
 bool OperationsHandler::callAutoDig(Task current_task){
-    // TODO
-
     // Set task mode as EXC
     switchRoverTaskMode(TaskModeEnum::EXC);
 
@@ -367,8 +400,8 @@ bool OperationsHandler::callAutoDig(Task current_task){
     auto_action_success_ = false;
 
     auto autodig_request_msg = AutoDig::Goal();
-    autodig_request_msg.to_be_decided_1 = 0.65;
-    autodig_request_msg.to_be_decided_2 = 0.55;
+    // TODO Create Autodig Request from the Task
+
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dig goal");
     
     auto send_goal_options = rclcpp_action::Client<AutoDig>::SendGoalOptions();
@@ -406,14 +439,91 @@ bool OperationsHandler::callAutoDump(Task current_task){
     switchRoverTaskMode(TaskModeEnum::DMP);
 
     // Call autodump action
+    using namespace std::placeholders;
+    if (!auto_dump_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Auto Dump action server not available after waiting");
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+        return false;
+    }
+    // Block till action returns result or rejection
+    auto_action_blocking_ = true;
+    auto_action_server_responded_ = false;
+    auto_action_accepted_ = false;
+    auto_action_success_ = false;
+
+    auto autodump_request_msg = AutoDump::Goal();
+    // TODO Create Autodump Request from the Task
+
+    RCLCPP_INFO(this->get_logger(), "Sending Auto Dump goal");
+    
+    auto send_goal_options = rclcpp_action::Client<AutoDump>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&OperationsHandler::autoDumpResponseCB, this, _1);
+    send_goal_options.feedback_callback = std::bind(&OperationsHandler::autoDumpFeedbackCB, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&OperationsHandler::autoDumpResultCB, this, _1);
+
+    auto goal_handle_future = auto_dump_action_client_->async_send_goal(autodump_request_msg, send_goal_options);
 
     // Block till action complete
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(auto_action_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
 
     // Set task mode as IDLE
     switchRoverTaskMode(TaskModeEnum::IDLE);
 
-    // Return true if autodump successful
-    return true;
+    // Return true if autodig successful
+    if(!auto_action_accepted_){
+        return false;
+    }
+    else if(auto_action_success_){
+        return true;
+    }
+
+    return false;
+}
+
+void OperationsHandler::autoNavResponseCB(GoalHandleAutoNav::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Auto nav goal was rejected by server");
+        auto_action_blocking_ = false;
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = false;
+        auto_action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Auto nav goal accepted by server, waiting for result");
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = true;
+    }
+}
+
+void OperationsHandler::autoNavFeedbackCB(GoalHandleAutoNav::SharedPtr, const std::shared_ptr<const AutoNav::Feedback> feedback) {
+    RCLCPP_INFO(this->get_logger(), "Received feedback: %s", feedback->status.c_str());
+}
+
+void OperationsHandler::autoNavResultCB(const GoalHandleAutoNav::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Auto nav goal succeeded");
+            auto_action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Auto nav goal was aborted");
+            auto_action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Auto nav goal was canceled");
+            auto_action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            auto_action_success_ = false;
+            break;
+    }
+    auto_action_blocking_ = false;
 }
 
 void OperationsHandler::autoDigResponseCB(GoalHandleAutoDig::SharedPtr future){
@@ -447,6 +557,47 @@ void OperationsHandler::autoDigResultCB(const GoalHandleAutoDig::WrappedResult &
             break;
         case rclcpp_action::ResultCode::CANCELED:
             RCLCPP_ERROR(this->get_logger(), "Auto dig goal was canceled");
+            auto_action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            auto_action_success_ = false;
+            break;
+    }
+    auto_action_blocking_ = false;
+}
+
+void OperationsHandler::autoDumpResponseCB(GoalHandleAutoDump::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Auto dump goal was rejected by server");
+        auto_action_blocking_ = false;
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = false;
+        auto_action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Auto dump goal accepted by server, waiting for result");
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = true;
+    }
+}
+
+void OperationsHandler::autoDumpFeedbackCB(GoalHandleAutoDump::SharedPtr, const std::shared_ptr<const AutoDump::Feedback> feedback) {
+    RCLCPP_INFO(this->get_logger(), "Received feedback: %s", feedback->status.c_str());
+}
+
+void OperationsHandler::autoDumpResultCB(const GoalHandleAutoDump::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Auto dump goal succeeded");
+            auto_action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dump goal was aborted");
+            auto_action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dump goal was canceled");
             auto_action_success_ = false;
             break;
         default:
