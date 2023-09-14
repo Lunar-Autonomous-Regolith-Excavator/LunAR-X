@@ -9,13 +9,11 @@
  * - Summary
  * 
  * TODO
- * - Check operation action
- * - Write planner
+ * - getPlan
  * - Write executeTaskQueue
  * - Write checkBermBuilt
  * - Finish executeOperation
  * - Add documentation
- * - Add parameters
  * */
 
 #include "lx_operation/operations_handler.hpp"
@@ -103,11 +101,16 @@ void OperationsHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
 }
 
 void OperationsHandler::setupCommunications(){
-    // Add all subscriptions, publishers and services here
+    // Subscribers 
 
-    // Clients
+    // Publishers
+    
+    // Service servers
+
+    // Service clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    planner_client_ = this->create_client<lx_msgs::srv::Plan>("/plan_operation");
     // Action server
     using namespace std::placeholders;
     this->operation_action_server_ = rclcpp_action::create_server<Operation>(this, "operations/berm_build_action",
@@ -243,7 +246,7 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
 
         // Call planner to plan full path
         // Get task queue from planner
-        task_queue_ = planner();
+        task_queue_ = getPlan();
 
         // TODO Only keep first N tasks in queue
 
@@ -269,12 +272,14 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     }
 }
 
-std::queue<Task, std::list<Task>> OperationsHandler::planner(){
+std::queue<Task, std::list<Task>> OperationsHandler::getPlan(){
     // TODO
 
-    // Decide planner inputs
+    // Call planning service
 
-    // Planner should give task ids. Check already executed tasks by accessing executed_task_ids_
+    // Block till planner returns plan
+
+    // Return task ids. Check already executed tasks by accessing executed_task_ids_
 
     std::queue<Task, std::list<Task>> build_task_queue {};
 
