@@ -178,6 +178,7 @@ void AutoNavHandler::setupParams(){
 rclcpp_action::GoalResponse AutoNavHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const AutoNav::Goal> goal){
     RCLCPP_INFO(this->get_logger(), "Received autonav request");
     (void)uuid;
+    (void)goal;
     
     // Accept and execute action
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;

@@ -178,6 +178,7 @@ void AutoDigHandler::setupParams(){
 rclcpp_action::GoalResponse AutoDigHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const AutoDig::Goal> goal){
     RCLCPP_INFO(this->get_logger(), "Received autodig request");
     (void)uuid;
+    (void)goal;
     
     // Accept and execute action
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;

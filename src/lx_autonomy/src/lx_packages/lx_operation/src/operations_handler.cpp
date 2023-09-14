@@ -346,6 +346,7 @@ bool OperationsHandler::callAutoNav(Task current_task){
 
     auto autonav_request_msg = AutoNav::Goal();
     // TODO Create Autonav Request from the Task
+    (void)current_task;
     
     RCLCPP_INFO(this->get_logger(), "Sending Auto Nav goal");
     
@@ -397,6 +398,7 @@ bool OperationsHandler::callAutoDig(Task current_task){
 
     auto autodig_request_msg = AutoDig::Goal();
     // TODO Create Autodig Request from the Task
+    (void)current_task;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dig goal");
     
@@ -448,6 +450,7 @@ bool OperationsHandler::callAutoDump(Task current_task){
 
     auto autodump_request_msg = AutoDump::Goal();
     // TODO Create Autodump Request from the Task
+    (void)current_task;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dump goal");
     
