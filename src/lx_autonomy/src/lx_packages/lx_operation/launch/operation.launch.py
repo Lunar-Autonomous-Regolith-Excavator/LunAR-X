@@ -12,6 +12,27 @@ def generate_launch_description():
         name='operations_handler_node'
     )
 
+    auto_dig_handler_node = Node(
+        package='lx_operation',
+        executable='auto_dig_handler_node',
+        name='auto_dig_handler_node'
+    )
+
+    auto_dump_handler_node = Node(
+        package='lx_operation',
+        executable='auto_dump_handler_node',
+        name='auto_dump_handler_node'
+    )
+
+    auto_nav_handler_node = Node(
+        package='lx_operation',
+        executable='auto_nav_handler_node',
+        name='auto_nav_handler_node'
+    )
+
     ld.add_action(operations_handler_node)
+    ld.add_action(auto_dig_handler_node)
+    ld.add_action(auto_dump_handler_node)
+    ld.add_action(auto_nav_handler_node)
 
     return ld

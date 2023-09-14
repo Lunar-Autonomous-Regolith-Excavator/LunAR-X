@@ -1,4 +1,4 @@
-/* Author: 
+/* Author: Dhruv Tyagi
  * Subscribers:
  *    - /topic: description
  * Publishers:
@@ -43,12 +43,10 @@ void OperationsHandler::getParams(){
       RCLCPP_INFO(this->get_logger(), "Could not contact param server");
       return;
     }
-    RCLCPP_INFO(this->get_logger(), "Operations handler ...1");
     // Get important parameters
     auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
     get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
                           "rover.op_mode", "rover.task_mode"};
-    RCLCPP_INFO(this->get_logger(), "Operations handler ...2");
     // Send request
     auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&OperationsHandler::paramCB, this, std::placeholders::_1));
 }
@@ -61,41 +59,41 @@ void OperationsHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
         //                     std::bind(&LXGUIBackend::getParameters, this));
         
         rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
-        RCLCPP_INFO(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
+        RCLCPP_DEBUG(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
         rover_soft_lock_.actuation_lock = future.get()->values.at(1).bool_value;
-        RCLCPP_INFO(this->get_logger(), "Parameter set Actuation: %s", (rover_soft_lock_.actuation_lock?"Locked":"Unlocked"));
+        RCLCPP_DEBUG(this->get_logger(), "Parameter set Actuation: %s", (rover_soft_lock_.actuation_lock?"Locked":"Unlocked"));
 
         switch(future.get()->values.at(2).integer_value){
             case 0:
                current_rover_op_mode_ = OpModeEnum::STANDBY;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Standby");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Operation mode: Standby");
                break;
             case 1:
                current_rover_op_mode_ = OpModeEnum::TELEOP;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Teleop");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Operation mode: Teleop");
                break;
             case 2:
                current_rover_op_mode_ = OpModeEnum::AUTONOMOUS;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Autonomous");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Operation mode: Autonomous");
                break;
         }
 
         switch(future.get()->values.at(3).integer_value){
             case 0:
                current_rover_task_mode_ = TaskModeEnum::IDLE;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Idle");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Idle");
                break;
             case 1:
                current_rover_task_mode_ = TaskModeEnum::NAV;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Navigation");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Navigation");
                break;
             case 2:
                current_rover_task_mode_ = TaskModeEnum::EXC;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Excavation");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Excavation");
                break;
             case 3:
                current_rover_task_mode_ = TaskModeEnum::DMP;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Dumping");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Dumping");
                break;
         }
     } 
@@ -108,6 +106,7 @@ void OperationsHandler::setupCommunications(){
     // Add all subscriptions, publishers and services here
 
     // Clients
+    set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
     // Action server
     using namespace std::placeholders;
@@ -115,6 +114,10 @@ void OperationsHandler::setupCommunications(){
                                             std::bind(&OperationsHandler::handle_goal, this, _1, _2),
                                             std::bind(&OperationsHandler::handle_cancel, this, _1),
                                             std::bind(&OperationsHandler::handle_accepted, this, _1));
+    // Action clients
+    this->auto_nav_action_client_ = rclcpp_action::create_client<AutoNav>(this, "operations/autonav_action");
+    this->auto_dig_action_client_ = rclcpp_action::create_client<AutoDig>(this, "operations/autodig_action");
+    this->auto_dump_action_client_ = rclcpp_action::create_client<AutoDump>(this, "operations/autodump_action");
 }
 
 void OperationsHandler::setupParams(){
@@ -181,6 +184,22 @@ void OperationsHandler::setupParams(){
     task_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(task_mode_param_name, task_mode_params_callback, param_server_name);
 }
 
+void OperationsHandler::switchRoverTaskMode(TaskModeEnum mode_to_set){
+    while(!set_params_client_->wait_for_service(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
+    }
+
+    auto set_request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+    auto task_mode_param_req = rcl_interfaces::msg::Parameter();
+    task_mode_param_req.name = "rover.task_mode";
+    task_mode_param_req.value.type = 2;
+    task_mode_param_req.value.integer_value = uint16_t(mode_to_set);
+
+    set_request->parameters = {task_mode_param_req};
+
+    auto future_result = set_params_client_->async_send_request(set_request);
+}
+
 rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Operation::Goal> goal){
     // Get requested berm configuration
     berm_config_.berm_configuration = goal->requested_berm_config.berm_configuration;
@@ -219,6 +238,9 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     auto result = std::make_shared<Operation::Result>();
 
     do{
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+
         // Call planner to plan full path
         // Get task queue from planner
         task_queue_ = planner();
@@ -231,10 +253,13 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
+            return;
         }
         // If all tasks successful, continue next loop iteration
     } 
     while(!checkBermBuilt());
+
+    switchRoverTaskMode(TaskModeEnum::IDLE);
     
     // If berm is built, return goal success
     if (rclcpp::ok()) {
@@ -244,27 +269,340 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     }
 }
 
-std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> OperationsHandler::planner(){
+std::queue<Task, std::list<Task>> OperationsHandler::planner(){
     // TODO
 
     // Decide planner inputs
 
     // Planner should give task ids. Check already executed tasks by accessing executed_task_ids_
 
-    std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> build_task_queue {};
+    std::queue<Task, std::list<Task>> build_task_queue {};
 
     // Add tasks to task queue
+
+    // TEST TASKS - TO BE REMOVED
+    auto test_pose = geometry_msgs::msg::PoseArray();
+    build_task_queue.push(Task(0, TaskTypeEnum::AUTONAV, test_pose));
+    build_task_queue.push(Task(1, TaskTypeEnum::AUTODIG, test_pose));
+    build_task_queue.push(Task(2, TaskTypeEnum::AUTODUMP, test_pose));
 
     return build_task_queue;
 }
 
 bool OperationsHandler::executeTaskQueue(){
-    // TODO
-
     // Execute task queue
+    while(!task_queue_.empty()){
+        // Check if rover locked
+        if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
+            RCLCPP_ERROR(this->get_logger(), "Rover locked - Task queue can not be executed");
+            return false;
+        }
+        else{
+            // Execute task
+            Task current_task = task_queue_.front();
+            task_queue_.pop();
+            switch(current_task.getType()){
+                case TaskTypeEnum::AUTONAV:
+                    if(!callAutoNav(current_task)){
+                        return false;
+                    }
+                    break;
+                case TaskTypeEnum::AUTODIG:
+                    if(!callAutoDig(current_task)){
+                        return false;
+                    }
+                    break;
+                case TaskTypeEnum::AUTODUMP:
+                    if(!callAutoDump(current_task)){
+                        return false;
+                    }
+                    break;
+                default:
+                    RCLCPP_ERROR(this->get_logger(), "Invalid task type");
+                    return false;
+            }
+            // Append executed task id to executed_task_ids_
+            executed_task_ids_.push_back(current_task.getID());
+        }
+    }
 
-    // Append successful tasks to executed_task_ids_
     return true;
+}
+
+bool OperationsHandler::callAutoNav(Task current_task){
+    // Call autonav action
+    using namespace std::placeholders;
+    if (!auto_nav_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Auto Nav action server not available after waiting");
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+        return false;
+    }
+    // Block till action returns result or rejection
+    auto_action_blocking_ = true;
+    auto_action_server_responded_ = false;
+    auto_action_accepted_ = false;
+    auto_action_success_ = false;
+
+    auto autonav_request_msg = AutoNav::Goal();
+    // TODO Create Autonav Request from the Task
+    (void)current_task;
+    
+    RCLCPP_INFO(this->get_logger(), "Sending Auto Nav goal");
+    
+    auto send_goal_options = rclcpp_action::Client<AutoNav>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&OperationsHandler::autoNavResponseCB, this, _1);
+    send_goal_options.feedback_callback = std::bind(&OperationsHandler::autoNavFeedbackCB, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&OperationsHandler::autoNavResultCB, this, _1);
+
+    auto goal_handle_future = auto_nav_action_client_->async_send_goal(autonav_request_msg, send_goal_options);
+
+    // Block till action complete
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(auto_action_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
+
+    // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
+
+    // Return true if autonav successful
+    if(!auto_action_accepted_){
+        return false;
+    }
+    else if(auto_action_success_){
+        return true;
+    }
+
+    return false;
+}
+
+bool OperationsHandler::callAutoDig(Task current_task){
+    // Set task mode as EXC
+    switchRoverTaskMode(TaskModeEnum::EXC);
+
+    // Call autodig action
+    using namespace std::placeholders;
+    if (!auto_dig_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Auto Dig action server not available after waiting");
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+        return false;
+    }
+    // Block till action returns result or rejection
+    auto_action_blocking_ = true;
+    auto_action_server_responded_ = false;
+    auto_action_accepted_ = false;
+    auto_action_success_ = false;
+
+    auto autodig_request_msg = AutoDig::Goal();
+    // TODO Create Autodig Request from the Task
+    (void)current_task;
+
+    RCLCPP_INFO(this->get_logger(), "Sending Auto Dig goal");
+    
+    auto send_goal_options = rclcpp_action::Client<AutoDig>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&OperationsHandler::autoDigResponseCB, this, _1);
+    send_goal_options.feedback_callback = std::bind(&OperationsHandler::autoDigFeedbackCB, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&OperationsHandler::autoDigResultCB, this, _1);
+
+    auto goal_handle_future = auto_dig_action_client_->async_send_goal(autodig_request_msg, send_goal_options);
+
+    // Block till action complete
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(auto_action_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
+
+    // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
+
+    // Return true if autodig successful
+    if(!auto_action_accepted_){
+        return false;
+    }
+    else if(auto_action_success_){
+        return true;
+    }
+
+    return false;
+}
+
+bool OperationsHandler::callAutoDump(Task current_task){
+    // Set task mode as DMP
+    switchRoverTaskMode(TaskModeEnum::DMP);
+
+    // Call autodump action
+    using namespace std::placeholders;
+    if (!auto_dump_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Auto Dump action server not available after waiting");
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+        return false;
+    }
+    // Block till action returns result or rejection
+    auto_action_blocking_ = true;
+    auto_action_server_responded_ = false;
+    auto_action_accepted_ = false;
+    auto_action_success_ = false;
+
+    auto autodump_request_msg = AutoDump::Goal();
+    // TODO Create Autodump Request from the Task
+    (void)current_task;
+
+    RCLCPP_INFO(this->get_logger(), "Sending Auto Dump goal");
+    
+    auto send_goal_options = rclcpp_action::Client<AutoDump>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&OperationsHandler::autoDumpResponseCB, this, _1);
+    send_goal_options.feedback_callback = std::bind(&OperationsHandler::autoDumpFeedbackCB, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&OperationsHandler::autoDumpResultCB, this, _1);
+
+    auto goal_handle_future = auto_dump_action_client_->async_send_goal(autodump_request_msg, send_goal_options);
+
+    // Block till action complete
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(auto_action_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
+
+    // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
+
+    // Return true if autodig successful
+    if(!auto_action_accepted_){
+        return false;
+    }
+    else if(auto_action_success_){
+        return true;
+    }
+
+    return false;
+}
+
+void OperationsHandler::autoNavResponseCB(GoalHandleAutoNav::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Auto nav goal was rejected by server");
+        auto_action_blocking_ = false;
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = false;
+        auto_action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Auto nav goal accepted by server, waiting for result");
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = true;
+    }
+}
+
+void OperationsHandler::autoNavFeedbackCB(GoalHandleAutoNav::SharedPtr, const std::shared_ptr<const AutoNav::Feedback> feedback) {
+    RCLCPP_INFO(this->get_logger(), "Received feedback: %s", feedback->status.c_str());
+}
+
+void OperationsHandler::autoNavResultCB(const GoalHandleAutoNav::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Auto nav goal succeeded");
+            auto_action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Auto nav goal was aborted");
+            auto_action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Auto nav goal was canceled");
+            auto_action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            auto_action_success_ = false;
+            break;
+    }
+    auto_action_blocking_ = false;
+}
+
+void OperationsHandler::autoDigResponseCB(GoalHandleAutoDig::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Auto dig goal was rejected by server");
+        auto_action_blocking_ = false;
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = false;
+        auto_action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Auto dig goal accepted by server, waiting for result");
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = true;
+    }
+}
+
+void OperationsHandler::autoDigFeedbackCB(GoalHandleAutoDig::SharedPtr, const std::shared_ptr<const AutoDig::Feedback> feedback) {
+    RCLCPP_INFO(this->get_logger(), "Received feedback: %s", feedback->status.c_str());
+}
+
+void OperationsHandler::autoDigResultCB(const GoalHandleAutoDig::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Auto dig goal succeeded");
+            auto_action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dig goal was aborted");
+            auto_action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dig goal was canceled");
+            auto_action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            auto_action_success_ = false;
+            break;
+    }
+    auto_action_blocking_ = false;
+}
+
+void OperationsHandler::autoDumpResponseCB(GoalHandleAutoDump::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Auto dump goal was rejected by server");
+        auto_action_blocking_ = false;
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = false;
+        auto_action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Auto dump goal accepted by server, waiting for result");
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = true;
+    }
+}
+
+void OperationsHandler::autoDumpFeedbackCB(GoalHandleAutoDump::SharedPtr, const std::shared_ptr<const AutoDump::Feedback> feedback) {
+    RCLCPP_INFO(this->get_logger(), "Received feedback: %s", feedback->status.c_str());
+}
+
+void OperationsHandler::autoDumpResultCB(const GoalHandleAutoDump::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Auto dump goal succeeded");
+            auto_action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dump goal was aborted");
+            auto_action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dump goal was canceled");
+            auto_action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            auto_action_success_ = false;
+            break;
+    }
+    auto_action_blocking_ = false;
 }
 
 bool OperationsHandler::checkBermBuilt(){

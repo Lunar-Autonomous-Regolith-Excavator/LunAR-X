@@ -14,27 +14,20 @@
 
 #include "lx_library/task.hpp"
 
-Task::Task(unsigned int id, TaskTypeEnum type){
+Task::Task(unsigned int id, TaskTypeEnum type, geometry_msgs::msg::PoseArray pose_array){
     this->task_id_ = id;
     this->task_type_ = type;
+    this->pose_array_ = pose_array;
 }
 
-bool Task::executeTask(){
-    // Add exception handling
-    switch(this->task_type_){
-        case TaskTypeEnum::AUTONAV:
-            // Call Rover navigate action
-            break;
+unsigned int Task::getID(){
+    return task_id_;
+}
 
-        case TaskTypeEnum::AUTODIG:
-            // Call Autodig action
-            break;
+TaskTypeEnum Task::getType(){
+    return task_type_;
+}
 
-        case TaskTypeEnum::AUTODUMP:
-            // Call Autodump action
-            break;
-            
-        default:
-            return false;
-    }
+geometry_msgs::msg::PoseArray Task::getPoseArray(){
+    return pose_array_;
 }

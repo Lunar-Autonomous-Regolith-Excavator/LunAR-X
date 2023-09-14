@@ -6,14 +6,19 @@
 #include <list>
 #include <memory>
 #include <functional>
+#include <future>
 #include <thread>
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "lx_msgs/msg/berm_config.hpp"
 #include "lx_msgs/action/operation.hpp"
+#include "lx_msgs/action/auto_dig.hpp"
+#include "lx_msgs/action/auto_dump.hpp"
+#include "lx_msgs/action/auto_nav.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
+#include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
@@ -24,13 +29,31 @@ class OperationsHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using Operation = lx_msgs::action::Operation;
         using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
-        std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> task_queue_ {};
+        using AutoNav = lx_msgs::action::AutoNav;
+        using GoalHandleAutoNav = rclcpp_action::ClientGoalHandle<AutoNav>;
+        using AutoDig = lx_msgs::action::AutoDig;
+        using GoalHandleAutoDig = rclcpp_action::ClientGoalHandle<AutoDig>;
+        using AutoDump = lx_msgs::action::AutoDump;
+        using GoalHandleAutoDump = rclcpp_action::ClientGoalHandle<AutoDump>;
+        std::queue<Task, std::list<Task>> task_queue_ {};
         lx_msgs::msg::BermConfig berm_config_;
         std::vector<unsigned int> executed_task_ids_ {};
+        // Action blocking
+        bool auto_action_blocking_ = false;
+        bool auto_action_server_responded_ = false;
+        bool auto_action_accepted_ = false;
+        bool auto_action_success_ = false;
+        // Time
+        float blocking_time_limit_ = 600.0;
         // Service clients
+        rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
         rclcpp_action::Server<Operation>::SharedPtr operation_action_server_;
+        // Action clients
+        rclcpp_action::Client<AutoNav>::SharedPtr auto_nav_action_client_;
+        rclcpp_action::Client<AutoDig>::SharedPtr auto_dig_action_client_;
+        rclcpp_action::Client<AutoDump>::SharedPtr auto_dump_action_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -62,6 +85,14 @@ class OperationsHandler: public rclcpp::Node
         * Callback function for starting values of global parameters
         * */
         void paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture );
+
+        /*
+        * Argument(s):
+        *   - desired task mode
+        * 
+        * Publish required rover task mode
+        * */
+        void switchRoverTaskMode(TaskModeEnum );
 
         /*
         * Argument(s):
@@ -102,7 +133,7 @@ class OperationsHandler: public rclcpp::Node
         * 
         * TODO Planner
         * */
-        std::queue<std::shared_ptr<Task>, std::list<std::shared_ptr<Task>>> planner();
+        std::queue<Task, std::list<Task>> planner();
 
         /*
         * Argument(s):
@@ -119,6 +150,30 @@ class OperationsHandler: public rclcpp::Node
         * TODO Task Queue Execution
         * */
         bool executeTaskQueue();
+
+        bool callAutoNav(Task );
+
+        bool callAutoDig(Task );
+
+        bool callAutoDump(Task );
+
+        void autoNavResponseCB(GoalHandleAutoNav::SharedPtr );
+
+        void autoNavFeedbackCB(GoalHandleAutoNav::SharedPtr, const std::shared_ptr<const AutoNav::Feedback> );
+
+        void autoNavResultCB(const GoalHandleAutoNav::WrappedResult& );
+
+        void autoDigResponseCB(GoalHandleAutoDig::SharedPtr );
+
+        void autoDigFeedbackCB(GoalHandleAutoDig::SharedPtr, const std::shared_ptr<const AutoDig::Feedback> );
+
+        void autoDigResultCB(const GoalHandleAutoDig::WrappedResult& );
+
+        void autoDumpResponseCB(GoalHandleAutoDump::SharedPtr );
+
+        void autoDumpFeedbackCB(GoalHandleAutoDump::SharedPtr, const std::shared_ptr<const AutoDump::Feedback> );
+
+        void autoDumpResultCB(const GoalHandleAutoDump::WrappedResult& );
         // --------------------------------------
 
     public:
@@ -133,7 +188,5 @@ class OperationsHandler: public rclcpp::Node
         * */
         ~OperationsHandler(){}
 };
-
-// RCLCPP_COMPONENTS_REGISTER_NODE(OperationsHandler)
 
 #endif

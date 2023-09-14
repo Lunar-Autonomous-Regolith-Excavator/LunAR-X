@@ -17,6 +17,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BermConfig.msg"
   "srv/BermMetrics.srv"
   "action/Operation.action"
+  "action/AutoDig.action"
+  "action/AutoDump.action"
+  "action/AutoNav.action"
   DEPENDENCIES geometry_msgs action_msgs
 )
 
