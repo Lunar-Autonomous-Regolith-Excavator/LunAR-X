@@ -6,12 +6,16 @@
 #include <list>
 #include <memory>
 #include <functional>
+#include <future>
 #include <thread>
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "lx_msgs/msg/berm_config.hpp"
 #include "lx_msgs/action/operation.hpp"
+#include "lx_msgs/action/auto_dig.hpp"
+#include "lx_msgs/action/auto_dump.hpp"
+#include "lx_msgs/action/auto_nav.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
@@ -25,14 +29,25 @@ class OperationsHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using Operation = lx_msgs::action::Operation;
         using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
+        using AutoDig = lx_msgs::action::AutoDig;
+        using GoalHandleAutoDig = rclcpp_action::ClientGoalHandle<AutoDig>;
         std::queue<Task, std::list<Task>> task_queue_ {};
         lx_msgs::msg::BermConfig berm_config_;
         std::vector<unsigned int> executed_task_ids_ {};
+        // Action blocking
+        bool auto_action_blocking_ = false;
+        bool auto_action_server_responded_ = false;
+        bool auto_action_accepted_ = false;
+        bool auto_action_success_ = false;
+        // Time
+        float blocking_time_limit_ = 600.0;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
         rclcpp_action::Server<Operation>::SharedPtr operation_action_server_;
+        // Action clients
+        rclcpp_action::Client<AutoDig>::SharedPtr auto_dig_action_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -135,6 +150,12 @@ class OperationsHandler: public rclcpp::Node
         bool callAutoDig(Task );
 
         bool callAutoDump(Task );
+
+        void autoDigResponseCB(GoalHandleAutoDig::SharedPtr );
+
+        void autoDigFeedbackCB(GoalHandleAutoDig::SharedPtr, const std::shared_ptr<const AutoDig::Feedback> );
+
+        void autoDigResultCB(const GoalHandleAutoDig::WrappedResult& );
         // --------------------------------------
 
     public:

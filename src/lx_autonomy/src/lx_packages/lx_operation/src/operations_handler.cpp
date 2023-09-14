@@ -114,6 +114,9 @@ void OperationsHandler::setupCommunications(){
                                             std::bind(&OperationsHandler::handle_goal, this, _1, _2),
                                             std::bind(&OperationsHandler::handle_cancel, this, _1),
                                             std::bind(&OperationsHandler::handle_accepted, this, _1));
+    // Action clients
+    // auto_dig_action_client_ = rclcpp_action::create_client<AutoDig>("operations/autodig_action");
+    this->auto_dig_action_client_ = rclcpp_action::create_client<AutoDig>(this, "operations/autodig_action");
 }
 
 void OperationsHandler::setupParams(){
@@ -290,11 +293,11 @@ bool OperationsHandler::executeTaskQueue(){
     // Execute task queue
     while(!task_queue_.empty()){
         // Check if rover locked
-        if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
-            RCLCPP_ERROR(this->get_logger(), "Rover locked - Task queue can not be executed");
-            return false;
-        }
-        else{
+        // if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
+        //     RCLCPP_ERROR(this->get_logger(), "Rover locked - Task queue can not be executed");
+        //     return false;
+        // }
+        // else{
             // Execute task
             Task current_task = task_queue_.front();
             task_queue_.pop();
@@ -320,7 +323,7 @@ bool OperationsHandler::executeTaskQueue(){
             }
             // Append executed task id to executed_task_ids_
             executed_task_ids_.push_back(current_task.getID());
-        }
+        // }
     }
 
     return true;
@@ -350,14 +353,50 @@ bool OperationsHandler::callAutoDig(Task current_task){
     switchRoverTaskMode(TaskModeEnum::EXC);
 
     // Call autodig action
+    using namespace std::placeholders;
+    if (!auto_dig_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Auto Dig action server not available after waiting");
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+        return false;
+    }
+    // Block till action returns result or rejection
+    auto_action_blocking_ = true;
+    auto_action_server_responded_ = false;
+    auto_action_accepted_ = false;
+    auto_action_success_ = false;
+
+    auto autodig_request_msg = AutoDig::Goal();
+    autodig_request_msg.to_be_decided_1 = 0.65;
+    autodig_request_msg.to_be_decided_2 = 0.55;
+    RCLCPP_INFO(this->get_logger(), "Sending Auto Dig goal");
+    
+    auto send_goal_options = rclcpp_action::Client<AutoDig>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&OperationsHandler::autoDigResponseCB, this, _1);
+    send_goal_options.feedback_callback = std::bind(&OperationsHandler::autoDigFeedbackCB, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&OperationsHandler::autoDigResultCB, this, _1);
+
+    auto goal_handle_future = auto_dig_action_client_->async_send_goal(autodig_request_msg, send_goal_options);
 
     // Block till action complete
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(auto_action_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
 
     // Set task mode as IDLE
     switchRoverTaskMode(TaskModeEnum::IDLE);
 
     // Return true if autodig successful
-    return true;
+    if(!auto_action_accepted_){
+        return false;
+    }
+    else if(auto_action_success_){
+        return true;
+    }
+
+    return false;
 }
 
 bool OperationsHandler::callAutoDump(Task current_task){
@@ -375,6 +414,47 @@ bool OperationsHandler::callAutoDump(Task current_task){
 
     // Return true if autodump successful
     return true;
+}
+
+void OperationsHandler::autoDigResponseCB(GoalHandleAutoDig::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Auto dig goal was rejected by server");
+        auto_action_blocking_ = false;
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = false;
+        auto_action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Auto dig goal accepted by server, waiting for result");
+        auto_action_server_responded_ = true;
+        auto_action_accepted_ = true;
+    }
+}
+
+void OperationsHandler::autoDigFeedbackCB(GoalHandleAutoDig::SharedPtr, const std::shared_ptr<const AutoDig::Feedback> feedback) {
+    RCLCPP_INFO(this->get_logger(), "Received feedback: %s", feedback->status.c_str());
+}
+
+void OperationsHandler::autoDigResultCB(const GoalHandleAutoDig::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Auto dig goal succeeded");
+            auto_action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dig goal was aborted");
+            auto_action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Auto dig goal was canceled");
+            auto_action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            auto_action_success_ = false;
+            break;
+    }
+    auto_action_blocking_ = false;
 }
 
 bool OperationsHandler::checkBermBuilt(){
