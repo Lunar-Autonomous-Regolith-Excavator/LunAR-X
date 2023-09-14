@@ -1,0 +1,2 @@
+uint32 task_type
+geometry_msgs/PoseArray pose_array

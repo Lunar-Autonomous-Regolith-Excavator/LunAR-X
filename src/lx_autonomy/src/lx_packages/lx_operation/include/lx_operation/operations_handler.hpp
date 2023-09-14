@@ -11,6 +11,7 @@
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "geometry_msgs/msg/point.hpp"
+#include "lx_msgs/srv/plan.hpp"
 #include "lx_msgs/msg/berm_config.hpp"
 #include "lx_msgs/action/operation.hpp"
 #include "lx_msgs/action/auto_dig.hpp"
@@ -48,6 +49,7 @@ class OperationsHandler: public rclcpp::Node
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
+        rclcpp::Client<lx_msgs::srv::Plan>::SharedPtr planner_client_;
         // Action server
         rclcpp_action::Server<Operation>::SharedPtr operation_action_server_;
         // Action clients
@@ -131,9 +133,9 @@ class OperationsHandler: public rclcpp::Node
         * Argument(s):
         *   - 
         * 
-        * TODO Planner
+        * TODO Get plan from Planning service
         * */
-        std::queue<Task, std::list<Task>> planner();
+        std::queue<Task, std::list<Task>> getPlan();
 
         /*
         * Argument(s):
