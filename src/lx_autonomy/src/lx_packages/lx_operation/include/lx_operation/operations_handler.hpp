@@ -21,7 +21,6 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
 
 
 class OperationsHandler: public rclcpp::Node

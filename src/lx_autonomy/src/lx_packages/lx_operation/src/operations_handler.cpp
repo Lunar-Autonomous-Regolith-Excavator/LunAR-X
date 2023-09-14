@@ -9,13 +9,11 @@
  * - Summary
  * 
  * TODO
- * - Check operation action
- * - Write planner
+ * - getPlan
  * - Write executeTaskQueue
  * - Write checkBermBuilt
  * - Finish executeOperation
  * - Add documentation
- * - Add parameters
  * */
 
 #include "lx_operation/operations_handler.hpp"
@@ -103,9 +101,13 @@ void OperationsHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
 }
 
 void OperationsHandler::setupCommunications(){
-    // Add all subscriptions, publishers and services here
+    // Subscribers 
 
-    // Clients
+    // Publishers
+    
+    // Service servers
+
+    // Service clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
     planner_client_ = this->create_client<lx_msgs::srv::Plan>("/plan_operation");
