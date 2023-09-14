@@ -103,48 +103,48 @@ void ExternalInterface::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
         //                     std::bind(&LXGUIBackend::getParameters, this));
         
         rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
-        RCLCPP_INFO(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
+        RCLCPP_DEBUG(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
         rover_soft_lock_.actuation_lock = future.get()->values.at(1).bool_value;
-        RCLCPP_INFO(this->get_logger(), "Parameter set Actuation: %s", (rover_soft_lock_.actuation_lock?"Locked":"Unlocked"));
+        RCLCPP_DEBUG(this->get_logger(), "Parameter set Actuation: %s", (rover_soft_lock_.actuation_lock?"Locked":"Unlocked"));
 
         switch(future.get()->values.at(2).integer_value){
             case 0:
                current_rover_op_mode_ = OpModeEnum::STANDBY;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Standby");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Operation mode: Standby");
                break;
             case 1:
                current_rover_op_mode_ = OpModeEnum::TELEOP;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Teleop");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Operation mode: Teleop");
                break;
             case 2:
                current_rover_op_mode_ = OpModeEnum::AUTONOMOUS;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Operation mode: Autonomous");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Operation mode: Autonomous");
                break;
         }
 
         switch(future.get()->values.at(3).integer_value){
             case 0:
                current_rover_task_mode_ = TaskModeEnum::IDLE;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Idle");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Idle");
                break;
             case 1:
                current_rover_task_mode_ = TaskModeEnum::NAV;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Navigation");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Navigation");
                break;
             case 2:
                current_rover_task_mode_ = TaskModeEnum::EXC;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Excavation");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Excavation");
                break;
             case 3:
                current_rover_task_mode_ = TaskModeEnum::DMP;
-               RCLCPP_INFO(this->get_logger(), "Parameter set Task mode: Dumping");
+               RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Dumping");
                break;
         }
 
         mob_lin_vel_ = future.get()->values.at(4).double_value;
-        RCLCPP_INFO(this->get_logger(), "Parameter set Max Linear Vel: %.2f", mob_lin_vel_);
+        RCLCPP_DEBUG(this->get_logger(), "Parameter set Max Linear Vel: %.2f", mob_lin_vel_);
         mob_ang_vel_ = future.get()->values.at(5).double_value;
-        RCLCPP_INFO(this->get_logger(), "Parameter set Max Angular Vel: %.2f", mob_ang_vel_);
+        RCLCPP_DEBUG(this->get_logger(), "Parameter set Max Angular Vel: %.2f", mob_ang_vel_);
     } 
     else {
         RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
