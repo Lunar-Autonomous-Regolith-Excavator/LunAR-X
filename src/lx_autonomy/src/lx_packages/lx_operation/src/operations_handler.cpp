@@ -253,6 +253,7 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
+            return;
         }
         // If all tasks successful, continue next loop iteration
     } 
@@ -294,11 +295,11 @@ bool OperationsHandler::executeTaskQueue(){
     // Execute task queue
     while(!task_queue_.empty()){
         // Check if rover locked
-        // if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
-        //     RCLCPP_ERROR(this->get_logger(), "Rover locked - Task queue can not be executed");
-        //     return false;
-        // }
-        // else{
+        if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
+            RCLCPP_ERROR(this->get_logger(), "Rover locked - Task queue can not be executed");
+            return false;
+        }
+        else{
             // Execute task
             Task current_task = task_queue_.front();
             task_queue_.pop();
@@ -324,7 +325,7 @@ bool OperationsHandler::executeTaskQueue(){
             }
             // Append executed task id to executed_task_ids_
             executed_task_ids_.push_back(current_task.getID());
-        // }
+        }
     }
 
     return true;

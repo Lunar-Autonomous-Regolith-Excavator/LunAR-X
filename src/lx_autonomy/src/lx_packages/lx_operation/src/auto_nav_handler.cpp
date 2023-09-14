@@ -211,6 +211,7 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // result->success = false;
     // goal_handle->abort(result);
     // RCLCPP_ERROR(this->get_logger(), "Autonav failed");
+    // return;
     
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {

@@ -211,6 +211,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     // result->success = false;
     // goal_handle->abort(result);
     // RCLCPP_ERROR(this->get_logger(), "Autodump failed");
+    // return;
     
     // If autodump executed successfully, return goal success
     if (rclcpp::ok()) {

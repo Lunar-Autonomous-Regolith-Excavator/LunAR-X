@@ -211,6 +211,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     // result->success = false;
     // goal_handle->abort(result);
     // RCLCPP_ERROR(this->get_logger(), "Autodig failed");
+    // return;
     
     // If autodig executed successfully, return goal success
     if (rclcpp::ok()) {
