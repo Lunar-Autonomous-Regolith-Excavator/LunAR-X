@@ -10,6 +10,8 @@
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "lx_msgs/action/auto_dig.hpp"
+#include <lx_msgs/msg/tool_info.hpp>
+#include <lx_msgs/msg/rover_command.hpp>
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -33,6 +35,27 @@ class AutoDigHandler: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
+
+        // Subscribers
+        rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
+        lx_msgs::msg::ToolInfo tool_info_msg_;
+        std::chrono::time_point<std::chrono::system_clock> tool_info_msg_time_ = std::chrono::system_clock::now();
+
+        // Publishers
+        rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_pub_;
+
+        // Hyperparameters for PID height control
+        double kp = 1;
+        double ki = 0;
+        double kd = 0;
+        double nominal_current_value = 1; // value of the drum current for correct operation
+        double pid_height_error_threshold_cm = 0.1; // error threshold after which tool height control is called
+        double height_control_period_seconds = 0.1; // time for which the tool height is controled once PID height error threshold is reached
+        double actuator_control_value = 0.7; // speed to more the linear actuator, range [-1, 1]
+        
+        // PID variables
+        double prev_error = 0, integral_error = 0;
+        
         // --------------------------------------
 
         // Functions ----------------------------
@@ -55,6 +78,9 @@ class AutoDigHandler: public rclcpp::Node
         * Callback function for starting values of global parameters
         * */
         void paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture );
+
+        // Subscriber callbacks
+        void toolInfoCB(const lx_msgs::msg::ToolInfo::SharedPtr );
 
         /*
         * Argument(s):
