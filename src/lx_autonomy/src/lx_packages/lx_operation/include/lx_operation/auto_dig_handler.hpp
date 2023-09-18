@@ -15,6 +15,7 @@
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "std_msgs/msg/float64.hpp"
 
 class AutoDigHandler: public rclcpp::Node
 {
@@ -44,13 +45,25 @@ class AutoDigHandler: public rclcpp::Node
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_pub_;
 
+        // Setup int publishers for drum desired current, drum current current
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_current_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_current_pub_;
+
+
         // Hyperparameters for PID height control
         double kp = 1;
-        double ki = 0;
-        double kd = 0;
-        double nominal_current_value = 1; // value of the drum current for correct operation
-        double pid_height_error_threshold_cm = 0.1; // error threshold after which tool height control is called
-        double height_control_period_seconds = 0.1; // time for which the tool height is controled once PID height error threshold is reached
+        double ki = 0.001;
+        double kd = 1.5;
+        double forward_speed = 0.05; // speed at which the rover moves forward (m/s)
+        double drum_command = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
+
+        // current slope = nominal_current_value_i + (nominal_current_value_f - nominal_current_value_i) * t / t_end
+        double nominal_current_value_i = 1.3; 
+        double nominal_current_value_f = 2.0;
+        double t_end_seconds = 30; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
+
+        double drum_control_error_thresh = 0.1; // error threshold after which tool height control is called
+        double height_control_period_seconds = 0.3; // time for which the tool height is controled once PID height error threshold is reached
         double actuator_control_value = 0.7; // speed to more the linear actuator, range [-1, 1]
         
         // PID variables

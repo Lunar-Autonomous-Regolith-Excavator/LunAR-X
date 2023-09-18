@@ -105,7 +105,9 @@ void AutoDigHandler::setupCommunications(){
                         std::bind(&AutoDigHandler::toolInfoCB, this, std::placeholders::_1));
     
     // Publishers
-    rover_hw_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_hw_cmd", 10);
+    rover_hw_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
+    drum_desired_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_current", 10);
+    drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
     
     // Service servers
 
@@ -222,34 +224,75 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
         return;
     }
-
-    double drum_current_error = tool_info_msg_.drum_current - nominal_current_value;
-    double pid_drum_height = kp*drum_current_error + ki*integral_error + kd*(drum_current_error - prev_error);
-    prev_error = drum_current_error;
-    integral_error += drum_current_error;
-
-    // if the value of pid_drum_height is above pid_height_error_threshold_cm, control drum for height_control_period_seconds
-    if(abs(pid_drum_height) > pid_height_error_threshold_cm)
+    int counter = 0;
+    auto action_start_time = std::chrono::system_clock::now();
+    while(true)
     {
-        auto start = std::chrono::system_clock::now();
-        while(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start).count() < height_control_period_seconds)
+        auto action_curr_time = std::chrono::system_clock::now();
+        double action_time_diff_ms = std::chrono::duration_cast<std::chrono::milliseconds>(action_curr_time - action_start_time).count();
+        if(action_time_diff_ms > t_end_seconds*1000)
+            break;
+        
+        double desired_current_value = nominal_current_value_i + (nominal_current_value_f - nominal_current_value_i) * action_time_diff_ms / (t_end_seconds*1000);
+        // Publish drum desired current and drum current current
+        std_msgs::msg::Float64 drum_desired_current_msg;
+        drum_desired_current_msg.data = desired_current_value;
+        drum_desired_current_pub_->publish(drum_desired_current_msg);
+
+        std_msgs::msg::Float64 drum_current_current_msg;
+        drum_current_current_msg.data = tool_info_msg_.drum_current;
+        drum_current_current_pub_->publish(drum_current_current_msg);
+
+        // PID
+        double drum_current_error = tool_info_msg_.drum_current - desired_current_value;
+        
+        double drum_current_error_pid = kp*drum_current_error + ki*integral_error + kd*(drum_current_error - prev_error);
+        prev_error = drum_current_error;
+        integral_error += drum_current_error;
+
+        RCLCPP_INFO(this->get_logger(), "Drum current error: %f", drum_current_error);
+
+        // if the value of pid_drum_height is above pid_height_error_threshold_cm, control drum for height_control_period_seconds
+        if(abs(drum_current_error_pid) > drum_control_error_thresh)
         {
-            // Set drum command
-            lx_msgs::msg::RoverCommand rover_cmd;
-            // set it based on sign of pid_drum_height
-            rover_cmd.actuator_speed = pid_drum_height > 0 ? actuator_control_value : -actuator_control_value;
-            rover_hw_cmd_pub_->publish(rover_cmd);
-            RCLCPP_INFO(this->get_logger(), "Actuating Linear Actuator with value: %f", rover_cmd.actuator_speed);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            auto start = std::chrono::system_clock::now(), curr_time = std::chrono::system_clock::now();
+            while(true)
+            {
+                curr_time = std::chrono::system_clock::now();
+                double time_diff_ms = std::chrono::duration_cast<std::chrono::milliseconds>(curr_time - start).count();
+                if(time_diff_ms > height_control_period_seconds*1000)
+                    break;
+
+                // Set drum command
+                lx_msgs::msg::RoverCommand rover_cmd;
+                // set it based on sign of pid_drum_height
+                rover_cmd.actuator_speed = drum_current_error_pid > 0 ? -actuator_control_value : actuator_control_value;
+                rover_cmd.drum_speed = drum_command;
+                rover_cmd.mobility_twist.linear.x = forward_speed;
+                rover_hw_cmd_pub_->publish(rover_cmd);
+                RCLCPP_INFO(this->get_logger(), "Actuating Linear Actuator with value: %f", rover_cmd.actuator_speed);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
         }
+        else
+        {
+            // keep going forward
+            lx_msgs::msg::RoverCommand rover_cmd;
+            rover_cmd.mobility_twist.linear.x = forward_speed;
+            rover_cmd.drum_speed = drum_command;
+            rover_hw_cmd_pub_->publish(rover_cmd);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    else
-    {
-        // keep going forward
-        lx_msgs::msg::RoverCommand rover_cmd;
-        rover_cmd.mobility_twist.linear.x = 0.5;
-        rover_hw_cmd_pub_->publish(rover_cmd);
-    }
+
+    // publish a 0 rover command to stop the rover
+    lx_msgs::msg::RoverCommand rover_cmd;
+    rover_cmd.mobility_twist.linear.x = 0;
+    rover_cmd.drum_speed = 0;
+    rover_cmd.actuator_speed = 0;
+    rover_hw_cmd_pub_->publish(rover_cmd);
+    
+
     // If autodig fails, return goal aborted. Uncomment following:
 
     // result->success = false;
