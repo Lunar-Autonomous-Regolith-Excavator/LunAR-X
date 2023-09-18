@@ -335,6 +335,9 @@ bool OperationsHandler::executeTaskQueue(){
 }
 
 bool OperationsHandler::callAutoNav(Task current_task){
+    // Set task mode as NAV
+    switchRoverTaskMode(TaskModeEnum::NAV);
+
     // Call autonav action
     using namespace std::placeholders;
     if (!auto_nav_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
