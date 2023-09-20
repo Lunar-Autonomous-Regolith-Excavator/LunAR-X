@@ -34,32 +34,22 @@ public:
 
 private:
     geometry_msgs::msg::TransformStamped eigen_transform_prism_baselink;
+    geometry_msgs::msg::TransformStamped eigen_transform_imu_baselink;
     // sensor_msgs::msg::Imu eigen_transform_imu_baselink;
     bool got_prism_transform = false;
     bool got_imu_transform = false;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr final_pose_pub_;
     double x_off = 10, y_off = -13, z_off = 11;
     bool set_offset = false;
     geometry_msgs::msg::PoseWithCovarianceStamped imu_pose_msg;
 
     void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg){
-        imu_poes_msg.header.frame_id = "odom";
+        imu_pose_msg.header.frame_id = "odom";
         imu_pose_msg.header.stamp = msg->header.stamp;
         imu_pose_msg.pose.pose.orientation = msg->orientation;   
-    }
-
-    void check_for_prism_transform()
-    {
-        std::cout<<"Looking for prism transform"<<std::endl;
-        // Get transform matrix from total_station_prism to base_link
-        try {
-            tf2_ros::Buffer tf_buffer(this->get_clock());
-            tf2_ros::TransformListener tf_listener(tf_buffer);
-            this->eigen_transform_prism_baselink = tf_buffer.lookupTransform("base_link", "total_station_prism", tf2::TimePointZero, tf2::durationFromSec(0.5)); //prism to base link
-            this->got_prism_transform = true;
-        }
     }
 
     void check_for_prism_transform()
@@ -113,7 +103,7 @@ private:
         if (this->got_imu_transform) tf2::doTransform(*msg, imu_pose_msg, this->eigen_transform_imu_baselink);
 
         pose_map_msg.pose.pose.orientation = imu_pose_msg.pose.pose.orientation;
-        final_pose_pub_->publish(pose_map_msg);
+        this->final_pose_pub_->publish(pose_map_msg);
     }
 };
 
