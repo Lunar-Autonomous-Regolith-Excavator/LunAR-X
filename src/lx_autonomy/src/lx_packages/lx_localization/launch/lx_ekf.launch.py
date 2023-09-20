@@ -62,20 +62,20 @@ def generate_launch_description():
       parameters=[{'use_sim_time': use_sim_time_param}]
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
   
-    # Node(
-    #   package='lx_localization',
-    #   executable='remap_msgs_localization',
-    #   name='remap_msgs_localization',
-    #   output='screen',
-    #   parameters=[{'use_sim_time': use_sim_time_param}],
-    # ),       
-
     Node(
       package='lx_localization',
-      executable='custom_localization',
-      name='custom_localization',
+      executable='remap_msgs_localization',
+      name='remap_msgs_localization',
       output='screen',
       parameters=[{'use_sim_time': use_sim_time_param}],
-    ),    
+    ),
+
+    # Node(
+    #   package='lx_localization',
+    #   executable='custom_localization',
+    #   name='custom_localization',
+    #   output='screen',
+    #   parameters=[{'use_sim_time': use_sim_time_param}],
+    # ),    
     
   ])
