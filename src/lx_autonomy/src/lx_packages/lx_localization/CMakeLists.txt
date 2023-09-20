@@ -41,7 +41,7 @@ endif()
 
 #remap node for husky odom
 add_executable(remap_msgs_localization src/remap_msgs_localization.cpp)
-ament_target_dependencies(remap_msgs_localization custom_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs)
+ament_target_dependencies(remap_msgs_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs)
 
 add_executable(custom_localization src/custom_localization.cpp)
 ament_target_dependencies(custom_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs)
