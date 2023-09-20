@@ -36,6 +36,7 @@ class AutoDigHandler: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> autodig_pid_param_cb_handle_;
 
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
@@ -51,9 +52,10 @@ class AutoDigHandler: public rclcpp::Node
 
 
         // Hyperparameters for PID height control
-        double kp = 1;
-        double ki = 0.001;
-        double kd = 1.5;
+        // double kp = 1;
+        // double ki = 0.001;
+        // double kd = 1.5;
+        pid_struct autodig_pid_;
         double forward_speed = 0.05; // speed at which the rover moves forward (m/s)
         double drum_command = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
 

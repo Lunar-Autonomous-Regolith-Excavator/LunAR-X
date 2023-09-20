@@ -20,6 +20,11 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
 
+    // Set PID to 0.0 for safety until parameters are updated
+    autodig_pid_.kp = 0.0;
+    autodig_pid_.ki = 0.0;
+    autodig_pid_.kd = 0.0;
+
     // Get parameters from the global parameter server
     getParams();
 
@@ -38,7 +43,8 @@ void AutoDigHandler::getParams(){
     // Get important parameters
     auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
     get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
-                          "rover.op_mode", "rover.task_mode"};
+                          "rover.op_mode", "rover.task_mode",
+                          "autodig.pid"};
     // Send request
     auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&AutoDigHandler::paramCB, this, std::placeholders::_1));
 }
@@ -88,6 +94,10 @@ void AutoDigHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>:
                RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Dumping");
                break;
         }
+        autodig_pid_.kp = future.get()->values.at(4).double_array_value[0];
+        autodig_pid_.ki = future.get()->values.at(4).double_array_value[1];
+        autodig_pid_.kd = future.get()->values.at(4).double_array_value[2];
+        RCLCPP_INFO(this->get_logger(), "Parameter set Autodig PID: [%.3f, %.5f, %.3f]", autodig_pid_.kp, autodig_pid_.ki, autodig_pid_.kd);
     } 
     else {
         RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
@@ -170,6 +180,12 @@ void AutoDigHandler::setupParams(){
                break;
         }
     };
+    auto autodig_pid_params_callback = [this](const rclcpp::Parameter & p){
+        autodig_pid_.kp = p.as_double_array()[0];
+        autodig_pid_.ki = p.as_double_array()[1];
+        autodig_pid_.kd = p.as_double_array()[2];
+        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": [%.3f, %.5f, %.3f]", p.get_name().c_str(), autodig_pid_.kp, autodig_pid_.ki, autodig_pid_.kd);
+    };
 
     // Names of node & params for adding callback
     auto param_server_name = std::string("param_server_node");
@@ -177,12 +193,14 @@ void AutoDigHandler::setupParams(){
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
     auto task_mode_param_name = std::string("rover.task_mode");
+    auto autodig_pid_param_name = std::string("autodig.pid");
 
     // Store callback handles for each parameter
     mob_param_cb_handle_ = param_subscriber_->add_parameter_callback(mob_lock_param_name, mob_params_callback, param_server_name);
     act_param_cb_handle_ = param_subscriber_->add_parameter_callback(act_lock_param_name, act_params_callback, param_server_name);
     op_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(op_mode_param_name, op_mode_params_callback, param_server_name);
     task_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(task_mode_param_name, task_mode_params_callback, param_server_name);
+    autodig_pid_param_cb_handle_ = param_subscriber_->add_parameter_callback(autodig_pid_param_name, autodig_pid_params_callback, param_server_name);
 }
 
 rclcpp_action::GoalResponse AutoDigHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const AutoDig::Goal> goal){
@@ -246,7 +264,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         // PID
         double drum_current_error = tool_info_msg_.drum_current - desired_current_value;
         
-        double drum_current_error_pid = kp*drum_current_error + ki*integral_error + kd*(drum_current_error - prev_error);
+        double drum_current_error_pid = autodig_pid_.kp*drum_current_error + autodig_pid_.ki*integral_error + autodig_pid_.kd*(drum_current_error - prev_error);
         prev_error = drum_current_error;
         integral_error += drum_current_error;
 
