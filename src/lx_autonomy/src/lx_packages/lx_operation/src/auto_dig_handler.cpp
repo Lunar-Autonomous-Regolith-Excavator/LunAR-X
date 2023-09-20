@@ -16,6 +16,8 @@
 
 AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("auto_dig_handler_node"){
     (void)options;
+    // Initialize timers
+    tool_info_msg_time_ = this->get_clock()->now();
 
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
@@ -106,7 +108,7 @@ void AutoDigHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>:
 
 void AutoDigHandler::toolInfoCB(const lx_msgs::msg::ToolInfo::SharedPtr msg){
     tool_info_msg_ = *msg;
-    tool_info_msg_time_ = std::chrono::system_clock::now();
+    tool_info_msg_time_ = this->get_clock()->now();
 }
 
 void AutoDigHandler::setupCommunications(){
@@ -236,22 +238,23 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     auto result = std::make_shared<AutoDig::Result>();
 
     // If last message was recieved more than 1 second ago, return goal aborted
-    if(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tool_info_msg_time_).count() > 1){
+    if((this->get_clock()->now() - tool_info_msg_time_).seconds() > 1){
         result->success = false;
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
         return;
     }
-    int counter = 0;
-    auto action_start_time = std::chrono::system_clock::now();
+    
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    rclcpp::Rate loop_rate_1(0.01);
     while(true)
     {
-        auto action_curr_time = std::chrono::system_clock::now();
-        double action_time_diff_ms = std::chrono::duration_cast<std::chrono::milliseconds>(action_curr_time - action_start_time).count();
-        if(action_time_diff_ms > t_end_seconds*1000)
+        rclcpp::Time action_curr_time = this->get_clock()->now();
+        double action_time_diff_seconds = (action_curr_time - action_start_time).seconds();
+        if(action_time_diff_seconds > t_end_seconds)
             break;
         
-        double desired_current_value = nominal_current_value_i + (nominal_current_value_f - nominal_current_value_i) * action_time_diff_ms / (t_end_seconds*1000);
+        double desired_current_value = nominal_current_value_i + (nominal_current_value_f - nominal_current_value_i) * action_time_diff_seconds / (t_end_seconds);
         // Publish drum desired current and drum current current
         std_msgs::msg::Float64 drum_desired_current_msg;
         drum_desired_current_msg.data = desired_current_value;
@@ -273,12 +276,13 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         // if the value of pid_drum_height is above pid_height_error_threshold_cm, control drum for height_control_period_seconds
         if(abs(drum_current_error_pid) > drum_control_error_thresh)
         {
-            auto start = std::chrono::system_clock::now(), curr_time = std::chrono::system_clock::now();
+            rclcpp::Time start = this->get_clock()->now(), curr_time = this->get_clock()->now();
+            rclcpp::Rate loop_rate_2(0.1);
             while(true)
             {
-                curr_time = std::chrono::system_clock::now();
-                double time_diff_ms = std::chrono::duration_cast<std::chrono::milliseconds>(curr_time - start).count();
-                if(time_diff_ms > height_control_period_seconds*1000)
+                curr_time = this->get_clock()->now();
+                double time_diff_seconds = (curr_time - start).seconds();
+                if(time_diff_seconds > height_control_period_seconds)
                     break;
 
                 // Set drum command
@@ -289,7 +293,8 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
                 rover_cmd.mobility_twist.linear.x = forward_speed;
                 rover_hw_cmd_pub_->publish(rover_cmd);
                 RCLCPP_INFO(this->get_logger(), "Actuating Linear Actuator with value: %f", rover_cmd.actuator_speed);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                loop_rate_2.sleep();
             }
         }
         else
@@ -300,7 +305,8 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
             rover_cmd.drum_speed = drum_command;
             rover_hw_cmd_pub_->publish(rover_cmd);
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        loop_rate_1.sleep();
     }
 
     // publish a 0 rover command to stop the rover

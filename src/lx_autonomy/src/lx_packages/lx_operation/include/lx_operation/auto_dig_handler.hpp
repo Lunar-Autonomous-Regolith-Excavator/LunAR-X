@@ -41,7 +41,8 @@ class AutoDigHandler: public rclcpp::Node
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
         lx_msgs::msg::ToolInfo tool_info_msg_;
-        std::chrono::time_point<std::chrono::system_clock> tool_info_msg_time_ = std::chrono::system_clock::now();
+        // std::chrono::time_point<std::chrono::system_clock> tool_info_msg_time_ = std::chrono::system_clock::now();
+        rclcpp::Time tool_info_msg_time_;
 
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_pub_;
