@@ -28,7 +28,7 @@ public:
         imu_sub_ = create_subscription<sensor_msgs::msg::Imu>("/vectornav/imu", qos,
                                         std::bind(&RemapNode::imu_callback, this, std::placeholders::_1));
 
-        odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("/total_station_odom");
+        odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("/total_station_odom", qos, 10);
 
     }
 
@@ -50,7 +50,7 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 
     void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg){
-        imu_pose_msg.header.frame_id = msg.header.frame_id;
+        imu_pose_msg.header.frame_id = msg->header.frame_id;
         imu_pose_msg.header.stamp = msg->header.stamp;
         imu_pose_msg.pose.pose.orientation = msg->orientation;   
     }
