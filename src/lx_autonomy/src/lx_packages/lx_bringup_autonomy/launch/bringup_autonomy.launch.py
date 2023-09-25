@@ -90,7 +90,7 @@ def generate_launch_description():
     ld.add_action(tf_camera_depth_link)
     ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
-    # ld.add_action(mapping_launch)
-    # ld.add_action(localization_launch)
+    ld.add_action(mapping_launch)
+    ld.add_action(localization_launch)
     
     return ld

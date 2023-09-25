@@ -34,15 +34,10 @@ public:
 
 private:
     geometry_msgs::msg::TransformStamped eigen_transform_prism_baselink;
-<<<<<<< HEAD
-    sensor_msgs::msg::Imu eigen_transform_imu_baselink;
-    bool got_transform = false;
-=======
     geometry_msgs::msg::TransformStamped eigen_transform_imu_baselink;
     // sensor_msgs::msg::Imu eigen_transform_imu_baselink;
     bool got_prism_transform = false;
     bool got_imu_transform = false;
->>>>>>> 9fa75209e5b06d912be07632f794f3acca9854ac
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
@@ -52,33 +47,9 @@ private:
     geometry_msgs::msg::PoseWithCovarianceStamped imu_pose_msg;
 
     void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg){
-<<<<<<< HEAD
-
-        try 
-        {
-            std::cout<<"Looking for transform"<<std::endl;
-            // Get transform matrix from total_station_prism to base_link
-            tf2_ros::Buffer tf_buffer(this->get_clock());
-            tf2_ros::TransformListener tf_listener(tf_buffer);
-            // this->eigen_transform_imu_baselink = tf_buffer.lookupTransform("base_link", "imu", tf2::TimePointZero, tf2::durationFromSec(0.5)); //imu to base link
-        } 
-        catch (tf2::TransformException& ex) 
-        {
-            std::cout<<"No transform found, publishing directly"<<std::endl;
-        }      
-            
-        sensor_msgs::msg::Imu imu_map_msg;
-        // tf2::doTransform(*msg, imu_map_msg, this->eigen_transform_imu_baselink);
-        
-        imu_map_msg.header.frame_id = "map";
-        imu_map_msg.header.stamp = msg->header.stamp;
-
-        yaw = msg->orientation.z;
-=======
         imu_pose_msg.header.frame_id = "odom";
         imu_pose_msg.header.stamp = msg->header.stamp;
         imu_pose_msg.pose.pose.orientation = msg->orientation;   
->>>>>>> 9fa75209e5b06d912be07632f794f3acca9854ac
     }
 
     void check_for_prism_transform()

@@ -474,9 +474,12 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         RCLCPP_INFO(this->get_logger(), "berm score = %f", berm_score);
     }
     if(berm_score<10000){
-        RCLCPP_ERROR(this->get_logger(), "Error: no berm found");
+        if(debug_mode_){
+            RCLCPP_ERROR(this->get_logger(), "Error: no berm found");
+        }
         return false;
     }
+    
     for(int j=0; j<dunes_indices[berm_idx].size(); j++)
     {
         if(occupancy_grid_.data[dunes_indices[berm_idx][j]] > berm_height_max)
