@@ -1,10 +1,10 @@
-#include "lx_operation/operations_handler.hpp"
+#include "lx_mapping/pcl_relay.hpp"
 
 int main(int argc, char** argv){
     rclcpp::init(argc, argv);
     
     // Initialize node
-    auto node = std::make_shared<OperationsHandler>(rclcpp::NodeOptions());
+    auto node = std::make_shared<PCLRelay>();
     
     rclcpp::spin(node);
 

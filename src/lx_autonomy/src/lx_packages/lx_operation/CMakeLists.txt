@@ -9,22 +9,40 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(lx_library REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
 include_directories(include)
 
 # Operations handler node
 add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
-ament_target_dependencies(operations_handler_node rclcpp lx_msgs lx_library)
+ament_target_dependencies(operations_handler_node rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
+
+# Auto Dig Handler node
+add_executable(auto_dig_handler_node src/auto_dig_handler_node.cpp src/auto_dig_handler.cpp)
+ament_target_dependencies(auto_dig_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
+
+# Auto Dump Handler node
+add_executable(auto_dump_handler_node src/auto_dump_handler_node.cpp src/auto_dump_handler.cpp)
+ament_target_dependencies(auto_dump_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
+
+# Auto Nav Handler node
+add_executable(auto_nav_handler_node src/auto_nav_handler_node.cpp src/auto_nav_handler.cpp)
+ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
 
 install(TARGETS
-operations_handler_node
+  operations_handler_node
+  auto_dig_handler_node
+  auto_dump_handler_node
+  auto_nav_handler_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# install(DIRECTORY
-#   launch
-#   DESTINATION share/${PROJECT_NAME}
-# )
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()

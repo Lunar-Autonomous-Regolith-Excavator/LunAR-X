@@ -31,6 +31,7 @@ class ExternalInterface: public rclcpp::Node
         // Clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<lx_msgs::srv::BermMetrics>::SharedPtr evaluate_berm_client_;
+		rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_publisher_;
         rclcpp::Publisher<lx_msgs::msg::BermMetrics>::SharedPtr last_berm_eval_publisher_;
@@ -38,8 +39,8 @@ class ExternalInterface: public rclcpp::Node
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
         TaskModeEnum current_rover_task_mode_ = TaskModeEnum::IDLE;
-        float mob_lin_vel_ = 0.6; // Reflect any default param changes here 
-        float mob_ang_vel_ = 0.3; // Reflect any default param changes here
+        float mob_lin_vel_ = 0.0; 
+        float mob_ang_vel_ = 0.0;
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
@@ -61,6 +62,16 @@ class ExternalInterface: public rclcpp::Node
         void setupParams();
 
         /*
+        * Get starting values of global parameters
+        * */
+        void getParams();
+
+        /*
+        * Callback function for starting values of global parameters
+        * */
+        void paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture );
+
+        /*
         * Argument(s): 
         *   - joystick message
         * 
@@ -68,6 +79,11 @@ class ExternalInterface: public rclcpp::Node
         * */
         void joyCallBack(const sensor_msgs::msg::Joy::SharedPtr );
 
+        /*
+        * Due to an unclear issue, the mobility and actuation lock statuses flip. This function will correct for this undesirable behaviour 
+        * */
+        void lockCheck();
+        
         /*
         * Argument(s):
         *   - joystick message

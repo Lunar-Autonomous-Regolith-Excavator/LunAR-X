@@ -1,10 +1,10 @@
-#include "lx_perception/pcl_relay.hpp"
+#include "lx_operation/auto_dump_handler.hpp"
 
 int main(int argc, char** argv){
     rclcpp::init(argc, argv);
     
     // Initialize node
-    auto node = std::make_shared<PCLRelay>();
+    auto node = std::make_shared<AutoDumpHandler>(rclcpp::NodeOptions());
     
     rclcpp::spin(node);
 

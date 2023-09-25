@@ -14,22 +14,20 @@
 
 #include "lx_library/task.hpp"
 
-Task::Task(unsigned int id){
+Task::Task(unsigned int id, TaskTypeEnum type, geometry_msgs::msg::PoseArray pose_array){
     this->task_id_ = id;
+    this->task_type_ = type;
+    this->pose_array_ = pose_array;
 }
 
-bool Task::pushSubTask(std::shared_ptr<SubTask> new_sub_task){
-    subtask_queue.push(new_sub_task);
-    return true;
+unsigned int Task::getID(){
+    return task_id_;
 }
 
-bool Task::popSubTask(){
-    subtask_queue.pop();
-    return true;
+TaskTypeEnum Task::getType(){
+    return task_type_;
 }
 
-bool Task::executeNextSubTask(){
-    // Add exception handling
-    // TODO
-    return subtask_queue.front()->execute();
+geometry_msgs::msg::PoseArray Task::getPoseArray(){
+    return pose_array_;
 }

@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     # create a list of nodes
     perception_node = Node(
-            package='lx_perception',
+            package='lx_mapping',
             executable='berm_evaluation_node',
             name='berm_evaluation_node',
         )

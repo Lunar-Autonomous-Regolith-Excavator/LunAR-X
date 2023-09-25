@@ -1,6 +1,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include <memory>
-#include "lx_perception/berm_evaluation.hpp"
+#include "lx_mapping/berm_evaluation.hpp"
 
 int main(int argc, char **argv)
 {

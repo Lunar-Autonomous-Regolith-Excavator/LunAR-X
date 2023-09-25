@@ -6,15 +6,24 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(action_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RoverCommand.msg"
   "msg/ToolInfo.msg"
   "msg/BermMetrics.msg"
+  "msg/BermConfig.msg"
+  "msg/PlannedTask.msg"
   "srv/BermMetrics.srv"
-  DEPENDENCIES geometry_msgs
+  "srv/Plan.srv"
+  "action/Operation.action"
+  "action/AutoDig.action"
+  "action/AutoDump.action"
+  "action/AutoNav.action"
+  DEPENDENCIES std_msgs geometry_msgs action_msgs
 )
 
 ament_package()

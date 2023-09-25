@@ -1,4 +1,4 @@
-#include "lx_perception/pcl_relay.hpp"
+#include "lx_mapping/pcl_relay.hpp"
 
 PCLRelay::PCLRelay(): Node("pcl_relay_node"){
     // Set up subscriptions & publishers

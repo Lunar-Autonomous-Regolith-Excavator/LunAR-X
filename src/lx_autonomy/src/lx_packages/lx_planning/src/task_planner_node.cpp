@@ -1,10 +1,10 @@
-#include "lx_operation/operations_handler.hpp"
+#include "lx_planning/task_planner.hpp"
 
 int main(int argc, char** argv){
     rclcpp::init(argc, argv);
     
     // Initialize node
-    auto node = std::make_shared<OperationsHandler>(rclcpp::NodeOptions());
+    auto node = std::make_shared<TaskPlanner>();
     
     rclcpp::spin(node);
 

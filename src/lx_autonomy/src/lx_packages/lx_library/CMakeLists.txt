@@ -7,11 +7,13 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 include_directories(include)
 
-add_library(lx_library src/lx_utils.cpp src/subtask.cpp src/task.cpp src/exceptions.cpp)
+add_library(lx_library src/lx_utils.cpp src/task.cpp src/exceptions.cpp)
 ament_export_targets(lx_library HAS_LIBRARY_TARGET)
+ament_target_dependencies(lx_library rclcpp geometry_msgs)
 
 install(
   DIRECTORY include/lx_library
