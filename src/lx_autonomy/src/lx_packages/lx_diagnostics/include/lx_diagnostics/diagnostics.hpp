@@ -13,14 +13,14 @@ class Diagnostics: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        std::vector<std::string> nodes_list_ {"param_server", 
-                                              "external_interface", 
-                                              "command_mux"};
+        std::vector<std::string> nodes_list_ {"param_server_node"/*, 
+                                              "external_interface_node", 
+                                              "command_mux_node"*/};
         // Time
         unsigned int timeout_period_sec_ = 3;
-        rclcpp::TimerBase::SharedPtr diagnostics_timers_[3];
+        rclcpp::TimerBase::SharedPtr diagnostics_timers_[1];
         // Subscribers
-        rclcpp::Subscription<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostics_subscribers_[3];
+        rclcpp::Subscription<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostics_subscribers_[1];
         // Clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
 		rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;

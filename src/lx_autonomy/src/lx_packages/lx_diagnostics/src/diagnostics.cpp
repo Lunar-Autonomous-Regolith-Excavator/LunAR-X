@@ -31,7 +31,7 @@ Diagnostics::Diagnostics(): Node("diagnostics_node"){
 void Diagnostics::setupCommunications(){
     // Subscribers
     for(long unsigned int i = 0; i < nodes_list_.size(); i++){
-        diagnostics_subscribers_[i] = this->create_subscription<lx_msgs::msg::NodeDiagnostics>("diagnostics/" + nodes_list_[i], 10, 
+        diagnostics_subscribers_[i] = this->create_subscription<lx_msgs::msg::NodeDiagnostics>("/diagnostics", 10, 
                             std::bind(&Diagnostics::diagnosticsCallBack, this, std::placeholders::_1));
     }
     // Clients

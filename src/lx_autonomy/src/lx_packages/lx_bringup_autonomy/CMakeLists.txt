@@ -8,11 +8,12 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(lx_msgs REQUIRED)
 
 include_directories(include)
 
 add_executable(param_server_node src/param_server_node.cpp src/param_server.cpp)
-ament_target_dependencies(param_server_node rclcpp)
+ament_target_dependencies(param_server_node rclcpp lx_msgs)
 
 install(TARGETS
   param_server_node
