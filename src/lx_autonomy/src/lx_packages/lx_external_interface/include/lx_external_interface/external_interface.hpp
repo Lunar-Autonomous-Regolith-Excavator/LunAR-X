@@ -11,13 +11,16 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "lx_msgs/msg/berm_metrics.hpp"
 #include "lx_msgs/srv/berm_metrics.hpp"
+#include "lx_msgs/msg/node_diagnostics.hpp"
 
 
 class ExternalInterface: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
+        unsigned int diagnostic_pub_period_ = 1;
         // Time
+        rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
         rclcpp::TimerBase::SharedPtr rover_lock_timer_;
         rclcpp::Time guide_debounce_timer_;
         rclcpp::Time start_debounce_timer_;
@@ -33,6 +36,7 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Client<lx_msgs::srv::BermMetrics>::SharedPtr evaluate_berm_client_;
 		rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Publishers
+        rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_publisher_;
         rclcpp::Publisher<lx_msgs::msg::BermMetrics>::SharedPtr last_berm_eval_publisher_;
         // Parameter handling
@@ -156,6 +160,11 @@ class ExternalInterface: public rclcpp::Node
         * Publish the evaluated berm
         * */
         void bermEvalCB(rclcpp::Client<lx_msgs::srv::BermMetrics>::SharedFuture );
+
+        /*
+        * Diagnostic heartbeat published at a fixed rate
+        * */
+        void diagnosticPublish();
         // --------------------------------------
 
     public:

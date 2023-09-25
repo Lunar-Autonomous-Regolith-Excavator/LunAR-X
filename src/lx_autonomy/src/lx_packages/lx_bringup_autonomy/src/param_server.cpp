@@ -15,7 +15,7 @@ ParamServer::ParamServer(): Node("param_server_node"){
 
 void ParamServer::setupCommunications(){
     // Publishers
-    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("/diagnostics", 10);
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("diagnostics", 10);
 }
 
 void ParamServer::initParameters(){

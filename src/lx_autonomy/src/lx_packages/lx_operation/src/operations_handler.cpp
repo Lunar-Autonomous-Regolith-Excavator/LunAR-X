@@ -26,6 +26,10 @@ OperationsHandler::OperationsHandler(const rclcpp::NodeOptions& options = rclcpp
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
 
+    // Timer for diagnostics publisher
+    diagnostic_pub_timer_ = this->create_wall_timer(std::chrono::seconds(diagnostic_pub_period_), 
+                        std::bind(&OperationsHandler::diagnosticPublish, this));
+
     // Get parameters from the global parameter server
     getParams();
 
@@ -104,7 +108,7 @@ void OperationsHandler::setupCommunications(){
     // Subscribers 
 
     // Publishers
-    
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("diagnostics", 10);
     // Service servers
 
     // Service clients
@@ -622,4 +626,12 @@ bool OperationsHandler::checkBermBuilt(){
 
     // Return true if berm is built
     return true;
+}
+
+void OperationsHandler::diagnosticPublish(){
+    // Publish diagnostic message
+    auto msg = lx_msgs::msg::NodeDiagnostics();
+    msg.node_name = this->get_name();
+    msg.stamp = this->get_clock()->now();
+    diagnostic_publisher_->publish(msg);
 }

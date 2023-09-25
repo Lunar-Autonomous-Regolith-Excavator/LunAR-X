@@ -8,12 +8,16 @@
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
+#include "lx_msgs/msg/node_diagnostics.hpp"
 
 
 class CommandMux: public rclcpp::Node
 {
     private:
         // Variables ----------------------------
+        unsigned int diagnostic_pub_period_ = 1;
+        // Time
+        rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
         // Last command
         float last_mob_lin_vel_ = 0.0;
         // Subscribers
@@ -22,6 +26,7 @@ class CommandMux: public rclcpp::Node
         std::thread teleop_cmd_pub_thread_;
         std::thread auto_cmd_pub_thread_;
         // Publishers
+        rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_publisher_;
         // Clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
@@ -106,6 +111,11 @@ class CommandMux: public rclcpp::Node
         * */
         void sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr );
         void sendCmdToHardware(geometry_msgs::msg::Twist& , float& ,float& );
+
+        /*
+        * Diagnostic heartbeat published at a fixed rate
+        * */
+        void diagnosticPublish();
         // --------------------------------------
 
     public:
