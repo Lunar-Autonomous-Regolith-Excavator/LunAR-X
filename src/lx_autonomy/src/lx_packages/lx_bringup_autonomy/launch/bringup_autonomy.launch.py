@@ -16,6 +16,12 @@ def generate_launch_description():
                           PythonLaunchDescriptionSource(
                                 bringup_autonomy_dir + '/launch/param_server.launch.py'))
     
+    # diagnostics launch
+    diagnostics_dir = get_package_share_directory('lx_diagnostics')
+    diagnostics_launch = IncludeLaunchDescription(
+                          PythonLaunchDescriptionSource(
+                                diagnostics_dir + '/launch/diagnostics.launch.py'))
+    
     # command_mux launch
     rover_command_dir = get_package_share_directory('lx_rover_command')
     command_mux_launch = IncludeLaunchDescription(
@@ -82,6 +88,7 @@ def generate_launch_description():
     )
     
     ld.add_action(param_server_launch)
+    ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
     ld.add_action(operation_launch)

@@ -6,7 +6,16 @@
 #include "lx_bringup_autonomy/param_server.hpp"
 
 ParamServer::ParamServer(): Node("param_server_node"){
+    setupCommunications();
+
+    diagnostic_pub_timer_ = this->create_wall_timer(std::chrono::seconds(diagnostic_pub_period_), std::bind(&ParamServer::diagnosticPublish, this));
+
     initParameters();
+}
+
+void ParamServer::setupCommunications(){
+    // Publishers
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("diagnostics", 10);
 }
 
 void ParamServer::initParameters(){
@@ -65,3 +74,10 @@ void ParamServer::initParameters(){
     call_back_handle_[17] = param_subscriber_->add_parameter_callback("operational.dmp_drum_speed", param_double_call_back);
 }
 
+void ParamServer::diagnosticPublish(){
+    // Publish diagnostic message
+    auto msg = lx_msgs::msg::NodeDiagnostics();
+    msg.node_name = this->get_name();
+    msg.stamp = this->get_clock()->now();
+    diagnostic_publisher_->publish(msg);
+}
