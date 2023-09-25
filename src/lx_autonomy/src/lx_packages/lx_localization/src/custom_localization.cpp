@@ -28,7 +28,7 @@ public:
         imu_sub_ = create_subscription<sensor_msgs::msg::Imu>("/vectornav/imu", qos,
                                         std::bind(&RemapNode::imu_callback, this, std::placeholders::_1));
 
-        final_pose_pub_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/odometry/ekf_odom_node", qos);
+        odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("/total_station_odom", qos, 10);
 
     }
 
@@ -41,13 +41,21 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
-    rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr final_pose_pub_;
     double x_off = 10, y_off = -13, z_off = 11;
     bool set_offset = false;
     geometry_msgs::msg::PoseWithCovarianceStamped imu_pose_msg;
 
+<<<<<<< HEAD
     void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg){
         imu_pose_msg.header.frame_id = "odom";
+=======
+    geometry_msgs::msg::PoseWithCovarianceStamped prev_pose_msg;
+    nav_msgs::msg::Odometry odom_msg;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+
+    void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg){
+        imu_pose_msg.header.frame_id = msg->header.frame_id;
+>>>>>>> f9cfb903cba5d732a0a87a5d73aa66f1b2e14beb
         imu_pose_msg.header.stamp = msg->header.stamp;
         imu_pose_msg.pose.pose.orientation = msg->orientation;   
     }
@@ -93,17 +101,33 @@ private:
         if (!this->got_imu_transform) check_for_imu_transform();
 
         geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
-        pose_map_msg.header.frame_id = "odom";
+        pose_map_msg.header.frame_id = "map";
         pose_map_msg.header.stamp = msg->header.stamp;
         // msg->pose.pose.position.x += x_off;
         // msg->pose.pose.position.y += y_off;
         // msg->pose.pose.position.z += z_off;
         
         if (this->got_prism_transform) tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink);
+
+        pose_pub_->publish(pose_map_msg);
+
         if (this->got_imu_transform) tf2::doTransform(*msg, imu_pose_msg, this->eigen_transform_imu_baselink);
 
         pose_map_msg.pose.pose.orientation = imu_pose_msg.pose.pose.orientation;
-        this->final_pose_pub_->publish(pose_map_msg);
+
+        odom_msg.header.frame_id = "map";
+        odom_msg.header.stamp = msg->header.stamp;
+        odom_msg.pose = pose_map_msg.pose;
+        odom_msg.child_frame_id = "base_link";
+
+        // Calculate velocity
+        odom_msg.twist.twist.linear.x = (pose_map_msg.pose.pose.position.x - prev_pose_msg.pose.pose.position.x) / (odom_msg.header.stamp.sec - prev_pose_msg.header.stamp.sec);
+        odom_msg.twist.twist.linear.y = (pose_map_msg.pose.pose.position.y - prev_pose_msg.pose.pose.position.y) / (odom_msg.header.stamp.sec - prev_pose_msg.header.stamp.sec);
+        odom_msg.twist.twist.linear.z = (pose_map_msg.pose.pose.position.z - prev_pose_msg.pose.pose.position.z) / (odom_msg.header.stamp.sec - prev_pose_msg.header.stamp.sec);
+
+        odom_pub_->publish(odom_msg);
+
+        prev_pose_msg = pose_map_msg;        
     }
 };
 
