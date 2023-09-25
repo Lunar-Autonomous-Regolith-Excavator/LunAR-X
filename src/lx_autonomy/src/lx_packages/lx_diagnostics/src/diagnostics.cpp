@@ -5,7 +5,9 @@
  *
  * - Run diagnostics on robot autonomy and hardware
  * 
- * TODO
+ * TODO:
+ * - Add diagnostics to autodig, autonav, autodump
+ * - Add diagnostics to mapping, localization, planning
  * */
 
 #include "lx_diagnostics/diagnostics.hpp"
