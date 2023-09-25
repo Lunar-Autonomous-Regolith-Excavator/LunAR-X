@@ -8,12 +8,14 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(lx_msgs REQUIRED)
+find_package(lx_library REQUIRED)
 
 include_directories(include)
 
 # Diagnostics node
 add_executable(diagnostics_node src/diagnostics_node.cpp src/diagnostics.cpp)
-ament_target_dependencies(diagnostics_node rclcpp)
+ament_target_dependencies(diagnostics_node rclcpp lx_msgs lx_library)
 
 install(TARGETS
   diagnostics_node

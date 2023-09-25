@@ -9,6 +9,7 @@ find_package(ament_cmake REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(action_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -17,13 +18,14 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BermMetrics.msg"
   "msg/BermConfig.msg"
   "msg/PlannedTask.msg"
+  "msg/NodeDiagnostics.msg"
   "srv/BermMetrics.srv"
   "srv/Plan.srv"
   "action/Operation.action"
   "action/AutoDig.action"
   "action/AutoDump.action"
   "action/AutoNav.action"
-  DEPENDENCIES std_msgs geometry_msgs action_msgs
+  DEPENDENCIES std_msgs geometry_msgs action_msgs builtin_interfaces
 )
 
 ament_package()
