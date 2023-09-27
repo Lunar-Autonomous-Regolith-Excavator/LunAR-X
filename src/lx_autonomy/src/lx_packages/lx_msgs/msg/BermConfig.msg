@@ -1,1 +1,1 @@
-geometry_msgs/Point[] berm_configuration
+geometry_msgs/PointStamped[] berm_configuration
