@@ -30,9 +30,9 @@ Version: 10/26/2020
 import rclpy
 import rclpy.node
 from rclpy.qos import qos_profile_sensor_data
-from cv_bridge import CvBridge
 import numpy as np
 import cv2
+from cv_bridge import CvBridge
 import tf_transformations
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
