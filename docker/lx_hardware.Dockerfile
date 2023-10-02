@@ -9,9 +9,15 @@ RUN apt update && apt install ros-noetic-rosserial-arduino ros-noetic-rosserial 
 # Install Realsense Drivers
 RUN apt-get install -y ros-foxy-realsense2-camera
 
+# Install tool height Packages
+RUN apt-get update && \
+    apt-get install -y python3-pip && \
+    pip3 install transforms3d
+
 # Install ROS utility Packages
 RUN apt install ros-noetic-rqt ros-noetic-rqt-graph -y
 RUN apt install ros-foxy-rviz2 ros-foxy-tf-transformations -y
+
 
 # Link to allow sourcing
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh 
@@ -49,10 +55,7 @@ RUN cd /home/lx_hardware/ros1_ws && source /opt/ros/noetic/setup.bash && catkin_
 RUN apt-get update && \
     apt-get install -y nano tmux
     
-# Install tool height Packages
-RUN apt-get update && \
-    apt-get install -y python3-pip && \
-    pip3 install transforms3d
+
 
 # Mount ROS2 workspace and colcon build
 COPY ./src/lx_hardware/ros2_ws/src/lx_packages/ /home/lx_hardware/ros2_ws/src/lx_packages/

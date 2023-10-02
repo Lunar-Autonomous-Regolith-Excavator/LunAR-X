@@ -30,14 +30,15 @@ Version: 10/26/2020
 import rclpy
 import rclpy.node
 from rclpy.qos import qos_profile_sensor_data
+import cv2
 from cv_bridge import CvBridge
 import numpy as np
-import cv2
 import tf_transformations
 from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
+from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseArray, Pose
-from ros2_aruco_interfaces.msg import ArucoMarkers
+from ros2_aruco_interfaces.msg import ArucoMarkers, ToolHeight
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 
@@ -139,6 +140,7 @@ class ArucoNode(rclpy.node.Node):
         # Set up publishers
         self.poses_pub = self.create_publisher(PoseArray, "aruco_poses", 10)
         self.markers_pub = self.create_publisher(ArucoMarkers, "aruco_markers", 10)
+        self.tool_height_pub = self.create_publisher(ToolHeight, "tool_height", 10)
 
         # Set up fields for camera parameters
         self.info_msg = None
@@ -188,9 +190,12 @@ class ArucoNode(rclpy.node.Node):
                 )
             for i, marker_id in enumerate(marker_ids):
                 pose = Pose()
+                heights = ToolHeight()
+		
                 pose.position.x = tvecs[i][0][0]
                 pose.position.y = tvecs[i][0][1]
                 pose.position.z = tvecs[i][0][2]
+                heights.tool_height = -(tvecs[i][0][1]* 0.7349 + tvecs[i][0][2]* 0.2389 -0.2688)/0.6346
 
                 rot_matrix = np.eye(4)
                 rot_matrix[0:3, 0:3] = cv2.Rodrigues(np.array(rvecs[i][0]))[0]
@@ -207,6 +212,8 @@ class ArucoNode(rclpy.node.Node):
 
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
+            self.tool_height_pub.publish(heights)
+	
 
 
 def main():
