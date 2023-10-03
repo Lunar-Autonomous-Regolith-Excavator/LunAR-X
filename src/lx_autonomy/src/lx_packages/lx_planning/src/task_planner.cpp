@@ -111,13 +111,16 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         // Direction should be 90 degrees
         dump_pose.orientation = eulerToQuaternion(0, 0, 1.5708);
 
+        // Add navigation task to the plan
+        navigation_task.pose_array.poses.clear();
+        navigation_task.pose_array.poses.push_back(start_pose);
+
         // Add excavation task to the plan
         res->plan.push_back(excavation_task);
 
         // Add navigation task to the plan
         lx_msgs::msg::PlannedTask navigation_task;
         navigation_task.task_type = lx_msgs::msg::PlannedTask::NAVIGATION;
-        navigation_task.pose_array.poses.push_back(end_pose);
         navigation_task.pose_array.poses.push_back(dump_pose);
 
         res->plan.push_back(navigation_task);
@@ -128,11 +131,6 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         dump_task.pose_array.poses.push_back(dump_pose);
 
         res->plan.push_back(dump_task);
-
-        // Add navigation task to the plan
-        navigation_task.pose_array.poses.clear();
-        navigation_task.pose_array.poses.push_back(dump_pose);
-        navigation_task.pose_array.poses.push_back(start_pose);
 
         res->plan.push_back(navigation_task);
     }
