@@ -1,16 +1,4 @@
-/* Author: 
- * Subscribers:
- *    - /topic: description
- * Publishers:
- *    - /topic: description
- * Services:
- *    - /name (type): description
- *
- * - Summary
- * 
- * TODO
- * - Add todos
- * */
+// Author: Vibhakar Mohta and Dhruv Tyagi
 
 #include "lx_operation/auto_dig_handler.hpp"
 
@@ -23,9 +11,9 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
     setupCommunications();
 
     // Set PID to 0.0 for safety until parameters are updated
-    autodig_pid_.kp = 0.0;
-    autodig_pid_.ki = 0.0;
-    autodig_pid_.kd = 0.0;
+    // autodig_pid_.kp = 0.0;
+    // autodig_pid_.ki = 0.0;
+    // autodig_pid_.kd = 0.0;
 
     // Get parameters from the global parameter server
     getParams();
@@ -96,10 +84,10 @@ void AutoDigHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>:
                RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Dumping");
                break;
         }
-        autodig_pid_.kp = future.get()->values.at(4).double_array_value[0];
-        autodig_pid_.ki = future.get()->values.at(4).double_array_value[1];
-        autodig_pid_.kd = future.get()->values.at(4).double_array_value[2];
-        RCLCPP_INFO(this->get_logger(), "Parameter set Autodig PID: [%.3f, %.5f, %.3f]", autodig_pid_.kp, autodig_pid_.ki, autodig_pid_.kd);
+        // autodig_pid_.kp = future.get()->values.at(4).double_array_value[0];
+        // autodig_pid_.ki = future.get()->values.at(4).double_array_value[1];
+        // autodig_pid_.kd = future.get()->values.at(4).double_array_value[2];
+        // RCLCPP_INFO(this->get_logger(), "Parameter set Autodig PID: [%.3f, %.5f, %.3f]", autodig_pid_.kp, autodig_pid_.ki, autodig_pid_.kd);
     } 
     else {
         RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
@@ -111,15 +99,23 @@ void AutoDigHandler::toolInfoCB(const lx_msgs::msg::ToolInfo::SharedPtr msg){
     tool_info_msg_time_ = this->get_clock()->now();
 }
 
+void AutoDigHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
+    drum_height_ = msg->data;
+}
+
 void AutoDigHandler::setupCommunications(){
     // Subscribers 
     tool_info_sub_ = this->create_subscription<lx_msgs::msg::ToolInfo>("/tool_info", 10, 
                         std::bind(&AutoDigHandler::toolInfoCB, this, std::placeholders::_1));
+    drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/drum_height", 10, 
+                        std::bind(&AutoDigHandler::drumHeightCB, this, std::placeholders::_1));
     
     // Publishers
     rover_hw_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
     drum_desired_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_current", 10);
     drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
+    drum_desired_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_height", 10);
+    drum_current_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_height", 10);
     
     // Service servers
 
@@ -131,6 +127,47 @@ void AutoDigHandler::setupCommunications(){
                                             std::bind(&AutoDigHandler::handle_goal, this, _1, _2),
                                             std::bind(&AutoDigHandler::handle_cancel, this, _1),
                                             std::bind(&AutoDigHandler::handle_accepted, this, _1));
+    
+    // Timers
+    this->rover_command_timer_ = this->create_wall_timer(std::chrono::milliseconds(50), 
+                        std::bind(&AutoDigHandler::roverCommandTimerCallback, this));
+}
+
+void AutoDigHandler::roverCommandTimerCallback()
+{
+    //PID to control the height of the drum
+    if(this->inner_PID_control_rover_==false) return; // if control_rover_ is false, do nothing
+
+    lx_msgs::msg::RoverCommand rover_cmd;
+    if(target_drum_height == -1) 
+    {
+        // Stop everything if target_drum_height is -1
+        rover_cmd.actuator_speed = 0;
+        rover_cmd.drum_speed = 0;
+        rover_cmd.mobility_twist.linear.x = 0;
+    }
+    else
+    {
+        double error_height = drum_height_ - target_drum_height;
+        double pid_command = KP_ACT*error_height + KI_ACT*integral_error_height + KD_ACT*(error_height - prev_error_height);
+
+        // Send rover command:
+        rover_cmd.actuator_speed = std::min(std::max(pid_command, -1.0), 1.0); //clip drum_height_error_pid to [-1, 1]
+        rover_cmd.drum_speed = target_rover_velocity;
+        rover_cmd.mobility_twist.linear.x = target_rover_velocity;
+
+        // Publish using debug publishers
+        std_msgs::msg::Float64 msg; 
+        msg.data = target_drum_height;
+        this->drum_desired_height_pub_->publish(msg);
+
+        msg.data = drum_height_;
+        this->drum_current_height_pub_->publish(msg);
+
+        integral_error_height += error_height;
+        prev_error_height = error_height;
+    }
+    rover_hw_cmd_pub_->publish(rover_cmd);
 }
 
 void AutoDigHandler::setupParams(){
@@ -182,12 +219,12 @@ void AutoDigHandler::setupParams(){
                break;
         }
     };
-    auto autodig_pid_params_callback = [this](const rclcpp::Parameter & p){
-        autodig_pid_.kp = p.as_double_array()[0];
-        autodig_pid_.ki = p.as_double_array()[1];
-        autodig_pid_.kd = p.as_double_array()[2];
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": [%.3f, %.5f, %.3f]", p.get_name().c_str(), autodig_pid_.kp, autodig_pid_.ki, autodig_pid_.kd);
-    };
+    // auto autodig_pid_params_callback = [this](const rclcpp::Parameter & p){
+    //     autodig_pid_.kp = p.as_double_array()[0];
+    //     autodig_pid_.ki = p.as_double_array()[1];
+    //     autodig_pid_.kd = p.as_double_array()[2];
+    //     RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": [%.3f, %.5f, %.3f]", p.get_name().c_str(), autodig_pid_.kp, autodig_pid_.ki, autodig_pid_.kd);
+    // };
 
     // Names of node & params for adding callback
     auto param_server_name = std::string("param_server_node");
@@ -202,7 +239,7 @@ void AutoDigHandler::setupParams(){
     act_param_cb_handle_ = param_subscriber_->add_parameter_callback(act_lock_param_name, act_params_callback, param_server_name);
     op_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(op_mode_param_name, op_mode_params_callback, param_server_name);
     task_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(task_mode_param_name, task_mode_params_callback, param_server_name);
-    autodig_pid_param_cb_handle_ = param_subscriber_->add_parameter_callback(autodig_pid_param_name, autodig_pid_params_callback, param_server_name);
+    // autodig_pid_param_cb_handle_ = param_subscriber_->add_parameter_callback(autodig_pid_param_name, autodig_pid_params_callback, param_server_name);
 }
 
 rclcpp_action::GoalResponse AutoDigHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const AutoDig::Goal> goal){
@@ -237,92 +274,56 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     auto feedback = std::make_shared<AutoDig::Feedback>();
     auto result = std::make_shared<AutoDig::Result>();
 
-    // If last message was recieved more than 1 second ago, return goal aborted
-    if((this->get_clock()->now() - tool_info_msg_time_).seconds() > 1){
-        result->success = false;
-        goal_handle->abort(result);
-        RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
-        return;
-    }
-    
+    inner_PID_control_rover_ = true; // allow rover to be controlled by inner PID
     rclcpp::Time action_start_time = this->get_clock()->now();
-    rclcpp::Rate loop_rate_1(0.01);
-    while(true)
+    rclcpp::Rate loop_rate(10); // 10 Hz
+    while(rclcpp::ok())
     {
         rclcpp::Time action_curr_time = this->get_clock()->now();
+        // Abort action if no tool info message recieved in last 1 second
+        if((action_curr_time - tool_info_msg_time_).seconds() > 1)
+        {
+            result->success = false;
+            goal_handle->abort(result);
+            RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
+            return;
+        }
+
+        // End action after T_END_SECONDS seconds
         double action_time_diff_seconds = (action_curr_time - action_start_time).seconds();
-        if(action_time_diff_seconds > t_end_seconds)
-            break;
+        if(action_time_diff_seconds > T_END_SECONDS)
+        {
+            break; 
+        }
         
-        double desired_current_value = nominal_current_value_i + (nominal_current_value_f - nominal_current_value_i) * action_time_diff_seconds / (t_end_seconds);
+        double desired_current_value = NOMINAL_CURRENT_VALUE_I + (NOMINAL_CURRENT_VALUE_F - NOMINAL_CURRENT_VALUE_I) * action_time_diff_seconds / (T_END_SECONDS);
+        
         // Publish drum desired current and drum current current
-        std_msgs::msg::Float64 drum_desired_current_msg;
-        drum_desired_current_msg.data = desired_current_value;
-        drum_desired_current_pub_->publish(drum_desired_current_msg);
+        std_msgs::msg::Float64 msg; 
+        msg.data = desired_current_value;
+        drum_desired_current_pub_->publish(msg);
+        msg.data = tool_info_msg_.drum_current;
+        drum_current_current_pub_->publish(msg);
 
-        std_msgs::msg::Float64 drum_current_current_msg;
-        drum_current_current_msg.data = tool_info_msg_.drum_current;
-        drum_current_current_pub_->publish(drum_current_current_msg);
-
-        // PID
+        // PID Outer Loop
         double drum_current_error = tool_info_msg_.drum_current - desired_current_value;
-        
-        double drum_current_error_pid = autodig_pid_.kp*drum_current_error + autodig_pid_.ki*integral_error + autodig_pid_.kd*(drum_current_error - prev_error);
-        prev_error = drum_current_error;
-        integral_error += drum_current_error;
+        double drum_current_error_pid = KP_DRUM*drum_current_error + KI_DRUM*integral_error_current + KD_DRUM*(drum_current_error - prev_error_current);
+        prev_error_current = drum_current_error;
+        integral_error_current += drum_current_error;
 
-        RCLCPP_INFO(this->get_logger(), "Drum current error: %f", drum_current_error);
-
-        // if the value of pid_drum_height is above pid_height_error_threshold_cm, control drum for height_control_period_seconds
-        if(abs(drum_current_error_pid) > drum_control_error_thresh)
-        {
-            rclcpp::Time start = this->get_clock()->now(), curr_time = this->get_clock()->now();
-            rclcpp::Rate loop_rate_2(0.1);
-            while(true)
-            {
-                curr_time = this->get_clock()->now();
-                double time_diff_seconds = (curr_time - start).seconds();
-                if(time_diff_seconds > height_control_period_seconds)
-                    break;
-
-                // Set drum command
-                lx_msgs::msg::RoverCommand rover_cmd;
-                // set it based on sign of pid_drum_height
-                rover_cmd.actuator_speed = drum_current_error_pid > 0 ? -actuator_control_value : actuator_control_value;
-                rover_cmd.drum_speed = drum_command;
-                rover_cmd.mobility_twist.linear.x = forward_speed;
-                rover_hw_cmd_pub_->publish(rover_cmd);
-                RCLCPP_INFO(this->get_logger(), "Actuating Linear Actuator with value: %f", rover_cmd.actuator_speed);
-                // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                loop_rate_2.sleep();
-            }
-        }
-        else
-        {
-            // keep going forward
-            lx_msgs::msg::RoverCommand rover_cmd;
-            rover_cmd.mobility_twist.linear.x = forward_speed;
-            rover_cmd.drum_speed = drum_command;
-            rover_hw_cmd_pub_->publish(rover_cmd);
-        }
-        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        loop_rate_1.sleep();
+        // Set targets for inner loop
+        target_drum_command = DRUM_COMMAND_EXCAVATION;
+        target_rover_velocity = FORWARD_SPEED;
+        target_drum_height = drum_height_ + drum_current_error_pid;
+        loop_rate.sleep();
     }
 
-    // publish a 0 rover command to stop the rover
-    lx_msgs::msg::RoverCommand rover_cmd;
-    rover_cmd.mobility_twist.linear.x = 0;
-    rover_cmd.drum_speed = 0;
-    rover_cmd.actuator_speed = 0;
-    rover_hw_cmd_pub_->publish(rover_cmd);
-    
-
-    // If autodig fails, return goal aborted. Uncomment following:
-
-    // result->success = false;
-    // goal_handle->abort(result);
-    // RCLCPP_ERROR(this->get_logger(), "Autodig failed");
-    // return;
+    // Set targets to 0 to stop the rover
+    target_drum_height = -1;
+    target_drum_command = 0;
+    target_rover_velocity = 0;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    inner_PID_control_rover_ = false;
     
     // If autodig executed successfully, return goal success
     if (rclcpp::ok()) {

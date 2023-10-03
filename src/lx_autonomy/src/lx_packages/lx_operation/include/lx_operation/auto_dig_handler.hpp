@@ -41,36 +41,46 @@ class AutoDigHandler: public rclcpp::Node
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
         lx_msgs::msg::ToolInfo tool_info_msg_;
-        // std::chrono::time_point<std::chrono::system_clock> tool_info_msg_time_ = std::chrono::system_clock::now();
         rclcpp::Time tool_info_msg_time_;
+        rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
+        double drum_height_ = 0;
 
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_pub_;
 
-        // Setup int publishers for drum desired current, drum current current
+        // Debug Publishers. TODO: remove this later
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_current_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_current_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_height_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_height_pub_;
 
+        // Setup clock for publishing commands to rover at 10 Hz
+        rclcpp::TimerBase::SharedPtr rover_command_timer_;
+        bool inner_PID_control_rover_ = false;
 
         // Hyperparameters for PID height control
-        // double kp = 1;
-        // double ki = 0.001;
-        // double kd = 1.5;
-        pid_struct autodig_pid_;
-        double forward_speed = 0.05; // speed at which the rover moves forward (m/s)
-        double drum_command = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
+        // pid_struct autodig_pid_;
+        const double KP_DRUM = 1;
+        const double KI_DRUM = 0.001;
+        const double KD_DRUM = 1.5;
 
-        // current slope = nominal_current_value_i + (nominal_current_value_f - nominal_current_value_i) * t / t_end
-        double nominal_current_value_i = 1.3; 
-        double nominal_current_value_f = 2.0;
-        double t_end_seconds = 30; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
+        const double KP_ACT = 1;
+        const double KI_ACT = 0.001;
+        const double KD_ACT = 1.5;
 
-        double drum_control_error_thresh = 0.1; // error threshold after which tool height control is called
-        double height_control_period_seconds = 0.3; // time for which the tool height is controled once PID height error threshold is reached
-        double actuator_control_value = 0.7; // speed to more the linear actuator, range [-1, 1]
+        // Hyperparameters for Autodig Outer Loop
+        const double FORWARD_SPEED = 0.05; // speed at which the rover moves forward (m/s)
+        const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
+        const double NOMINAL_CURRENT_VALUE_I = 1.3; 
+        const double NOMINAL_CURRENT_VALUE_F = 2.0;
+        const double T_END_SECONDS = 30; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
         
-        // PID variables
-        double prev_error = 0, integral_error = 0;
+        // PID function variables
+        double prev_error_current = 0, integral_error_current = 0;
+        double prev_error_height = 0, integral_error_height = 0;
+
+        // Target variables to pass to inner loop
+        double target_drum_height = -1, target_rover_velocity = 0, target_drum_command = 0;
         
         // --------------------------------------
 
@@ -97,6 +107,8 @@ class AutoDigHandler: public rclcpp::Node
 
         // Subscriber callbacks
         void toolInfoCB(const lx_msgs::msg::ToolInfo::SharedPtr );
+        void drumHeightCB(const std_msgs::msg::Float64::SharedPtr );
+        void roverCommandTimerCallback();
 
         /*
         * Argument(s):
