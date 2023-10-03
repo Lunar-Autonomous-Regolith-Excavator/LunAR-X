@@ -239,7 +239,7 @@ void CommandMux::roverAutoCallBack(const lx_msgs::msg::RoverCommand::SharedPtr r
 
 void CommandMux::autoPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rover_auto_msg){
     // If current op_mode is autonomous & task_mode is not idle
-    if(current_rover_op_mode_ == OpModeEnum::AUTONOMOUS && current_rover_task_mode_ != TaskModeEnum::IDLE){
+    if(current_rover_op_mode_ == OpModeEnum::AUTONOMOUS /*&& current_rover_task_mode_ != TaskModeEnum::IDLE*/){
         // Pass through autonomy command
         sendCmdToHardware(rover_auto_msg);
     } 

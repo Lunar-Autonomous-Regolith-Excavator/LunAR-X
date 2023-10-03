@@ -23,6 +23,9 @@ param_server_node:
       dmp_lin_act_ext: 0.05   # meter
       exc_drum_speed: 0.0     # rad/sec
       dmp_drum_speed: 0.0     # rad/sec
+    
+    autodig:                  # Autodig PID controller
+      pid: [1.0, 0.001, 1.5]  # [kp, ki, kd]
 
 
   

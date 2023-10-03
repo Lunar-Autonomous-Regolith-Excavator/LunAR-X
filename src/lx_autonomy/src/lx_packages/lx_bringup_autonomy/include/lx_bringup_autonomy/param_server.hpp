@@ -10,7 +10,7 @@ class ParamServer: public rclcpp::Node
         // Variables ----------------------------
         // Parameter handling
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
-        std::shared_ptr<rclcpp::ParameterCallbackHandle> call_back_handle_[18];
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> call_back_handle_[19];
         // --------------------------------------
 
 

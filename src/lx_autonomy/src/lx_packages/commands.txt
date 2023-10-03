@@ -1,0 +1,7 @@
+Call Autodig action to debug:
+
+ros2 action send_goal /operations/autodig_action lx_msgs/action/AutoDig "{}"
+
+Change Autodig PID values:
+
+ros2 service call /param_server_node/set_parameters rcl_interfaces/srv/SetParameters "{parameters: [{name: \"autodig.pid\", value: {type: 8, double_array_value: [0.0, 0.0, 0.0]}}]}"
