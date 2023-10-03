@@ -72,12 +72,15 @@ void HardwareMux::toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPt
     this->tool_info_msg.drum_pos = drum_rps_scale*msg->data[0];
     this->tool_info_msg.acc_pos = acc_rps_scale*msg->data[1] - acc_offset;
 
-    // Add complementary filter to current readings
-    filtered_drum_current = 0.9*filtered_drum_current + 0.1*(msg->data[2]-512);
-    filtered_acc_current = 0.9*filtered_acc_current + 0.1*(msg->data[3]-512);
+    double drum_current = drum_current_scale*msg->data[2] + drum_current_offset;
+    double acc_current = acc_current_scale*msg->data[3] + acc_current_offset;
 
-    this->tool_info_msg.drum_current = drum_current_scale*filtered_drum_current;
-    this->tool_info_msg.acc_current = acc_current_scale*filtered_acc_current;
+    // Add complementary filter to current readings
+    filtered_drum_current = 0.9*filtered_drum_current + 0.1*drum_current;
+    filtered_acc_current = 0.9*filtered_acc_current + 0.1*acc_current;
+
+    this->tool_info_msg.drum_current = filtered_drum_current;
+    this->tool_info_msg.acc_current = filtered_acc_current;
     
     tool_info_pub_->publish(this->tool_info_msg);
     tool_info_msg_time = std::chrono::system_clock::now();

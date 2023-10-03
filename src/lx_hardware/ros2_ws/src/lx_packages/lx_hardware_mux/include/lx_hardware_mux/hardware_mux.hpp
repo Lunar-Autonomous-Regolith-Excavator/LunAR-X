@@ -58,8 +58,10 @@ class HardwareMux: public rclcpp::Node
         //Callibation Variables
         double drum_rps_scale = 1; // Scale for drum dticks/dt to rad/s
         double acc_rps_scale = 1; // Scale for linear actuator ticks to m
-        double drum_current_scale = 1; // Scale for drum current analogRead to Amps
-        double acc_current_scale = 1; // Scale for linear actuator current analogRead to Amps
+        double drum_current_scale = -0.039; // Scale for drum current analogRead to Amps
+        double acc_current_scale = -0.039; // Scale for linear actuator current analogRead to Amps
+        double drum_current_offset = 20.085; // Offset for drum calibration
+        double acc_current_offset = 20.085; // Offset for linear actuator calibration
         double acc_offset = 0; // Offset for linear actuator calibration
 
         //Filter Variables

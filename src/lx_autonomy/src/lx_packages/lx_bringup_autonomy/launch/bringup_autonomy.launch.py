@@ -91,7 +91,7 @@ def generate_launch_description():
     ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
-    ld.add_action(operation_launch)
+    # ld.add_action(operation_launch)
     ld.add_action(tf_node)
     ld.add_action(tf_camera_link)
     ld.add_action(tf_camera_depth_link)
