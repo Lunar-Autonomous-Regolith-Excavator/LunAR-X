@@ -411,8 +411,7 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
             int height = (int) 1000 * (z_values[i] / pc_density_grid_right_.data[i]);
             // if(height > 0 && height < 100)
                 occupancy_grid_.data[i] = height;
-                // occupancy_grid_.data[i]    // float publisher
- = 100;
+                // occupancy_grid_.data[i]    // float publisher = 100;
             if(height >z_val_threshold*1000 - 20){
                 // printf("i=%d, height=%d", i, height);
                 occupancy_grid_.data[i] = 99;
