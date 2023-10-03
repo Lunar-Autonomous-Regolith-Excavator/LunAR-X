@@ -38,9 +38,15 @@ RUN apt update && apt install ros-humble-robot-localization -y
 RUN cd /home/lx_autonomy/lx_autonomy_ws && apt-get update && rosdep install -i --from-path src --rosdistro humble -y
 # Link to allow sourcing
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh 
+# install rviz2
+RUN apt update && apt install ros-humble-rviz2* -y
+# install rqt
+RUN apt update && apt install ros-humble-rqt* -y
+# install pip3
+RUN apt update && apt install python3-pip -y
+
 # Colcon build
 RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && colcon build
-
 
 # Set work directory
 WORKDIR /home/lx_autonomy/lx_autonomy_ws
