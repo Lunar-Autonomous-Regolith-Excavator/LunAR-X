@@ -10,12 +10,13 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
 find_package(lx_library REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 include_directories(include)
 
 # Task planning node
 add_executable(task_planner_node src/task_planner_node.cpp src/task_planner.cpp)
-ament_target_dependencies(task_planner_node rclcpp lx_msgs lx_library)
+ament_target_dependencies(task_planner_node rclcpp lx_msgs lx_library geometry_msgs)
 
 install(TARGETS
 task_planner_node

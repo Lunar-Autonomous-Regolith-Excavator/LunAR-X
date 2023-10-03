@@ -9,11 +9,31 @@
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 
+#include <vector>
+#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/quaternion.hpp"
+#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_array.hpp"
+
 
 class TaskPlanner: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
+        rclcpp::Service <lx_msgs::srv::Plan>::SharedPtr plan_service_server_;
+
+        struct BermSection {
+            geometry_msgs::msg::Point center;
+            double slope;
+
+            BermSection(geometry_msgs::msg::Point center, double slope){
+                this->center = center;
+                this->slope = slope;
+            }
+        };
+
+        std::vector<TaskPlanner::BermSection> berm_sections_;
+
         // Subscribers
         
         // Clients
@@ -31,7 +51,8 @@ class TaskPlanner: public rclcpp::Node
         /*
         * Put next function here
         * */
-        // --------------------------------------
+        void taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> ,
+                                      std::shared_ptr<lx_msgs::srv::Plan::Response>);
 
     public:
         // Functions
