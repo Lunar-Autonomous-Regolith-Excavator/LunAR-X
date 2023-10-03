@@ -104,7 +104,7 @@ void AutoDigHandler::setupCommunications(){
     // Subscribers 
     tool_info_sub_ = this->create_subscription<lx_msgs::msg::ToolInfo>("/tool_info", 10, 
                         std::bind(&AutoDigHandler::toolInfoCB, this, std::placeholders::_1));
-    drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/drum_height", 10, 
+    drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/tool_height", 10, 
                         std::bind(&AutoDigHandler::drumHeightCB, this, std::placeholders::_1));
     
     // Publishers
@@ -311,6 +311,9 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         target_drum_command = DRUM_COMMAND_EXCAVATION;
         target_rover_velocity = FORWARD_SPEED;
         target_drum_height = drum_height_ + drum_current_error_pid;
+        // clip target_drum_height
+        target_drum_height = std::min(std::max(target_drum_height, OUTER_PID_CLIP_MIN), OUTER_PID_CLIP_MAX);
+        target_drum_height = 0.15; //for testing
         loop_rate.sleep();
     }
 

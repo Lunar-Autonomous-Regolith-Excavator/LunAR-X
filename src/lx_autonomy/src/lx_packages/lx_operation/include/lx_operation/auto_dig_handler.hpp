@@ -65,6 +65,9 @@ class AutoDigHandler: public rclcpp::Node
         const double KI_ACT = 0.001;
         const double KD_ACT = 1.5;
 
+        const double OUTER_PID_CLIP_MIN = 0.0;
+        const double OUTER_PID_CLIP_MAX = 0.5;
+
         // Hyperparameters for Autodig Outer Loop
         const double FORWARD_SPEED = 0.05; // speed at which the rover moves forward (m/s)
         const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
