@@ -16,7 +16,7 @@
 // #define USE_USBCON
 #include <ros.h>
 #include <std_msgs/Int32.h>
-#include <std_msgs/Float64MultiArray.h>
+#include <std_msgs/Float64.h>
 
 //--------------------Pins--------------------//
 #define LED_PIN 13
@@ -86,14 +86,17 @@ void accCmdCB(const std_msgs::Int32& msg)
 //ROS Variables
 ros::Subscriber<std_msgs::Int32> drum_sub("/drum_cmd", &drumCmdCB);
 ros::Subscriber<std_msgs::Int32> tool_sub("/acc_cmd", &accCmdCB);
-std_msgs::Float64MultiArray pub_arr;
-ros::Publisher tool_raw_msg_pub("/tool_raw_info", &pub_arr);
+std_msgs::Float64 drum_raw_current_msg;
+ros::Publisher drum_raw_current("/drum_raw_current", &drum_raw_current_msg);
+std_msgs::Float64 drum_raw_position_msg;
+ros::Publisher drum_raw_position("/drum_raw_position", &drum_raw_position_msg);
 
 void setup()
 {
     // Initialize node
     nh.initNode();
-    nh.advertise(tool_raw_msg_pub); // Initialize publisher
+    nh.advertise(drum_raw_current); // Initialize publisher
+    nh.advertise(drum_raw_position); // Initialize publisher
     nh.subscribe(drum_sub); // Initialize subscriber 1
     nh.subscribe(tool_sub); // Initialize subscriber 2
 
@@ -124,7 +127,6 @@ void setup()
     drum_read_prev = 0;
     acc_read_prev = 0;
     t_prev = millis();
-    pub_arr.data = (float *)malloc(sizeof(float)*4);
     while(nh.connected()==false)
     {
       nh.spinOnce(); // Spin node 
@@ -207,13 +209,10 @@ void loop()
     t_curr=millis();
 
     //Publish Feedback from Encoders and Current Sensors using tool_raw_cmd_pub
-    pub_arr.data_length=4;
-    // pub_arr.data[0] = (((double)drum_read_curr-(double)drum_read_prev)/((double)t_curr-(double)t_prev));
-    pub_arr.data[0] = drum_ticks;
-    pub_arr.data[1]= acc_ticks;
-    pub_arr.data[2]= analogRead(CURR_SENS_DRUM);
-    pub_arr.data[3]= analogRead(CURR_SENS_ACC);
-    tool_raw_msg_pub.publish(&pub_arr);
+    drum_raw_position_msg.data = drum_ticks;
+    drum_raw_current_msg.data= analogRead(CURR_SENS_DRUM);
+    drum_raw_current.publish(&drum_raw_current_msg);
+    drum_raw_position.publish(&drum_raw_position_msg);
     // nh.loginfo( (String("Current Commands: ")+ String(acc_pwm)+ " "+String(drum_pwm)).c_str() );
     // nh.loginfo( (String("Current Readings: Drum Ticks")+ String(drum_ticks)+ " Acc ticks "+String(acc_ticks)).c_str() );
 

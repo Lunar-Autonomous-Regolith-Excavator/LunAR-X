@@ -1,7 +1,8 @@
 /* Author: Vibhakar Mohta
  * Subscribers:
  *    - /rover_hw_cmd: [lx_msgs::msg::RoverCommand] Twist command for Husky, float64 [-1 to 1] for linear actuator, float64 [rad/sec] for drum]
- *    - /tool_raw_info: [std_msgs::msg::Float64MultiArray] {drum_ticks, acc_ticks, drum_current_read, acc_current_read}
+ *    - /drum_raw_current: drum_current_read
+ *    - /drum_raw_position: drum_ticks
  * Publishers:
  *    - /cmd_vel: [geometry_msgs::msg::Twist] Husky A200 command
  *    - /drum_cmd: [std_msgs::msg::Int32] Drum PWM command [-255 to 255]
@@ -28,8 +29,10 @@ HardwareMux::HardwareMux(): Node("hardware_mux_node")
     // Create subscribers
     rover_hw_cmd_sub_ = this->create_subscription<lx_msgs::msg::RoverCommand>(
         "rover_hw_cmd", 10, std::bind(&HardwareMux::roverHardwareCmdCB, this, std::placeholders::_1));
-    tool_raw_info_sub_ = this->create_subscription<std_msgs::msg::Float64MultiArray>(
-        "tool_raw_info", 10, std::bind(&HardwareMux::toolRawInfoCB, this, std::placeholders::_1));
+    drum_raw_current_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+        "drum_raw_current", 10, std::bind(&HardwareMux::drumCurrentCB, this, std::placeholders::_1));
+    drum_raw_position_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+        "drum_raw_position", 10, std::bind(&HardwareMux::drumPositionCB, this, std::placeholders::_1));
    
     // Create publishers
     husky_node_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
@@ -40,6 +43,7 @@ HardwareMux::HardwareMux(): Node("hardware_mux_node")
     // Create timers
     rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), std::bind(&HardwareMux::roverLockCB, this));
     control_publish_timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&HardwareMux::controlPublishCB, this));
+    tool_info_publish_timer_ = this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&HardwareMux::toolInfoPublishCB, this));
 
     // Create actions
     this->action_server_ = rclcpp_action::create_server<WeightEstimate>(
@@ -65,21 +69,24 @@ void HardwareMux::roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr
     husky_cmd = msg->mobility_twist;
 }
 
-//Subscribes to tool info from Arudino and Publishes WeightEstimated Tool Info
-void HardwareMux::toolRawInfoCB(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
+void HardwareMux::toolInfoPublishCB()
 {
-    // Publish Tool Info
-    this->tool_info_msg.drum_pos = drum_rps_scale*msg->data[0];
-    this->tool_info_msg.acc_pos = acc_rps_scale*msg->data[1] - acc_offset;
-
-    // Add complementary filter to current readings
-    filtered_drum_current = 0.9*filtered_drum_current + 0.1*(msg->data[2]-512);
-    filtered_acc_current = 0.9*filtered_acc_current + 0.1*(msg->data[3]-512);
-
-    this->tool_info_msg.drum_current = drum_current_scale*filtered_drum_current;
-    this->tool_info_msg.acc_current = acc_current_scale*filtered_acc_current;
-    
     tool_info_pub_->publish(this->tool_info_msg);
+}
+
+void HardwareMux::drumCurrentCB(const std_msgs::msg::Float64::SharedPtr msg)
+{
+    // Publish Drum Current
+    double drum_current = drum_current_scale*msg->data + drum_current_offset;
+    filtered_drum_current = 0.9*filtered_drum_current + 0.1*drum_current;
+    this->tool_info_msg.drum_current = filtered_drum_current;
+    tool_info_msg_time = std::chrono::system_clock::now();
+}
+
+void HardwareMux::drumPositionCB(const std_msgs::msg::Float64::SharedPtr msg)
+{
+    // Publish Drum Position
+    this->tool_info_msg.drum_pos = drum_rps_scale*msg->data;
     tool_info_msg_time = std::chrono::system_clock::now();
 }
 
