@@ -10,12 +10,9 @@
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "lx_msgs/action/auto_dig.hpp"
-#include <lx_msgs/msg/tool_info.hpp>
-#include <lx_msgs/msg/rover_command.hpp>
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "std_msgs/msg/float64.hpp"
 
 class AutoDigHandler: public rclcpp::Node
 {

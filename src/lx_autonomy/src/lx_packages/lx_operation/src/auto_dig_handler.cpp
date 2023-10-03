@@ -4,8 +4,6 @@
 
 AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("auto_dig_handler_node"){
     (void)options;
-    // Initialize timers
-    tool_info_msg_time_ = this->get_clock()->now();
 
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
@@ -33,8 +31,7 @@ void AutoDigHandler::getParams(){
     // Get important parameters
     auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
     get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
-                          "rover.op_mode", "rover.task_mode",
-                          "autodig.pid"};
+                          "rover.op_mode", "rover.task_mode"};
     // Send request
     auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&AutoDigHandler::paramCB, this, std::placeholders::_1));
 }
@@ -116,7 +113,7 @@ void AutoDigHandler::setupCommunications(){
     drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
     drum_desired_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_height", 10);
     drum_current_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_height", 10);
-    
+
     // Service servers
 
     // Service clients
@@ -232,7 +229,6 @@ void AutoDigHandler::setupParams(){
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
     auto task_mode_param_name = std::string("rover.task_mode");
-    auto autodig_pid_param_name = std::string("autodig.pid");
 
     // Store callback handles for each parameter
     mob_param_cb_handle_ = param_subscriber_->add_parameter_callback(mob_lock_param_name, mob_params_callback, param_server_name);
