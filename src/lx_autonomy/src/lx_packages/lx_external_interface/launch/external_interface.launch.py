@@ -12,6 +12,13 @@ def generate_launch_description():
         name='external_interface_node'
     )
 
+    goal_handler_node = Node(
+        package='lx_external_interface',
+        executable='goal_handler_node',
+        name='goal_handler_node'
+    )
+
     ld.add_action(external_interface_node)
+    ld.add_action(goal_handler_node)
 
     return ld

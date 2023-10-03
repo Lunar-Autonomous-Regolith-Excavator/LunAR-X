@@ -213,7 +213,7 @@ rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::
     
     RCLCPP_INFO(this->get_logger(), "Received berm goal request with configuration:");
     for(auto &berm_node: berm_config_.berm_configuration){
-        RCLCPP_INFO(this->get_logger(), "%.2f, %.2f", berm_node.x, berm_node.y);
+        RCLCPP_INFO(this->get_logger(), "%.2f, %.2f", berm_node.point.x, berm_node.point.y);
     }
     (void)uuid;
     
