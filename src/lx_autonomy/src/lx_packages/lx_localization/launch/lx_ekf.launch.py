@@ -48,7 +48,7 @@ def generate_launch_description():
       executable='static_transform_publisher',
       name='base_link_to_imu_link',
       output='screen',
-      arguments=['0.17', '0', '0.52', '0', '0', '3.1415', 'base_link', 'vectornav'],
+      arguments=['0.17', '0', '0.52', '0', '0', '-3.1415', 'base_link', 'vectornav'],
       parameters=[{'use_sim_time': use_sim_time_param}]
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
 
@@ -72,7 +72,7 @@ def generate_launch_description():
     ),    
     
   ]
-  if(launch_rviz):
+  if(launch_rviz == "true"):
     node_list.append(
       Node(
         package='rviz2',
@@ -82,5 +82,4 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time_param}],
       )
     )
-  
   return LaunchDescription(node_list)
