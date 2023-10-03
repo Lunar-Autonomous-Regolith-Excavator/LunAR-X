@@ -66,7 +66,7 @@ void ExternalInterface::setupCommunications(){
     // Publishers
     rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_teleop_cmd", 10);
     last_berm_eval_publisher_ = this->create_publisher<lx_msgs::msg::BermMetrics>("last_berm_config", 10);
-    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("diagnostics", 10);
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
