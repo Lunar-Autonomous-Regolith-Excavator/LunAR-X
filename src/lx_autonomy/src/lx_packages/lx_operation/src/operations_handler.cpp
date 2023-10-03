@@ -108,7 +108,7 @@ void OperationsHandler::setupCommunications(){
     // Subscribers 
 
     // Publishers
-    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("diagnostics", 10);
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
     // Service servers
 
     // Service clients

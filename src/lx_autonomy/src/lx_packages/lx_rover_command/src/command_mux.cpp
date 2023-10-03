@@ -45,7 +45,7 @@ void CommandMux::setupCommunications(){
 
     // Publishers
     rover_hw_cmd_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_hw_cmd", 10);
-    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("diagnostics", 10);
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
