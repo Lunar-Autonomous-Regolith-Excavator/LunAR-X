@@ -21,6 +21,7 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "lx_msgs/msg/node_diagnostics.hpp"
 
 
 class OperationsHandler: public rclcpp::Node
@@ -38,6 +39,7 @@ class OperationsHandler: public rclcpp::Node
         std::queue<Task, std::list<Task>> task_queue_ {};
         lx_msgs::msg::BermConfig berm_config_;
         std::vector<unsigned int> executed_task_ids_ {};
+        unsigned int diagnostic_pub_period_ = 1;
         // Action blocking
         bool auto_action_blocking_ = false;
         bool auto_action_server_responded_ = false;
@@ -45,6 +47,9 @@ class OperationsHandler: public rclcpp::Node
         bool auto_action_success_ = false;
         // Time
         float blocking_time_limit_ = 600.0;
+        rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
+        // Publishers
+        rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
@@ -175,6 +180,11 @@ class OperationsHandler: public rclcpp::Node
         void autoDumpFeedbackCB(GoalHandleAutoDump::SharedPtr, const std::shared_ptr<const AutoDump::Feedback> );
 
         void autoDumpResultCB(const GoalHandleAutoDump::WrappedResult& );
+
+        /*
+        * Diagnostic heartbeat published at a fixed rate
+        * */
+        void diagnosticPublish();
         // --------------------------------------
 
     public:
