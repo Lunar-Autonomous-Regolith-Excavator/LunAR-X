@@ -44,6 +44,8 @@ private:
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_right_, subscription_left_;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_og_, publisher_fil_, publisher_pc_density_right_, publisher_pc_density_left_;
+    
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr publisher_th_;
     rclcpp::Service<BermMetrics>::SharedPtr service_;
 
     double berm_target_height_;
@@ -55,6 +57,7 @@ private:
     nav_msgs::msg::OccupancyGrid occupancy_grid_, filtered_occupancy_grid_;
     nav_msgs::msg::OccupancyGrid pc_density_grid_right_, pc_density_grid_left_;
     std_msgs::msg::Float32 berm_height_msg_;
+    std_msgs::msg::Float32 tool_height_msg_;
     rclcpp::TimerBase::SharedPtr timer_;
 
     sensor_msgs::msg::PointCloud2::SharedPtr msg_right_, msg_left_;

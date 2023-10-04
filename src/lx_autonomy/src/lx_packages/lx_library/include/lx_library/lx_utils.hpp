@@ -6,6 +6,12 @@ struct lock_struct{
     bool actuation_lock;
 };
 
+struct pid_struct{
+    double kp;
+    double ki;
+    double kd;
+};
+
 enum class JoyButtons : int {
                             START = 7, BACK = 6, GUIDE = 8, 
                             A = 0, B = 1, X = 2, Y = 3, 

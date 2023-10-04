@@ -24,5 +24,7 @@ param_server_node:
       exc_drum_speed: 0.0     # rad/sec
       dmp_drum_speed: 0.0     # rad/sec
 
-
+    autodig:                  # Autodig PID controllers
+      pid_outer: [1.0, 0.001, 1.5]  # [kp, ki, kd]
+      pid_inner: [1.0, 0.001, 1.5]  # [kp, ki, kd]
   
