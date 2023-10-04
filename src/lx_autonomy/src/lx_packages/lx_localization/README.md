@@ -21,7 +21,7 @@ ros2 bag play <file> --clock
 This plays the file along with /clock messages, which are to simulate bag file clock (the param use_sim_time is to be set true in the nodes to use the /clock time instead of the current time)
 - Run the localization launch file (along with colcon build to account for any changes to the code)
 ```
-colcon build && ros2 launch lx_localization lx_ekf.launch.py use_sim_time:=True
+colcon build && ros2 launch lx_localization lx_ekf.launch.py use_sim_time:=True launch_rviz:=True
 ```
 This also loads up and launches a rviz2 instance to visualize the data.
 

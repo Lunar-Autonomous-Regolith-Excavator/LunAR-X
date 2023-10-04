@@ -34,7 +34,7 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
-    double x_off = 10, y_off = -13, z_off = 11;
+    double x_off = 0, y_off = 0, z_off = 0;
     bool set_offset = false;
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
@@ -52,14 +52,6 @@ private:
 
     void pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
     {
-        // if(set_offset==false)
-        // {
-        //     x_off = -7;
-        //     y_off = -10;
-        //     z_off = 10;
-        //     // std::cout<<"Setting offset: "<<x_off<<", "<<y_off<<", "<<z_off<<std::endl;
-        //     set_offset = true;
-        // }
         if(this->got_transform == false)
         {
             try 

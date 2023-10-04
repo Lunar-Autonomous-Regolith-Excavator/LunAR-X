@@ -27,6 +27,9 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     // Timer for active rover lock
     rover_lock_timer_ = this->create_wall_timer(std::chrono::seconds(3), 
                         std::bind(&ExternalInterface::activeLock, this));
+    // Timer for diagnostics publisher
+    diagnostic_pub_timer_ = this->create_wall_timer(std::chrono::seconds(diagnostic_pub_period_), 
+                        std::bind(&ExternalInterface::diagnosticPublish, this));
 
     // Timers for debouncing
     guide_debounce_timer_ = this->get_clock()->now();
@@ -63,6 +66,7 @@ void ExternalInterface::setupCommunications(){
     // Publishers
     rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_teleop_cmd", 10);
     last_berm_eval_publisher_ = this->create_publisher<lx_msgs::msg::BermMetrics>("last_berm_config", 10);
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
@@ -472,4 +476,12 @@ void ExternalInterface::bermEvalCB(rclcpp::Client<lx_msgs::srv::BermMetrics>::Sh
     else{
         RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
     }
+}
+
+void ExternalInterface::diagnosticPublish(){
+    // Publish diagnostic message
+    auto msg = lx_msgs::msg::NodeDiagnostics();
+    msg.node_name = this->get_name();
+    msg.stamp = this->get_clock()->now();
+    diagnostic_publisher_->publish(msg);
 }

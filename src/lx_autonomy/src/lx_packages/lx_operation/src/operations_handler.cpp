@@ -26,6 +26,10 @@ OperationsHandler::OperationsHandler(const rclcpp::NodeOptions& options = rclcpp
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
 
+    // Timer for diagnostics publisher
+    diagnostic_pub_timer_ = this->create_wall_timer(std::chrono::seconds(diagnostic_pub_period_), 
+                        std::bind(&OperationsHandler::diagnosticPublish, this));
+
     // Get parameters from the global parameter server
     getParams();
 
@@ -104,7 +108,7 @@ void OperationsHandler::setupCommunications(){
     // Subscribers 
 
     // Publishers
-    
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
     // Service servers
 
     // Service clients
@@ -209,7 +213,7 @@ rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::
     
     RCLCPP_INFO(this->get_logger(), "Received berm goal request with configuration:");
     for(auto &berm_node: berm_config_.berm_configuration){
-        RCLCPP_INFO(this->get_logger(), "%.2f, %.2f", berm_node.x, berm_node.y);
+        RCLCPP_INFO(this->get_logger(), "%.2f, %.2f", berm_node.point.x, berm_node.point.y);
     }
     (void)uuid;
     
@@ -335,6 +339,9 @@ bool OperationsHandler::executeTaskQueue(){
 }
 
 bool OperationsHandler::callAutoNav(Task current_task){
+    // Set task mode as NAV
+    switchRoverTaskMode(TaskModeEnum::NAV);
+
     // Call autonav action
     using namespace std::placeholders;
     if (!auto_nav_action_client_->wait_for_action_server(std::chrono::seconds(10))) {
@@ -619,4 +626,12 @@ bool OperationsHandler::checkBermBuilt(){
 
     // Return true if berm is built
     return true;
+}
+
+void OperationsHandler::diagnosticPublish(){
+    // Publish diagnostic message
+    auto msg = lx_msgs::msg::NodeDiagnostics();
+    msg.node_name = this->get_name();
+    msg.stamp = this->get_clock()->now();
+    diagnostic_publisher_->publish(msg);
 }

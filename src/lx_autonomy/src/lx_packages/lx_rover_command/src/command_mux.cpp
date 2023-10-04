@@ -23,6 +23,10 @@ CommandMux::CommandMux(): Node("command_mux_node"){
     // Set up subscriptions & publishers
     setupCommunications();
 
+    // Timer for diagnostics publisher
+    diagnostic_pub_timer_ = this->create_wall_timer(std::chrono::seconds(diagnostic_pub_period_), 
+                        std::bind(&CommandMux::diagnosticPublish, this));
+
     // Get parameters from the global parameter server
     getParams();
 
@@ -41,6 +45,7 @@ void CommandMux::setupCommunications(){
 
     // Publishers
     rover_hw_cmd_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_hw_cmd", 10);
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
@@ -349,4 +354,12 @@ void CommandMux::sendCmdToHardware(geometry_msgs::msg::Twist& twist_msg, float& 
     }
 
     rover_hw_cmd_publisher_->publish(cmd_msg);
+}
+
+void CommandMux::diagnosticPublish(){
+    // Publish diagnostic message
+    auto msg = lx_msgs::msg::NodeDiagnostics();
+    msg.node_name = this->get_name();
+    msg.stamp = this->get_clock()->now();
+    diagnostic_publisher_->publish(msg);
 }
