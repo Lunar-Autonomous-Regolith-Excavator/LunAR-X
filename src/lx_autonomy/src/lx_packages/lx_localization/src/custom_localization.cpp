@@ -28,7 +28,7 @@ public:
         imu_sub_ = create_subscription<sensor_msgs::msg::Imu>("/vectornav/imu", qos,
                                         std::bind(&RemapNode::imu_callback, this, std::placeholders::_1));
 
-        odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("/total_station_odom", qos, 10);
+        odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("/total_station_odom", qos);
 
     }
 
@@ -45,17 +45,12 @@ private:
     bool set_offset = false;
     geometry_msgs::msg::PoseWithCovarianceStamped imu_pose_msg;
 
-<<<<<<< HEAD
-    void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg){
-        imu_pose_msg.header.frame_id = "odom";
-=======
     geometry_msgs::msg::PoseWithCovarianceStamped prev_pose_msg;
     nav_msgs::msg::Odometry odom_msg;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 
     void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg){
         imu_pose_msg.header.frame_id = msg->header.frame_id;
->>>>>>> f9cfb903cba5d732a0a87a5d73aa66f1b2e14beb
         imu_pose_msg.header.stamp = msg->header.stamp;
         imu_pose_msg.pose.pose.orientation = msg->orientation;   
     }
