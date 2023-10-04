@@ -9,10 +9,13 @@
 #include <thread>
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
+#include <lx_msgs/msg/tool_info.hpp>
+#include <lx_msgs/msg/rover_command.hpp>
 #include "lx_msgs/action/auto_dig.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "std_msgs/msg/float64.hpp"
 
 class AutoDigHandler: public rclcpp::Node
 {
@@ -56,7 +59,7 @@ class AutoDigHandler: public rclcpp::Node
         bool inner_PID_control_rover_ = false;
 
         // Hyperparameters for PID height control
-        // pid_struct autodig_pid_;
+        pid_struct autodig_pid_outer_ ,autodig_pid_inner_;
         const double KP_DRUM = 1;
         const double KI_DRUM = 0.001;
         const double KD_DRUM = 1.5;
