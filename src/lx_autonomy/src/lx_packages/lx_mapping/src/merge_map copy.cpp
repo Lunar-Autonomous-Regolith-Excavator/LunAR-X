@@ -27,7 +27,7 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
     publisher_global_map_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_mapping/global_map", 1);
 
     // configuring occupancy grid
-    global_map_.header.frame_id = "base_link";
+    global_map_.header.frame_id = "map";
     global_map_.info.resolution = 0.1;
     global_map_.info.width = 150;
     global_map_.info.height = 150;

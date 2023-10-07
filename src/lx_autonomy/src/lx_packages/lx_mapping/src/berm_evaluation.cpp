@@ -10,9 +10,9 @@ BermMap::BermMap() : Node("berm_evaluation_node")
         "camera/depth/color/points", 10, std::bind(&BermMap::topic_callback_right, this, _1)); //subscribes to the point cloud topic at 1Hz
 
     // publishers for occupancy grids
-    publisher_og_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_2", 10);
+    publisher_og_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_3", 10);
     publisher_fil_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_berm/occupancy_grid_filtered", 10);
-    publisher_th_ = this->create_publisher<std_msgs::msg::Float32>("lx_berm/tool_height", 10);
+    // publisher_th_ = this->create_publisher<std_msgs::msg::Float32>("lx_berm/tool_height", 10);
     
     // ros service to evaluate the berm
     service_ = create_service<BermMetrics>(
@@ -606,7 +606,7 @@ bool BermMap::process_right(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 
     publisher_og_->publish(occupancy_grid_);
     // publisher_fil_->publish(filtered_occupancy_grid_);
-    publisher_th_->publish(tool_height_msg_);
+    // publisher_th_->publish(tool_height_msg_);
 
     // reset vectors
     dune_indices_x.clear();
