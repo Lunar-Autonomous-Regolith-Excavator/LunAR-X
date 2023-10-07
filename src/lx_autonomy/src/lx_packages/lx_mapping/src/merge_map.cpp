@@ -26,19 +26,18 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
 {   
     // set false for dry runs, set true for printf commands and to publish occupancy grids
     debug_mode_ = false;
-    double pose_x, pose_y, yaw;
+    double pose_x, pose_y, pose_z, yaw;
     int scale = 10;
 
     auto qos = rclcpp::SensorDataQoS();
 
     // not defined
     tool_height_wrt_base_link_ = -1000;
+    min_x=1000.0; min_y=1000.0; max_x=-1000.0; max_y=-1000.0;
 
     // subscription_local_map_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
     //     "/lx_berm/occupancy_grid_3", 10, std::bind(&GlobalMap::topic_callback_local_map, this, _1)); //subscribes to the local map topic at 10Hz
 
-    // subscription_current_pose_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    //     "/total_station_pose_map", qos, std::bind(&GlobalMap::topic_callback_current_pose, this, _1)); //subscribes to the current pose topic at 10Hz
     subscription_current_pose_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "/odometry/ekf_global_node", qos, std::bind(&GlobalMap::topic_callback_current_pose, this, _1)); //subscribes to the current pose topic at 10Hz    // publishers for occupancy grids
     
@@ -56,11 +55,11 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
 
     // configuring occupancy grid
     global_map_.header.frame_id = "map";
-    global_map_.info.resolution = 0.1;
-    global_map_.info.width = 150;
-    global_map_.info.height = 150;
-    global_map_.info.origin.position.x = -15;
-    global_map_.info.origin.position.y = 0;
+    global_map_.info.resolution = 0.05;
+    global_map_.info.width = 160;
+    global_map_.info.height = 160;
+    global_map_.info.origin.position.x = -4;
+    global_map_.info.origin.position.y = -4;
     global_map_.info.origin.position.z = 0;
     global_map_.info.origin.orientation.x = 0;
     global_map_.info.origin.orientation.y = 0;
@@ -87,6 +86,7 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(1000000));    
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
 }
 
 void GlobalMap::topic_callback_aruco_poses(const geometry_msgs::msg::PoseArray::SharedPtr msg){
@@ -156,8 +156,8 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     // Create a CropBox filter and set the region of interest
     pcl::CropBox<pcl::PointXYZ> crop_box;
     crop_box.setInputCloud(transformed_cloud);
-    crop_box.setMin(Eigen::Vector4f(2.2, -10, 0.0, 1.0));
-    crop_box.setMax(Eigen::Vector4f(10, 10, 10, 1.0));
+    crop_box.setMin(Eigen::Vector4f(-10, -10, 0, 1.0));
+    crop_box.setMax(Eigen::Vector4f(10, 10, 1, 1.0));
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     crop_box.filter(*cropped_cloud);
@@ -176,13 +176,13 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     seg.setModelType(pcl::SACMODEL_PLANE); // fit a plane
     seg.setMethodType(pcl::SAC_RANSAC); // RANSAC algorithm
     seg.setDistanceThreshold(0.01); // distance threshold for plane fitting
-    seg.setInputCloud(transformed_cloud);
+    seg.setInputCloud(cropped_cloud);
     seg.segment(*inliers, *coefficients);
 
     // create a point cloud with only the inliers
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_inliers(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::ExtractIndices<pcl::PointXYZ> extract;
-    extract.setInputCloud(transformed_cloud);
+    extract.setInputCloud(cropped_cloud);
     extract.setIndices(inliers);
     extract.setNegative(false);
     extract.filter(*cloud_inliers);
@@ -190,30 +190,39 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
     // create an elevation map from the inliers of the type occupancygrid
     nav_msgs::msg::OccupancyGrid elevation_map;
+    nav_msgs::msg::OccupancyGrid local_elevation_map;
+    nav_msgs::msg::OccupancyGrid pd_map;
     elevation_map.header.frame_id = "map";
     elevation_map.info=global_map_.info;
-    // calculate width and height of the pointcloud
-    int width = (int)(abs(coefficients->values[0]*10) + abs(coefficients->values[1]*10));
-    int height = (int)(abs(coefficients->values[0]*10) + abs(coefficients->values[2]*10));
-    // RCLCPP_INFO(this->get_logger(), "width: %d, height: %d, pose_x: %d, pose_y: %d", width, height, pose_x, pose_y);
-    elevation_map.data.resize(elevation_map.info.width*elevation_map.info.height);
-    for(int i = 0; i < elevation_map.info.width*elevation_map.info.height; i++){
-        elevation_map.data[i] = 0;
+
+    // populate values as 0 in the local elevation map and pd map
+    local_elevation_map.header.frame_id = "map";
+    local_elevation_map.info=global_map_.info;
+    pd_map.header.frame_id = "map";
+    pd_map.info=global_map_.info;
+    local_elevation_map.data.resize(local_elevation_map.info.width*local_elevation_map.info.height);
+    pd_map.data.resize(pd_map.info.width*pd_map.info.height);
+    for(int i = 0; i < local_elevation_map.info.width*local_elevation_map.info.height; i++){
+        local_elevation_map.data[i] = 0;
+        pd_map.data[i] = 0;
     }
-    // elevation = distance from plane
+    // calculate average y-values of inliers in the square patch with corners (x=0.05,z=0.45) and (x=0.1, z = 0.5)
+    double sum_y = 0;
+    int count = 0;
     for(int i = 0; i < cloud_inliers->points.size(); i++){
-        int x = (int)(cloud_inliers->points[i].x*50);
-        int y = (int)(cloud_inliers->points[i].y*50);
-        int z = (int)(cloud_inliers->points[i].z*50);
-        pose_x = 0;
-        pose_y = 0;
-        int elevation = (int)(abs(coefficients->values[0]*x + coefficients->values[1]*y + coefficients->values[2]*z + coefficients->values[3])/sqrt(coefficients->values[0]*coefficients->values[0] + coefficients->values[1]*coefficients->values[1] + coefficients->values[2]*coefficients->values[2]));
-        // RCLCPP_INFO(this->get_logger(), "elevation: %d", elevation);
-        // get positive mod
-        int idx = (x + int(50*pose_x) + int(y+50*pose_y+20)*elevation_map.info.width) % (elevation_map.info.width*elevation_map.info.height);
-        int reset_idx = (idx % (elevation_map.info.width*elevation_map.info.height) + (elevation_map.info.width*elevation_map.info.height)) % (elevation_map.info.width*elevation_map.info.height);
-        elevation_map.data[reset_idx] = elevation;
+        int global_idx = int((pose_x+cloud_inliers->points[i].x)/0.05) + int((pose_y+cloud_inliers->points[i].z)/0.05)*global_map_.info.width;
+        local_elevation_map.data[global_idx] += 100*(cloud_inliers->points[i].y+pose_z-2);
+        pd_map.data[global_idx] += 1;
     }
+
+    // where pd_map is not 0, divide local_elevation_map by pd_map
+    for(int i = 0; i < local_elevation_map.info.width*local_elevation_map.info.height; i++){
+        if(pd_map.data[i] > 2){
+            global_map_.data[i] = int(local_elevation_map.data[i]/pd_map.data[i]);
+        }
+    }
+
+
 
     // print the plane coefficients
     // RCLCPP_INFO(this->get_logger(), "Plane coefficients: %f, %f, %f, %f", coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
@@ -230,7 +239,7 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
     // Publish the transformed message
     publisher_pc_->publish(result_msg);
-    publisher_global_map_->publish(elevation_map);
+    publisher_global_map_->publish(global_map_);
 
     // publish tool height
     if(tool_height_wrt_base_link_ != -1000){
@@ -240,9 +249,33 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     }
   }
 
+
+
+
+
 void GlobalMap::topic_callback_current_pose(const nav_msgs::msg::Odometry::SharedPtr msg){
-    pose_x = msg->pose.pose.position.x;
-    pose_y = msg->pose.pose.position.y;
+    pose_x = msg->pose.pose.position.x + 6.6 + 2;
+    pose_y = msg->pose.pose.position.y - 8.3 + 2.5;
+    pose_z = msg->pose.pose.position.z;
+
+    //print pose_z
+    RCLCPP_INFO(this->get_logger(), "pose_z: %f", pose_z);
+
+    if(pose_x < min_x){
+        min_x = pose_x;
+    }
+    if(pose_y < min_y){
+        min_y = pose_y;
+    }
+    if(pose_x > max_x){
+        max_x = pose_x;
+    }
+    if(pose_y > max_y){
+        max_y = pose_y;
+    }
+    // print min and max x,y
+    // RCLCPP_INFO(this->get_logger(), "min_x: %f, min_y: %f, max_x: %f, max_y: %f", min_x, min_y, max_x, max_y);
+    // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f", pose_x, pose_y);
     // pose_x = 0;
     // pose_y = 0;
 

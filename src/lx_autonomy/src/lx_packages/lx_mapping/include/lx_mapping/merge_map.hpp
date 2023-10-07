@@ -56,7 +56,7 @@ private:
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_global_map_;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr publisher_tool_height_;
     
-    double pose_x, pose_y, yaw;
+    double pose_x, pose_y, yaw, pose_z;
     bool debug_mode_;
     double tool_height_wrt_base_link_;
     // auto qos;
@@ -65,6 +65,8 @@ private:
 
     nav_msgs::msg::OccupancyGrid local_map_, global_map_;
     nav_msgs::msg::Odometry current_pose_;
+
+    double min_x, min_y, max_x, max_y;
     
     rclcpp::TimerBase::SharedPtr timer_;
 
