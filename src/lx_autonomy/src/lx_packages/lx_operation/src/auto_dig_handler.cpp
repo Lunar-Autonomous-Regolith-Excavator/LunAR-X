@@ -9,13 +9,12 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
     setupCommunications();
 
     // Set PID to 0.0 for safety until parameters are updated
-    autodig_pid_outer_.kp = 0.1;
-    autodig_pid_outer_.ki = 0.0;
-    autodig_pid_outer_.kd = 0.005;
-    OFFSET_OUTER = 0.1;
+    autodig_pid_outer_.kp = 0.015;
+    autodig_pid_outer_.ki = 0.000001;
+    autodig_pid_outer_.kd = 0.02;
 
     autodig_pid_inner_.kp = 20.0;
-    autodig_pid_inner_.ki = 0.0;
+    autodig_pid_inner_.ki = 0.0001;
     autodig_pid_inner_.kd = 0.5;
     // Get parameters from the global parameter server
     // getParams();
@@ -338,7 +337,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         double drum_current_error = tool_info_msg_.drum_current - desired_current_value;
         double drum_current_error_pid = autodig_pid_outer_.kp*drum_current_error 
                 + autodig_pid_outer_.ki*integral_error_current 
-                + autodig_pid_outer_.kd*(drum_current_error - prev_error_current) + OFFSET_OUTER;
+                + autodig_pid_outer_.kd*(drum_current_error - prev_error_current);
         prev_error_current = drum_current_error;
         integral_error_current += drum_current_error;
 
@@ -346,7 +345,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         // Set targets for inner loop
         target_drum_command = DRUM_COMMAND_EXCAVATION;
         target_rover_velocity = FORWARD_SPEED;
-        target_drum_height = drum_current_error_pid;
+        target_drum_height = drum_height_ + drum_current_error_pid;
         // clip target_drum_height
         target_drum_height = std::min(std::max(target_drum_height, OUTER_PID_CLIP_MIN), OUTER_PID_CLIP_MAX);
         

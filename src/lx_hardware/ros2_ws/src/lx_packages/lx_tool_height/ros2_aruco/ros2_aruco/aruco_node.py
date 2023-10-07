@@ -45,6 +45,7 @@ from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 class ArucoNode(rclpy.node.Node):
     def __init__(self):
         super().__init__("aruco_node")
+        self.filtered_heights = 0
 
         # Declare and read parameters
         self.declare_parameter(
@@ -210,6 +211,8 @@ class ArucoNode(rclpy.node.Node):
                 markers.poses.append(pose)
                 markers.marker_ids.append(marker_id[0])
 
+            self.filtered_heights = 0.3*heights.data + 0.7*self.filtered_heights
+            heights.data = self.filtered_heights
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
             self.tool_height_pub.publish(heights)
