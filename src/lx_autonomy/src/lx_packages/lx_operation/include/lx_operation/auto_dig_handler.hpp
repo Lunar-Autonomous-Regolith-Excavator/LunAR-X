@@ -36,7 +36,8 @@ class AutoDigHandler: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
-        std::shared_ptr<rclcpp::ParameterCallbackHandle> autodig_pid_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> autodig_outer_pid_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> autodig_inner_pid_param_cb_handle_;
 
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
@@ -59,25 +60,18 @@ class AutoDigHandler: public rclcpp::Node
         bool inner_PID_control_rover_ = false;
 
         // Hyperparameters for PID height control
-        pid_struct autodig_pid_outer_ ,autodig_pid_inner_;
-        const double KP_DRUM = 1;
-        const double KI_DRUM = 0.001;
-        const double KD_DRUM = 1.5;
-
-        const double KP_ACT = 1;
-        const double KI_ACT = 0.001;
-        const double KD_ACT = 1.5;
-
-        const double OUTER_PID_CLIP_MIN = 0.0;
-        const double OUTER_PID_CLIP_MAX = 0.5;
+        pid_struct autodig_pid_outer_,autodig_pid_inner_;
+        const double OUTER_PID_CLIP_MIN = 0.01;
+        const double OUTER_PID_CLIP_MAX = 0.15;
+        double OFFSET_OUTER = 0.1;
 
         // Hyperparameters for Autodig Outer Loop
-        const double FORWARD_SPEED = 0.05; // speed at which the rover moves forward (m/s)
+        const double FORWARD_SPEED = 0.025; // speed at which the rover moves forward (m/s)
         const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
         const double NOMINAL_CURRENT_VALUE_I = 1.3; 
-        const double NOMINAL_CURRENT_VALUE_F = 2.0;
-        const double T_END_SECONDS = 30; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
-        
+        const double NOMINAL_CURRENT_VALUE_F = 2.5;
+        const double T_END_SECONDS = 60; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
+        const double GOTO_TOOL_HEIGHT = 0.15; // the height the tool goes to before starting excavation
         // PID function variables
         double prev_error_current = 0, integral_error_current = 0;
         double prev_error_height = 0, integral_error_height = 0;
