@@ -56,7 +56,8 @@ private:
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_global_map_;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr publisher_tool_height_;
     
-    double pose_x, pose_y, yaw, pose_z;
+    double pose_x, pose_y, pose_z;
+    double robot_roll, robot_pitch, robot_yaw;
     bool debug_mode_;
     double tool_height_wrt_base_link_;
     // auto qos;
