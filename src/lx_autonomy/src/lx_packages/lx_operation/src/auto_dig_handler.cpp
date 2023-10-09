@@ -1,4 +1,21 @@
-// Author: Vibhakar Mohta and Dhruv Tyagi
+/* Author: Vibhakar Mohta and Dhruv Tyagi
+ * Subscribers:
+ *    - /tool_info: [lx_msgs::msg::ToolInfo] The info from tool sensors
+ *    - /tool_height: [std_msgs::msg::Float64] The height of the tool
+ * Publishers:
+ *    - /rover_auto_cmd: [lx_msgs::msg::RoverCommand] The autonomy command to the rover
+ * Services:
+ *    - /param_server_node/get_parameters: [rcl_interfaces::srv::GetParameters] Get parameters from the global parameter server
+ * Actions:
+ *    - /operations/autodig_action: [lx_msgs::action::AutoDig] The action server for autodig
+ *
+ * - Handles the AutoDig action request. Commands the rover to excavate in a straight line while excavating, trying to 
+ * track the desired current value. 2 Loops of PID control are used, the outer loop controls the desired tool height 
+ * while the inner loop tracks the desired tool height.
+ * 
+ * TODO
+ * - Test endAutoDig()
+ * */
 
 #include "lx_operation/auto_dig_handler.hpp"
 
@@ -8,7 +25,11 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
 
-    // Set PID to 0.0 for safety until parameters are updated
+    // Timers
+    this->rover_command_timer_ = this->create_wall_timer(std::chrono::milliseconds(50), 
+                        std::bind(&AutoDigHandler::roverCommandTimerCallback, this));
+
+    // Set PID values
     autodig_pid_outer_.kp = 0.015;
     autodig_pid_outer_.ki = 0.000001;
     autodig_pid_outer_.kd = 0.02;
@@ -16,8 +37,9 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
     autodig_pid_inner_.kp = 20.0;
     autodig_pid_inner_.ki = 0.0001;
     autodig_pid_inner_.kd = 0.5;
+
     // Get parameters from the global parameter server
-    // getParams();
+    getParams();
 
     // Set up parameters from the global parameter server
     setupParams();
@@ -34,8 +56,7 @@ void AutoDigHandler::getParams(){
     // Get important parameters
     auto get_request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
     get_request->names = {"rover.mobility_lock", "rover.actuation_lock", 
-                          "rover.op_mode", "rover.task_mode"
-                          "autodig.pid_outer", "autodig.pid_inner"};
+                          "rover.op_mode", "rover.task_mode"};
     // Send request
     auto param_result_ = get_params_client_->async_send_request(get_request,std::bind(&AutoDigHandler::paramCB, this, std::placeholders::_1));
 }
@@ -86,29 +107,10 @@ void AutoDigHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>:
                RCLCPP_DEBUG(this->get_logger(), "Parameter set Task mode: Dumping");
                break;
         }
-        RCLCPP_INFO(this->get_logger(), "2");
-        autodig_pid_outer_.kp = future.get()->values.at(4).double_array_value[0];
-        autodig_pid_outer_.ki = future.get()->values.at(4).double_array_value[1];
-        autodig_pid_outer_.kd = future.get()->values.at(4).double_array_value[2];
-        RCLCPP_INFO(this->get_logger(), "Parameter set Autodig Outer PID: [%.3f, %.5f, %.3f]", autodig_pid_outer_.kp, autodig_pid_outer_.ki, autodig_pid_outer_.kd);
-        RCLCPP_INFO(this->get_logger(), "3");
-        autodig_pid_inner_.kp = future.get()->values.at(5).double_array_value[0];
-        autodig_pid_inner_.ki = future.get()->values.at(5).double_array_value[1];
-        autodig_pid_inner_.kd = future.get()->values.at(5).double_array_value[2];
-        RCLCPP_INFO(this->get_logger(), "Parameter set Autodig Inner PID: [%.3f, %.5f, %.3f]", autodig_pid_inner_.kp, autodig_pid_inner_.ki, autodig_pid_inner_.kd);
     } 
     else {
         RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
     }
-}
-
-void AutoDigHandler::toolInfoCB(const lx_msgs::msg::ToolInfo::SharedPtr msg){
-    tool_info_msg_ = *msg;
-    tool_info_msg_time_ = this->get_clock()->now();
-}
-
-void AutoDigHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
-    drum_height_ = msg->data;
 }
 
 void AutoDigHandler::setupCommunications(){
@@ -119,68 +121,17 @@ void AutoDigHandler::setupCommunications(){
                         std::bind(&AutoDigHandler::drumHeightCB, this, std::placeholders::_1));
     
     // Publishers
-    rover_hw_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
-    drum_desired_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_current", 10);
-    drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
-    drum_desired_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_height", 10);
-    drum_current_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_height", 10);
-
-    // Service servers
+    rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+
     // Action server
     using namespace std::placeholders;
     this->autodig_action_server_ = rclcpp_action::create_server<AutoDig>(this, "operations/autodig_action",
                                             std::bind(&AutoDigHandler::handle_goal, this, _1, _2),
                                             std::bind(&AutoDigHandler::handle_cancel, this, _1),
                                             std::bind(&AutoDigHandler::handle_accepted, this, _1));
-    
-    // Timers
-    this->rover_command_timer_ = this->create_wall_timer(std::chrono::milliseconds(50), 
-                        std::bind(&AutoDigHandler::roverCommandTimerCallback, this));
-}
-
-void AutoDigHandler::roverCommandTimerCallback()
-{
-    //PID to control the height of the drum
-    if(this->inner_PID_control_rover_==false) return; // if control_rover_ is false, do nothing
-
-    lx_msgs::msg::RoverCommand rover_cmd;
-    if(target_drum_height == -1) 
-    {
-        // Stop everything if target_drum_height is -1
-        rover_cmd.actuator_speed = 0;
-        rover_cmd.drum_speed = 0;
-        rover_cmd.mobility_twist.linear.x = 0;
-    }
-    else
-    {
-        double error_height = drum_height_ - target_drum_height;
-        double pid_command = autodig_pid_inner_.kp*error_height 
-                + autodig_pid_inner_.ki*integral_error_height 
-                + autodig_pid_inner_.kd*(error_height - prev_error_height);
-
-        if(std::abs(error_height) < 0.01) pid_command = 0;
-
-        RCLCPP_INFO(this->get_logger(), "[INNER LOOP] Error: %.3f, PID Command: %.3f", error_height, pid_command);
-        // Send rover command:
-        rover_cmd.actuator_speed = std::min(std::max(pid_command, -1.0), 1.0); //clip drum_height_error_pid to [-1, 1]
-        rover_cmd.drum_speed = target_drum_command;
-        rover_cmd.mobility_twist.linear.x = target_rover_velocity;
-
-        // Publish using debug publishers
-        std_msgs::msg::Float64 msg; 
-        msg.data = target_drum_height;
-        this->drum_desired_height_pub_->publish(msg);
-
-        msg.data = drum_height_;
-        this->drum_current_height_pub_->publish(msg);
-
-        integral_error_height += error_height;
-        prev_error_height = error_height;
-    }
-    rover_hw_cmd_pub_->publish(rover_cmd);
 }
 
 void AutoDigHandler::setupParams(){
@@ -276,6 +227,8 @@ rclcpp_action::GoalResponse AutoDigHandler::handle_goal(const rclcpp_action::Goa
 rclcpp_action::CancelResponse AutoDigHandler::handle_cancel(const std::shared_ptr<GoalHandleAutoDig> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
     (void)goal_handle;
+
+    // Set the rover free from inner PID control
     inner_PID_control_rover_ = false;
     
     // Cancel action
@@ -297,20 +250,27 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     auto feedback = std::make_shared<AutoDig::Feedback>();
     auto result = std::make_shared<AutoDig::Result>();
 
-    inner_PID_control_rover_ = true; // allow rover to be controlled by inner PID
+    // Allow rover to be controlled by inner PID loop
+    inner_PID_control_rover_ = true; 
+
     rclcpp::Time action_start_time = this->get_clock()->now();
+
+    // Wait for drum height to reach GOTO_TOOL_HEIGHT
     target_drum_height = GOTO_TOOL_HEIGHT;
-    while(rclcpp::ok())
-    {
-        if(std::abs(drum_height_-target_drum_height) < 0.02) break;
+    while(rclcpp::ok()){
+        if(std::abs(drum_height_-target_drum_height) < 0.02){
+            break;
+        }
     }
-    rclcpp::Rate loop_rate(10); // 10 Hz
-    while(rclcpp::ok())
-    {
+
+    // 10 Hz loop
+    rclcpp::Rate loop_rate(10);
+
+    while(rclcpp::ok()){
         rclcpp::Time action_curr_time = this->get_clock()->now();
+
         // Abort action if no tool info message recieved in last 1 second
-        if((action_curr_time - tool_info_msg_time_).seconds() > 1)
-        {
+        if((action_curr_time - tool_info_msg_time_).seconds() > 1){
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
@@ -319,39 +279,31 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
 
         // End action after T_END_SECONDS seconds
         double action_time_diff_seconds = (action_curr_time - action_start_time).seconds();
-        if(action_time_diff_seconds > T_END_SECONDS)
-        {
+        if(action_time_diff_seconds > T_END_SECONDS){
             break; 
         }
         
-        double desired_current_value = NOMINAL_CURRENT_VALUE_I + (NOMINAL_CURRENT_VALUE_F - NOMINAL_CURRENT_VALUE_I) * action_time_diff_seconds / (T_END_SECONDS);
-        
-        // Publish drum desired current and drum current current
-        std_msgs::msg::Float64 msg; 
-        msg.data = desired_current_value;
-        drum_desired_current_pub_->publish(msg);
-        msg.data = tool_info_msg_.drum_current;
-        drum_current_current_pub_->publish(msg);
+        double desired_current_value = NOMINAL_CURRENT_VALUE_I + 
+                                        (NOMINAL_CURRENT_VALUE_F - NOMINAL_CURRENT_VALUE_I) * action_time_diff_seconds / (T_END_SECONDS);
 
         // PID Outer Loop
         double drum_current_error = tool_info_msg_.drum_current - desired_current_value;
         double drum_current_error_pid = autodig_pid_outer_.kp*drum_current_error 
-                + autodig_pid_outer_.ki*integral_error_current 
-                + autodig_pid_outer_.kd*(drum_current_error - prev_error_current);
+                                        + autodig_pid_outer_.ki*integral_error_current 
+                                        + autodig_pid_outer_.kd*(drum_current_error - prev_error_current);
         prev_error_current = drum_current_error;
         integral_error_current += drum_current_error;
-
 
         // Set targets for inner loop
         target_drum_command = DRUM_COMMAND_EXCAVATION;
         target_rover_velocity = FORWARD_SPEED;
         target_drum_height = drum_height_ + drum_current_error_pid;
-        // clip target_drum_height
+
+        // Clip target_drum_height
         target_drum_height = std::min(std::max(target_drum_height, OUTER_PID_CLIP_MIN), OUTER_PID_CLIP_MAX);
         
-        RCLCPP_INFO(this->get_logger(), "[OUTER LOOP] Error: %.3f, Diff: %.3f, Target_Height: %.3f ", drum_current_error, drum_current_error_pid, target_drum_height);
+        RCLCPP_DEBUG(this->get_logger(), "[OUTER LOOP] Error: %.3f, Diff: %.3f, Target_Height: %.3f ", drum_current_error, drum_current_error_pid, target_drum_height);
 
-        // target_drum_height = drum_height_ + (desired_current_value-1.3)/4;
         loop_rate.sleep();
     }
 
@@ -360,12 +312,83 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     target_drum_command = 0;
     target_rover_velocity = 0;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    inner_PID_control_rover_ = false;
+
+    // Raise the drum to END_TOOL_HEIGHT
+    endAutoDig();
     
     // If autodig executed successfully, return goal success
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autodig succeeded");
+    }
+}
+
+void AutoDigHandler::toolInfoCB(const lx_msgs::msg::ToolInfo::SharedPtr msg){
+    tool_info_msg_ = *msg;
+    tool_info_msg_time_ = this->get_clock()->now();
+}
+
+void AutoDigHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
+    drum_height_ = msg->data;
+}
+
+void AutoDigHandler::roverCommandTimerCallback(){
+
+    // if control_rover_ is false, do nothing
+    if(this->inner_PID_control_rover_==false){
+        return;
+    } 
+
+    lx_msgs::msg::RoverCommand rover_cmd;
+
+    // Stop everything if target_drum_height is -1
+    if(target_drum_height == -1){
+        rover_cmd.actuator_speed = 0;
+        rover_cmd.drum_speed = 0;
+        rover_cmd.mobility_twist.linear.x = 0;
+    }
+    else{
+        double error_height = drum_height_ - target_drum_height;
+        double pid_command = autodig_pid_inner_.kp*error_height 
+                            + autodig_pid_inner_.ki*integral_error_height 
+                            + autodig_pid_inner_.kd*(error_height - prev_error_height);
+
+        if(std::abs(error_height) < 0.01){
+            pid_command = 0;
+        }
+
+        RCLCPP_DEBUG(this->get_logger(), "[INNER LOOP] Error: %.3f, PID Command: %.3f", error_height, pid_command);
+
+        // Store rover command
+        rover_cmd.actuator_speed = std::min(std::max(pid_command, -1.0), 1.0); //clip drum_height_error_pid to [-1, 1]
+        rover_cmd.drum_speed = target_drum_command;
+        rover_cmd.mobility_twist.linear.x = target_rover_velocity;
+
+        integral_error_height += error_height;
+        prev_error_height = error_height;
+    }
+    rover_auto_cmd_pub_->publish(rover_cmd);
+}
+
+void AutoDigHandler::endAutoDig(){
+    RCLCPP_INFO(this->get_logger(), "Bringing tool to end height");
+    
+    while(rclcpp::ok() && inner_PID_control_rover_){
+        lx_msgs::msg::RoverCommand rover_cmd;
+
+        target_drum_height = END_TOOL_HEIGHT;
+        double actuator_command = drum_height_ - target_drum_height;
+        if(std::abs(error_height) < 0.01){
+            actuator_command = 0;
+        }
+
+        rover_cmd.actuator_speed = std::min(std::max(actuator_command, -1.0), 1.0);
+    
+        if(std::abs(drum_height_-target_drum_height) < 0.02){
+            break;
+        }
+
+        rover_auto_cmd_pub_->publish(rover_cmd);
     }
 }

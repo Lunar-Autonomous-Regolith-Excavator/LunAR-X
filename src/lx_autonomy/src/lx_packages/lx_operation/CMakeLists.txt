@@ -38,12 +38,6 @@ ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_comp
 # Install python modules
 ament_python_install_package(${PROJECT_NAME})
 
-# Install python executables
-install(PROGRAMS
-  scripts/estimate_tool_pose.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
 install(TARGETS
   operations_handler_node
   auto_dig_handler_node
