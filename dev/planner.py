@@ -108,12 +108,6 @@ def visualize(fig, ax, height_grid, robot, path):
     plt.plot(path[:-100, 0], path[:-100, 1], 'b')
     plt.show()
 
-
-def update_occ_grid(occ_grid, height_grid):
-    # update the occupancy grid based on the height map
-    occ_grid[height_grid > 5] = 1
-    return occ_grid
-
 def get_berm(theta: float, length: int, height: int):
     global angle_of_repose
     length += (length % 2) # make length even
@@ -149,7 +143,20 @@ def get_berm(theta: float, length: int, height: int):
 
     return berm_grid
 
+def overlay_berm(berm, berm_x, berm_y, height_grid, occupancy_grid):
+    lx, ly = berm.shape
+    min_x = int(berm_x) - lx//2
+    min_y = int(berm_y) - ly//2
+    max_x = min_x + lx
+    max_y = min_y + ly
 
+    # overlay the berm on the height map
+    height_grid[min_x:max_x, min_y:max_y] = np.maximum(height_grid[min_x:max_x, min_y:max_y], berm)
+
+    # make the whole berm as occupied
+    occupancy_grid[min_x:max_x, min_y:max_y] = berm > 1e-12
+
+    return height_grid
 
 
 if __name__ == '__main__':
@@ -169,41 +176,16 @@ if __name__ == '__main__':
     height_grid = np.kron(height_grid, np.ones((10, 10))) # resize the height map to 700 by 700
     height_grid = height_grid - np.min(height_grid) # make the minimum height zero
 
-    # generate occupancy grid if height is more than 5 cms
+    # generate occupancy grid if height is more than 1 cm
     occupancy_grid = np.zeros(height_grid.shape)
-    occupancy_grid = update_occ_grid(occupancy_grid, height_grid)
+    occupancy_grid[height_grid > 5] = 1
 
     # generate a robot
     robot = Robot(100, 350, np.deg2rad(90))
 
-    # generate a berm
+    # generate a berm and overlay it on the height map
     berm = get_berm(robot.theta, Robot.TOOL_WIDTH, desired_berm_height)
-    lx, ly = berm.shape
-    min_x = int(robot.tool_x) - lx//2
-    min_y = int(robot.tool_y) - ly//2
-    max_x = min_x + lx
-    max_y = min_y + ly
-
-    # overlay the berm on the height map
-    height_grid[min_x:max_x, min_y:max_y] = np.maximum(height_grid[min_x:max_x, min_y:max_y], berm)
-
-    for i in range(1, 5):
-        robot = Robot(100 + i * next_berm_width, 350, np.deg2rad(90))
-
-        # generate a berm
-        berm = get_berm(robot.theta, Robot.TOOL_WIDTH, desired_berm_height)
-        lx, ly = berm.shape
-        min_x = int(robot.tool_x) - lx//2
-        min_y = int(robot.tool_y) - ly//2
-        max_x = min_x + lx
-        max_y = min_y + ly
-
-        # overlay the berm on the height map
-        height_grid[min_x:max_x, min_y:max_y] = np.maximum(height_grid[min_x:max_x, min_y:max_y], berm)
-
-    
-    robot = Robot(100, 150, np.deg2rad(90))
-
+    height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid, occupancy_grid)
 
     # visualize the robot
     visualize(fig, ax, height_grid, robot, np.array([[robot.x, robot.y]]))
