@@ -16,6 +16,7 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "lx_msgs/msg/node_diagnostics.hpp"
 
 class AutoDigHandler: public rclcpp::Node
 {
@@ -26,9 +27,11 @@ class AutoDigHandler: public rclcpp::Node
         lx_msgs::msg::ToolInfo tool_info_msg_;
         double drum_height_ = 0;
         bool inner_PID_control_rover_ = false;
+        unsigned int diagnostic_pub_period_ = 1;
         // Time
         rclcpp::Time tool_info_msg_time_;
-        rclcpp::TimerBase::SharedPtr rover_command_timer_; // Setup clock for publishing commands to rover at 10 Hz
+        rclcpp::TimerBase::SharedPtr rover_command_timer_;
+        rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
@@ -49,7 +52,7 @@ class AutoDigHandler: public rclcpp::Node
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_cmd_pub_;
-
+        rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
         // Autodig Control
         pid_struct autodig_pid_outer_,autodig_pid_inner_;
         double prev_error_current = 0, integral_error_current = 0;
@@ -152,6 +155,11 @@ class AutoDigHandler: public rclcpp::Node
         * Execute requested action
         * */
         void executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> );
+
+        /*
+        * Diagnostic heartbeat published at a fixed rate
+        * */
+        void diagnosticPublish();
 
     public:
         // Functions

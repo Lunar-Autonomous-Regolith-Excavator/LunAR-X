@@ -26,8 +26,10 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
     setupCommunications();
 
     // Timers
-    this->rover_command_timer_ = this->create_wall_timer(std::chrono::milliseconds(50), 
+    rover_command_timer_ = this->create_wall_timer(std::chrono::milliseconds(50), 
                         std::bind(&AutoDigHandler::roverCommandTimerCallback, this));
+    diagnostic_pub_timer_ = this->create_wall_timer(std::chrono::seconds(diagnostic_pub_period_), 
+                        std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
     autodig_pid_outer_.kp = 0.015;
@@ -122,6 +124,7 @@ void AutoDigHandler::setupCommunications(){
     
     // Publishers
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
+    diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
@@ -373,7 +376,7 @@ void AutoDigHandler::roverCommandTimerCallback(){
 
 void AutoDigHandler::endAutoDig(){
     RCLCPP_INFO(this->get_logger(), "Bringing tool to end height");
-    
+
     while(rclcpp::ok() && inner_PID_control_rover_){
         lx_msgs::msg::RoverCommand rover_cmd;
 
@@ -391,4 +394,12 @@ void AutoDigHandler::endAutoDig(){
 
         rover_auto_cmd_pub_->publish(rover_cmd);
     }
+}
+
+void AutoDigHandler::diagnosticPublish(){
+    // Publish diagnostic message
+    auto msg = lx_msgs::msg::NodeDiagnostics();
+    msg.node_name = this->get_name();
+    msg.stamp = this->get_clock()->now();
+    diagnostic_publisher_->publish(msg);
 }
