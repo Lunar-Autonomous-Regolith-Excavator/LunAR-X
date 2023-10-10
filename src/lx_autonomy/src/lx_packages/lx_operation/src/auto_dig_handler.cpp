@@ -4,6 +4,7 @@
  *    - /tool_height: [std_msgs::msg::Float64] The height of the tool
  * Publishers:
  *    - /rover_auto_cmd: [lx_msgs::msg::RoverCommand] The autonomy command to the rover
+ *    - /lx_diagnostics: [lx_msgs::msg::NodeDiagnostics] The diagnostic heartbeat
  * Services:
  *    - /param_server_node/get_parameters: [rcl_interfaces::srv::GetParameters] Get parameters from the global parameter server
  * Actions:
@@ -13,8 +14,6 @@
  * track the desired current value. 2 Loops of PID control are used, the outer loop controls the desired tool height 
  * while the inner loop tracks the desired tool height.
  * 
- * TODO
- * - Test endAutoDig()
  * */
 
 #include "lx_operation/auto_dig_handler.hpp"
@@ -223,12 +222,6 @@ rclcpp_action::CancelResponse AutoDigHandler::handle_cancel(const std::shared_pt
 
     // Set the rover free from inner PID control
     inner_PID_control_rover_ = false;
-
-    // auto feedback = std::make_shared<AutoDig::Feedback>();
-    // auto result = std::make_shared<AutoDig::Result>();
-
-    // result->success = false;
-    // goal_handle->canceled(result);
     
     // Cancel action
     return rclcpp_action::CancelResponse::ACCEPT;
@@ -248,6 +241,10 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<AutoDig::Feedback>();
     auto result = std::make_shared<AutoDig::Result>();
+
+    // Reset integral errors
+    integral_error_current = 0;
+    integral_error_height = 0;
 
     // Allow rover to be controlled by inner PID loop
     inner_PID_control_rover_ = true; 
@@ -312,17 +309,19 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         // Clip target_drum_height
         target_drum_height = std::min(std::max(target_drum_height, OUTER_PID_CLIP_MIN), OUTER_PID_CLIP_MAX);
         
-        RCLCPP_DEBUG(this->get_logger(), "[OUTER LOOP] Error: %.3f, Diff: %.3f, Target_Height: %.3f ", drum_current_error, drum_current_error_pid, target_drum_height);
+        RCLCPP_DEBUG(this->get_logger(), "[OUTER LOOP] Error: %.3f, Diff: %.3f, Target_Height: %.3f ", 
+                                        drum_current_error, drum_current_error_pid, target_drum_height);
 
         loop_rate.sleep();
     }
 
-    // Raise the drum to END_TOOL_HEIGHT
-    // Wait for drum height to reach GOTO_TOOL_HEIGHT
+    // Stop drum and rover movement
     target_rover_velocity = 0;
     target_drum_command = 0;
     integral_error_current = 0;
     integral_error_height = 0;
+
+    // Raise the drum to END_TOOL_HEIGHT
     target_drum_height = END_TOOL_HEIGHT;
     while(rclcpp::ok() && !goal_handle->is_canceling()){
         if(std::abs(drum_height_-target_drum_height) < 0.02){
