@@ -45,6 +45,7 @@ from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 class ArucoNode(rclpy.node.Node):
     def __init__(self):
         super().__init__("aruco_node")
+        self.filtered_heights = 0
 
         # Declare and read parameters
         self.declare_parameter(
@@ -140,7 +141,7 @@ class ArucoNode(rclpy.node.Node):
         # Set up publishers
         self.poses_pub = self.create_publisher(PoseArray, "aruco_poses", 10)
         self.markers_pub = self.create_publisher(ArucoMarkers, "aruco_markers", 10)
-        self.tool_height_pub = self.create_publisher(ToolHeight, "tool_height", 10)
+        self.tool_height_pub = self.create_publisher(Float64, "tool_height", 10)
 
         # Set up fields for camera parameters
         self.info_msg = None
@@ -190,12 +191,12 @@ class ArucoNode(rclpy.node.Node):
                 )
             for i, marker_id in enumerate(marker_ids):
                 pose = Pose()
-                heights = ToolHeight()
+                heights = Float64()
 		
                 pose.position.x = tvecs[i][0][0]
                 pose.position.y = tvecs[i][0][1]
                 pose.position.z = tvecs[i][0][2]
-                heights.tool_height = -(tvecs[i][0][1]* 0.7349 + tvecs[i][0][2]* 0.2389 -0.2688)/0.6346
+                heights.data = -(tvecs[i][0][1]* 0.7349 + tvecs[i][0][2]* 0.2389 -0.2688)/0.6346
 
                 rot_matrix = np.eye(4)
                 rot_matrix[0:3, 0:3] = cv2.Rodrigues(np.array(rvecs[i][0]))[0]
@@ -210,6 +211,8 @@ class ArucoNode(rclpy.node.Node):
                 markers.poses.append(pose)
                 markers.marker_ids.append(marker_id[0])
 
+            self.filtered_heights = 0.3*heights.data + 0.7*self.filtered_heights
+            heights.data = self.filtered_heights
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
             self.tool_height_pub.publish(heights)

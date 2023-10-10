@@ -251,7 +251,6 @@ void CommandMux::autoPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rov
 }
 
 void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr received_msg){
-
     auto cmd_msg = lx_msgs::msg::RoverCommand();
 
     // If rover is not locked, pass the commands

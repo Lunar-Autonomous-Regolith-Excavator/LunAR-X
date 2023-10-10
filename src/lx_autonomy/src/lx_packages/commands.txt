@@ -1,7 +1,13 @@
+Build and start lx operation
+
+colcon build --packages-select lx_operation && ros2 launch lx_operation operation.launch.py 
+
 Call Autodig action to debug:
 
 ros2 action send_goal /operations/autodig_action lx_msgs/action/AutoDig "{}"
 
 Change Autodig PID values:
 
-ros2 service call /param_server_node/set_parameters rcl_interfaces/srv/SetParameters "{parameters: [{name: \"autodig.pid_outer\", value: {type: 8, double_array_value: [0.0, 0.0, 0.0]}}]}"
+ros2 service call /param_server_node/set_parameters rcl_interfaces/srv/SetParameters\
+    "{parameters: [{name: \"autodig.pid_outer\", value: {type: 8, double_array_value: [0.015, 0.000001, 0.02]}},\
+    {name: \"autodig.pid_inner\", value: {type: 8, double_array_value: [20, 0.0001, 0.5]}}]}"

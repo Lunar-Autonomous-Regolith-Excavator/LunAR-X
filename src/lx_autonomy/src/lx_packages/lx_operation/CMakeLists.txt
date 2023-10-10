@@ -7,7 +7,6 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(lx_msgs REQUIRED)
@@ -35,14 +34,6 @@ ament_target_dependencies(auto_dump_handler_node rclcpp rclcpp_action rclcpp_com
 add_executable(auto_nav_handler_node src/auto_nav_handler_node.cpp src/auto_nav_handler.cpp)
 ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
 
-# Install python modules
-ament_python_install_package(${PROJECT_NAME})
-
-# Install python executables
-install(PROGRAMS
-  scripts/estimate_tool_pose.py
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 install(TARGETS
   operations_handler_node
