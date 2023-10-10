@@ -217,7 +217,7 @@ rclcpp_action::GoalResponse AutoDigHandler::handle_goal(const rclcpp_action::Goa
 
 rclcpp_action::CancelResponse AutoDigHandler::handle_cancel(const std::shared_ptr<GoalHandleAutoDig> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
-    // (void)goal_handle;
+    (void)goal_handle;
 
     // Set the rover free from inner PID control
     inner_PID_control_rover_ = false;
@@ -254,7 +254,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
 
     // Wait for drum height to reach GOTO_TOOL_HEIGHT
     target_drum_height = GOTO_TOOL_HEIGHT;
-    while(rclcpp::ok() && goal_handle->is_active()){
+    while(rclcpp::ok() && !goal_handle->is_canceling()){
         if(std::abs(drum_height_-target_drum_height) < 0.02){
             break;
         }
@@ -263,7 +263,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     // 10 Hz loop
     rclcpp::Rate loop_rate(10);
 
-    while(rclcpp::ok() && goal_handle->is_active()){
+    while(rclcpp::ok() && !goal_handle->is_canceling()){
         rclcpp::Time action_curr_time = this->get_clock()->now();
 
         // Abort action if no tool info message recieved in last 1 second
@@ -320,7 +320,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     integral_error_current = 0;
     integral_error_height = 0;
     target_drum_height = END_TOOL_HEIGHT;
-    while(rclcpp::ok() && goal_handle->is_active()){
+    while(rclcpp::ok() && !goal_handle->is_canceling()){
         if(std::abs(drum_height_-target_drum_height) < 0.02){
             break;
         }
@@ -333,14 +333,21 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
 
     inner_PID_control_rover_ = false;
     
-    // endAutoDig();
-
-    
     // If autodig executed successfully, return goal success
-    if (rclcpp::ok()) {
+    if (rclcpp::ok() && !goal_handle->is_canceling()) {
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autodig succeeded");
+    }
+    else if(rclcpp::ok() && goal_handle->is_canceling()){
+        result->success = false;
+        goal_handle->canceled(result);
+        RCLCPP_INFO(this->get_logger(), "Autodig canceled");
+    }
+    else{
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autodig failed");
     }
 }
 
