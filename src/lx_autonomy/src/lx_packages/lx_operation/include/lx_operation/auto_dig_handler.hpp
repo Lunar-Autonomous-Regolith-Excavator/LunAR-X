@@ -28,6 +28,7 @@ class AutoDigHandler: public rclcpp::Node
         double drum_height_ = 0;
         bool inner_PID_control_rover_ = false;
         unsigned int diagnostic_pub_period_ = 1;
+        bool debugging_publish_ = false;
         // Time
         rclcpp::Time tool_info_msg_time_;
         rclcpp::TimerBase::SharedPtr rover_command_timer_;

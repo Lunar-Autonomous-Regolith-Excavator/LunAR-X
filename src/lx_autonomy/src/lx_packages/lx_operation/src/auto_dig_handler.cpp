@@ -125,10 +125,12 @@ void AutoDigHandler::setupCommunications(){
     // Publishers
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
-    drum_desired_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_current", 10);
-    drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
-    drum_desired_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_height", 10);
-    drum_current_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_height", 10);
+    if(debugging_publish_){ 
+        drum_desired_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_current", 10);
+        drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
+        drum_desired_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_height", 10);
+        drum_current_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_height", 10);
+    }
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
@@ -285,12 +287,14 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         double desired_current_value = NOMINAL_CURRENT_VALUE_I + 
                                         (NOMINAL_CURRENT_VALUE_F - NOMINAL_CURRENT_VALUE_I) * action_time_diff_seconds / (T_END_SECONDS);
 
-        // Publish drum desired current and drum current current
-        std_msgs::msg::Float64 msg; 
-        msg.data = desired_current_value;
-        drum_desired_current_pub_->publish(msg);
-        msg.data = tool_info_msg_.drum_current;
-        drum_current_current_pub_->publish(msg);
+        if(debugging_publish_){
+            // Publish drum desired current and drum current current
+            std_msgs::msg::Float64 msg; 
+            msg.data = desired_current_value;
+            drum_desired_current_pub_->publish(msg);
+            msg.data = tool_info_msg_.drum_current;
+            drum_current_current_pub_->publish(msg);
+        }
         
         // PID Outer Loop
         double drum_current_error = tool_info_msg_.drum_current - desired_current_value;
@@ -392,13 +396,14 @@ void AutoDigHandler::roverCommandTimerCallback(){
         rover_cmd.drum_speed = target_drum_command;
         rover_cmd.mobility_twist.linear.x = target_rover_velocity;
 
-        // Publish using debug publishers
-        std_msgs::msg::Float64 msg; 
-        msg.data = target_drum_height;
-        this->drum_desired_height_pub_->publish(msg);
-
-        msg.data = drum_height_;
-        this->drum_current_height_pub_->publish(msg);
+        if(debugging_publish_){
+            // Publish using debug publishers
+            std_msgs::msg::Float64 msg; 
+            msg.data = target_drum_height;
+            this->drum_desired_height_pub_->publish(msg);
+            msg.data = drum_height_;
+            this->drum_current_height_pub_->publish(msg);
+        }
 
         integral_error_height += error_height;
         prev_error_height = error_height;
