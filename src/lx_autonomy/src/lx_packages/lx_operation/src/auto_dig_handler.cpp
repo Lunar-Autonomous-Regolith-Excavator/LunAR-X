@@ -274,6 +274,8 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
 
         // Abort action if no tool info message recieved in last 1 second
         if((action_curr_time - tool_info_msg_time_).seconds() > 1){
+            // Set the rover free from inner PID control
+            inner_PID_control_rover_ = false;
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");

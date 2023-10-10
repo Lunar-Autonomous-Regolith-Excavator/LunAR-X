@@ -45,8 +45,6 @@ class AutoDigHandler: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
-        std::shared_ptr<rclcpp::ParameterCallbackHandle> autodig_outer_pid_param_cb_handle_;
-        std::shared_ptr<rclcpp::ParameterCallbackHandle> autodig_inner_pid_param_cb_handle_;
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
