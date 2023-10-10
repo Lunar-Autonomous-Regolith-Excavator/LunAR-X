@@ -51,6 +51,10 @@ class AutoDigHandler: public rclcpp::Node
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_cmd_pub_;
         rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_current_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_current_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_height_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_height_pub_;
         // Autodig Control
         pid_struct autodig_pid_outer_,autodig_pid_inner_;
         double prev_error_current = 0, integral_error_current = 0;
@@ -63,10 +67,10 @@ class AutoDigHandler: public rclcpp::Node
         const double FORWARD_SPEED = 0.025; // speed at which the rover moves forward (m/s)
         const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
         const double NOMINAL_CURRENT_VALUE_I = 1.3; 
-        const double NOMINAL_CURRENT_VALUE_F = 3.0;
-        const double T_END_SECONDS = 60; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
-        const double GOTO_TOOL_HEIGHT = 0.15; // the height the tool goes to before starting excavation
-        const double END_TOOL_HEIGHT = 0.40; // the height the tool goes to after excavation is complete
+        const double NOMINAL_CURRENT_VALUE_F = 3.1;
+        const double T_END_SECONDS = 45; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
+        const double GOTO_TOOL_HEIGHT = 0.2; // the height the tool goes to before starting excavation
+        const double END_TOOL_HEIGHT = 0.35; // the height the tool goes to after excavation is complete
         
         // --------------------------------------
 
@@ -113,13 +117,6 @@ class AutoDigHandler: public rclcpp::Node
         * Publish rover command at a specified rate
         * */
         void roverCommandTimerCallback();
-
-        /*
-        * Argument(s):
-        *  
-        * Take the tool to a specified height after excavation is complete
-        * */
-        void endAutoDig();
 
         /*
         * Argument(s):

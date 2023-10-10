@@ -32,7 +32,7 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
                         std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
-    autodig_pid_outer_.kp = 0.015;
+    autodig_pid_outer_.kp = 0.014;
     autodig_pid_outer_.ki = 0.000001;
     autodig_pid_outer_.kd = 0.02;
 
@@ -125,6 +125,10 @@ void AutoDigHandler::setupCommunications(){
     // Publishers
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
+    drum_desired_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_current", 10);
+    drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
+    drum_desired_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_height", 10);
+    drum_current_height_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_height", 10);
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
@@ -186,18 +190,6 @@ void AutoDigHandler::setupParams(){
                break;
         }
     };
-    auto autodig_outer_pid_params_callback = [this](const rclcpp::Parameter & p){
-        autodig_pid_outer_.kp = p.as_double_array()[0];
-        autodig_pid_outer_.ki = p.as_double_array()[1];
-        autodig_pid_outer_.kd = p.as_double_array()[2];
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": [%.3f, %.5f, %.3f]", p.get_name().c_str(), autodig_pid_outer_.kp, autodig_pid_outer_.ki, autodig_pid_outer_.kd);
-    };
-    auto autodig_inner_pid_params_callback = [this](const rclcpp::Parameter & p){
-        autodig_pid_inner_.kp = p.as_double_array()[0];
-        autodig_pid_inner_.ki = p.as_double_array()[1];
-        autodig_pid_inner_.kd = p.as_double_array()[2];
-        RCLCPP_INFO(this->get_logger(), "Parameter updated \"%s\": [%.3f, %.5f, %.3f]", p.get_name().c_str(), autodig_pid_inner_.kp, autodig_pid_inner_.ki, autodig_pid_inner_.kd);
-    };
 
     // Names of node & params for adding callback
     auto param_server_name = std::string("param_server_node");
@@ -205,8 +197,6 @@ void AutoDigHandler::setupParams(){
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
     auto task_mode_param_name = std::string("rover.task_mode");
-    auto autodig_outer_pid_param_name = std::string("autodig.pid_outer");
-    auto autodig_inner_pid_param_name = std::string("autodig.pid_inner");
 
 
     // Store callback handles for each parameter
@@ -214,8 +204,6 @@ void AutoDigHandler::setupParams(){
     act_param_cb_handle_ = param_subscriber_->add_parameter_callback(act_lock_param_name, act_params_callback, param_server_name);
     op_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(op_mode_param_name, op_mode_params_callback, param_server_name);
     task_mode_param_cb_handle_ = param_subscriber_->add_parameter_callback(task_mode_param_name, task_mode_params_callback, param_server_name);
-    autodig_outer_pid_param_cb_handle_ = param_subscriber_->add_parameter_callback(autodig_outer_pid_param_name, autodig_outer_pid_params_callback, param_server_name);
-    autodig_inner_pid_param_cb_handle_ = param_subscriber_->add_parameter_callback(autodig_inner_pid_param_name, autodig_inner_pid_params_callback, param_server_name);
 }
 
 rclcpp_action::GoalResponse AutoDigHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const AutoDig::Goal> goal){
@@ -229,10 +217,16 @@ rclcpp_action::GoalResponse AutoDigHandler::handle_goal(const rclcpp_action::Goa
 
 rclcpp_action::CancelResponse AutoDigHandler::handle_cancel(const std::shared_ptr<GoalHandleAutoDig> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
-    (void)goal_handle;
+    // (void)goal_handle;
 
     // Set the rover free from inner PID control
     inner_PID_control_rover_ = false;
+
+    // auto feedback = std::make_shared<AutoDig::Feedback>();
+    // auto result = std::make_shared<AutoDig::Result>();
+
+    // result->success = false;
+    // goal_handle->canceled(result);
     
     // Cancel action
     return rclcpp_action::CancelResponse::ACCEPT;
@@ -260,7 +254,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
 
     // Wait for drum height to reach GOTO_TOOL_HEIGHT
     target_drum_height = GOTO_TOOL_HEIGHT;
-    while(rclcpp::ok()){
+    while(rclcpp::ok() && goal_handle->is_active()){
         if(std::abs(drum_height_-target_drum_height) < 0.02){
             break;
         }
@@ -269,7 +263,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     // 10 Hz loop
     rclcpp::Rate loop_rate(10);
 
-    while(rclcpp::ok()){
+    while(rclcpp::ok() && goal_handle->is_active()){
         rclcpp::Time action_curr_time = this->get_clock()->now();
 
         // Abort action if no tool info message recieved in last 1 second
@@ -291,6 +285,13 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         double desired_current_value = NOMINAL_CURRENT_VALUE_I + 
                                         (NOMINAL_CURRENT_VALUE_F - NOMINAL_CURRENT_VALUE_I) * action_time_diff_seconds / (T_END_SECONDS);
 
+        // Publish drum desired current and drum current current
+        std_msgs::msg::Float64 msg; 
+        msg.data = desired_current_value;
+        drum_desired_current_pub_->publish(msg);
+        msg.data = tool_info_msg_.drum_current;
+        drum_current_current_pub_->publish(msg);
+        
         // PID Outer Loop
         double drum_current_error = tool_info_msg_.drum_current - desired_current_value;
         double drum_current_error_pid = autodig_pid_outer_.kp*drum_current_error 
@@ -312,14 +313,28 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         loop_rate.sleep();
     }
 
+    // Raise the drum to END_TOOL_HEIGHT
+    // Wait for drum height to reach GOTO_TOOL_HEIGHT
+    target_rover_velocity = 0;
+    target_drum_command = 0;
+    integral_error_current = 0;
+    integral_error_height = 0;
+    target_drum_height = END_TOOL_HEIGHT;
+    while(rclcpp::ok() && goal_handle->is_active()){
+        if(std::abs(drum_height_-target_drum_height) < 0.02){
+            break;
+        }
+    }
     // Set targets to 0 to stop the rover
     target_drum_height = -1;
-    target_drum_command = 0;
-    target_rover_velocity = 0;
+    integral_error_current = 0;
+    integral_error_height = 0;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // Raise the drum to END_TOOL_HEIGHT
-    endAutoDig();
+    inner_PID_control_rover_ = false;
+    
+    // endAutoDig();
+
     
     // If autodig executed successfully, return goal success
     if (rclcpp::ok()) {
@@ -370,32 +385,18 @@ void AutoDigHandler::roverCommandTimerCallback(){
         rover_cmd.drum_speed = target_drum_command;
         rover_cmd.mobility_twist.linear.x = target_rover_velocity;
 
+        // Publish using debug publishers
+        std_msgs::msg::Float64 msg; 
+        msg.data = target_drum_height;
+        this->drum_desired_height_pub_->publish(msg);
+
+        msg.data = drum_height_;
+        this->drum_current_height_pub_->publish(msg);
+
         integral_error_height += error_height;
         prev_error_height = error_height;
     }
     rover_auto_cmd_pub_->publish(rover_cmd);
-}
-
-void AutoDigHandler::endAutoDig(){
-    RCLCPP_INFO(this->get_logger(), "Bringing tool to end height");
-
-    while(rclcpp::ok() && inner_PID_control_rover_){
-        lx_msgs::msg::RoverCommand rover_cmd;
-
-        target_drum_height = END_TOOL_HEIGHT;
-        double actuator_command = drum_height_ - target_drum_height;
-        if(std::abs(error_height) < 0.01){
-            actuator_command = 0;
-        }
-
-        rover_cmd.actuator_speed = std::min(std::max(actuator_command, -1.0), 1.0);
-    
-        if(std::abs(drum_height_-target_drum_height) < 0.02){
-            break;
-        }
-
-        rover_auto_cmd_pub_->publish(rover_cmd);
-    }
 }
 
 void AutoDigHandler::diagnosticPublish(){

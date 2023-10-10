@@ -228,6 +228,8 @@ void CommandMux::roverTeleopCallBack(const lx_msgs::msg::RoverCommand::SharedPtr
 void CommandMux::teleopPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rover_teleop_msg){
     // If current op_mode is teleop & task_mode is not idle
     if(current_rover_op_mode_ == OpModeEnum::TELEOP && current_rover_task_mode_ != TaskModeEnum::IDLE){
+        // Print op mode and task mode
+        RCLCPP_INFO(this->get_logger(), "Op Mode: %d, Task Mode: %d", current_rover_op_mode_, current_rover_task_mode_);
         // Pass through teleop command
         sendCmdToHardware(rover_teleop_msg);
     } 
@@ -251,7 +253,8 @@ void CommandMux::autoPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rov
 }
 
 void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr received_msg){
-
+    RCLCPP_INFO(this->get_logger(), "Received command: %.2f, %.2f, %.2f, %.2f", received_msg->mobility_twist.linear.x, 
+                received_msg->mobility_twist.angular.z, received_msg->actuator_speed, received_msg->drum_speed);
     auto cmd_msg = lx_msgs::msg::RoverCommand();
 
     // If rover is not locked, pass the commands
