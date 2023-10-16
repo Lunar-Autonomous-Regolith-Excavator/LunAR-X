@@ -30,7 +30,7 @@
 GlobalMap::GlobalMap() : Node("global_mapping_node")
 {   
     // set false for dry runs, set true for printf commands and to publish occupancy grids
-    debug_mode_ = false;
+    debug_mode_ = true;
     double pose_x, pose_y, pose_z, yaw;
     int scale = 10;
 
@@ -43,9 +43,6 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
     double robot_roll = 0;
     double robot_pitch = 0;
     double robot_yaw = 0;
-
-    // subscription_local_map_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
-    //     "/lx_berm/occupancy_grid_3", 10, std::bind(&GlobalMap::topic_callback_local_map, this, _1)); //subscribes to the local map topic at 10Hz
 
     subscription_current_pose_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "/odometry/ekf_global_node", qos, std::bind(&GlobalMap::topic_callback_current_pose, this, _1)); //subscribes to the current pose topic at 10Hz    // publishers for occupancy grids
@@ -81,19 +78,7 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
         global_map_.data[i] = 0;
     }
 
-    // buffer of 2 elements
-    // make it same type as the clock but value as 1696459789.087897 tf_buffer_ = std::make_shared<tf2_ros::Buffer>(1696459789.087897, tf2::durationFromSec(30.0));
-    // tf_buffer_ = std::make_shared<tf2_ros::Buffer>( rclcpp::Clock (1696459789.087897), tf2::durationFromSec(30.0));
-    // create a clock with the same type as the clock but value as 1696459789.087897
-    // rclcpp::Time custom_time(1696459789);
-    // tf_buffer_ = std::make_shared<tf2_ros::Buffer>(custom_time, tf2::durationFromSec(30.0));
-    
-    // create a clock with the same type as the clock but value as 1696459789.087897
-    // type of this->get_clock() is rclcpp::Clock
-    // rclcpp::Time custom_time(1696459789);
-    // rclcpp::Clock custom_clock(custom_time);
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(10000000));    
-    
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
 }
@@ -119,17 +104,6 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
       return;
     }
     
-
-    // Transform the PointCloud2 message
-    // sensor_msgs::msg::PointCloud2 transformed_msg;
-    // tf2::doTransform(*msg, transformed_msg, transform);
-
-    // // print some info from the transform
-    // RCLCPP_INFO(this->get_logger(), "Translation: %f, %f, %f", transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z);
-    // RCLCPP_INFO(this->get_logger(), "Rotation: %f, %f, %f, %f", transform.transform.rotation.x, transform.transform.rotation.y, transform.transform.rotation.z, transform.transform.rotation.w);
-    // // print the frame_id of the transformed message
-    // RCLCPP_INFO(this->get_logger(), "Transformed message frame_id: %s", transformed_msg.header.frame_id.c_str());
-
     // convert x,y,z,w to roll, pitch, yaw
     tf2::Quaternion q(transform.transform.rotation.x, transform.transform.rotation.y, transform.transform.rotation.z, transform.transform.rotation.w);
     tf2::Matrix3x3 m(q);
@@ -143,31 +117,6 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *cloud);
 
-    // calculate mean and standard deviation of x,y,z values of the point cloud
-    double mean_x = 0, mean_y = 0, mean_z = 0, std_x = 0, std_y = 0, std_z = 0;
-    for(int i = 0; i < cloud->points.size(); i++){
-        mean_x += cloud->points[i].x;
-        mean_y += cloud->points[i].y;
-        mean_z += cloud->points[i].z;
-    }
-    mean_x /= cloud->points.size();
-    mean_y /= cloud->points.size();
-    mean_z /= cloud->points.size();
-    for(int i = 0; i < cloud->points.size(); i++){
-        std_x += (cloud->points[i].x-mean_x)*(cloud->points[i].x-mean_x);
-        std_y += (cloud->points[i].y-mean_y)*(cloud->points[i].y-mean_y);
-        std_z += (cloud->points[i].z-mean_z)*(cloud->points[i].z-mean_z);
-    }
-    std_x /= cloud->points.size();
-    std_y /= cloud->points.size();
-    std_z /= cloud->points.size();
-    std_x = sqrt(std_x);
-    std_y = sqrt(std_y);
-    std_z = sqrt(std_z);
-    // print
-    // RCLCPP_INFO(this->get_logger(), "Before transformation: mean_x: %f, mean_y: %f, mean_z: %f, std_x: %f, std_y: %f, std_z: %f", mean_x, mean_y, mean_z, std_x, std_y, std_z);
-
-
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
 
     // Define a translation of 2.5 meters on the x axis.
@@ -175,7 +124,7 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
     // The same rotation matrix as before; theta radians around Z axis
     transform_2.rotate(Eigen::AngleAxisf(-roll+3*3.1415/180, Eigen::Vector3f::UnitZ()));
-    transform_2.rotate(Eigen::AngleAxisf(pitch+2*3.1415/180, Eigen::Vector3f::UnitX()));
+    transform_2.rotate(Eigen::AngleAxisf(pitch+2*3.1415/180+robot_pitch, Eigen::Vector3f::UnitX()));
     transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY()));
 
     //remove noise from the point cloud
@@ -190,30 +139,6 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
     // You can either apply transform_1 or transform_2; they are the same
     pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, transform_2);
-
-    // calculate mean and standard deviation of x,y,z values of the point cloud
-    mean_x = 0; mean_y = 0; mean_z = 0; std_x = 0; std_y = 0; std_z = 0;
-    for(int i = 0; i < transformed_cloud->points.size(); i++){
-        mean_x += transformed_cloud->points[i].x;
-        mean_y += transformed_cloud->points[i].y;
-        mean_z += transformed_cloud->points[i].z;
-    }
-    mean_x /= transformed_cloud->points.size();
-    mean_y /= transformed_cloud->points.size();
-    mean_z /= transformed_cloud->points.size();
-    for(int i = 0; i < transformed_cloud->points.size(); i++){
-        std_x += (transformed_cloud->points[i].x-mean_x)*(transformed_cloud->points[i].x-mean_x);
-        std_y += (transformed_cloud->points[i].y-mean_y)*(transformed_cloud->points[i].y-mean_y);
-        std_z += (transformed_cloud->points[i].z-mean_z)*(transformed_cloud->points[i].z-mean_z);
-    }
-    std_x /= transformed_cloud->points.size();
-    std_y /= transformed_cloud->points.size();
-    std_z /= transformed_cloud->points.size();
-    std_x = sqrt(std_x);
-    std_y = sqrt(std_y);
-    std_z = sqrt(std_z);
-    // print
-    // RCLCPP_INFO(this->get_logger(), "After transformation: mean_x: %f, mean_y: %f, mean_z: %f, std_x: %f, std_y: %f, std_z: %f", mean_x, mean_y, mean_z, std_x, std_y, std_z);
 
     // Create a CropBox filter and set the region of interest
     pcl::CropBox<pcl::PointXYZ> crop_box;
@@ -338,34 +263,46 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
             elevation_values[global_map_.info.width*global_map_.info.height] = 0;
             density_values[global_map_.info.width*global_map_.info.height] = 0;
     }
+    // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f", pose_x, pose_y);
     for(int i = 0; i < cloud_plane_transformed->points.size(); i++){
         float x_part = (cloud_plane_transformed->points[i].x*cos(robot_yaw) - (cloud_plane_transformed->points[i].z-0.4)*sin(robot_yaw));
         float y_part = (cloud_plane_transformed->points[i].x*sin(robot_yaw) + (cloud_plane_transformed->points[i].z-0.4)*cos(robot_yaw));
         int col_x = int((pose_x+x_part)/0.05);
         int row_y = int((pose_y+y_part)/0.05);
+        // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f", pose_x, pose_y);
+        // RCLCPP_INFO(this->get_logger(), "col_x: %d, row_y: %d", col_x, row_y);
         // clip it by 0 and 159
-        col_x = std::max(0, std::min(col_x, (int)global_map_.info.width));
-        row_y = std::max(0, std::min(row_y, (int)global_map_.info.height));
+        // col_x = std::max(0, std::min(col_x, (int)global_map_.info.width));
+        // row_y = std::max(0, std::min(row_y, (int)global_map_.info.height));
         int global_idx = col_x + row_y*global_map_.info.width;
-        global_idx = (global_idx % (global_map_.info.width*global_map_.info.height) + (global_map_.info.width*global_map_.info.height)) % (global_map_.info.width*global_map_.info.height);
+        // get positive modulo of global_idx
+        global_idx = (global_idx % (global_map_.info.width*global_map_.info.height));
+
+
+        // global_idx = (global_idx % (global_map_.info.width*global_map_.info.height) + (global_map_.info.width*global_map_.info.height)) % (global_map_.info.width*global_map_.info.height);
         // double projected_y = -(coefficients->values[3]+coefficients->values[0]*cloud_plane_transformed->points[i].x+coefficients->values[2]*cloud_plane_transformed->points[i].z)/coefficients->values[1];
-        double projected_d = (coefficients->values[0]*cloud_plane_transformed->points[i].x+coefficients->values[1]*cloud_plane_transformed->points[i].y+coefficients->values[2]*cloud_plane_transformed->points[i].z+coefficients->values[3]);
+        // double projected_d = (coefficients->values[0]*cloud_plane_transformed->points[i].x+coefficients->values[1]*cloud_plane_transformed->points[i].y+coefficients->values[2]*cloud_plane_transformed->points[i].z+coefficients->values[3]);
         // double elev = (cloud_plane_transformed->points[i].y-projected_y+pose_z);
         // RCLCPP_INFO(this->get_logger(), "elev: %f", elev);
-        elevation_values[global_idx] += 100*(projected_d+pose_z-1.6);
+        double elev = (cloud_plane_transformed->points[i].y-pose_z);
+        // elevation_values[global_idx] += 100*(projected_d+pose_z-1.6);
+        elevation_values[global_idx] += 150*(elev+4);
         density_values[global_idx] += 1;
     }
 
     // RCLCPP_INFO(this->get_logger(), "local_elevation_map2 size: %d", local_elevation_map.data.size());
 
     // where pd_map is not 0, divide local_elevation_map by pd_map
-    for(int i = 0; i < local_elevation_map.info.width*local_elevation_map.info.height; i++){
-        if(density_values[i] > 0){
-            global_map_.data[i] = int(elevation_values[i]/density_values[i]);
-            // RCLCPP_INFO(this->get_logger(), "global_map_.data[i]: %d", global_map_.data[i]);
+    if(robot_yaw!=0){
+        for(int i = 0; i < local_elevation_map.info.width*local_elevation_map.info.height; i++){
+            if(density_values[i] > 0){
+                global_map_.data[i] = int(elevation_values[i]/density_values[i]);
+                elevation_values[i] = 0;
+                density_values[i] = 0;
+                // RCLCPP_INFO(this->get_logger(), "global_map_.data[i]: %d", global_map_.data[i]);
+            }
         }
     }
-
 
 
     // print the plane coefficients
@@ -379,7 +316,7 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
     // Convert the cropped point cloud back to a PointCloud2 message
     sensor_msgs::msg::PointCloud2 result_msg;
-    pcl::toROSMsg(*cloud_local_map, result_msg);
+    pcl::toROSMsg(*cloud_inliers, result_msg);
 
     // Publish the transformed message
     publisher_pc_->publish(result_msg);
@@ -398,8 +335,8 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
 
 void GlobalMap::topic_callback_current_pose(const nav_msgs::msg::Odometry::SharedPtr msg){
-    pose_x = msg->pose.pose.position.x + 6.6 + 2 + 2;
-    pose_y = msg->pose.pose.position.y - 8.3 + 4;
+    pose_x = msg->pose.pose.position.x;
+    pose_y = msg->pose.pose.position.y;
     pose_z = msg->pose.pose.position.z; 
 
     if(pose_x < min_x){
@@ -427,74 +364,7 @@ void GlobalMap::topic_callback_current_pose(const nav_msgs::msg::Odometry::Share
     robot_yaw -= 1.5708;
 
     // print roll, pitch, yaw
-    // RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", robot_roll, robot_pitch, robot_yaw);
+    RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", robot_roll, robot_pitch, robot_yaw);
 
     // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f, yaw: %f", pose_x, pose_y, yaw);
-}
-
-void GlobalMap::topic_callback_local_map(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
-    // RCLCPP_INFO(this->get_logger(), "Got local map");
-    local_map_ = *msg;
-
-    // transform occupancy grid using tf2
-    // tf2_ros::Buffer tf_buffer(this->get_clock());
-    // tf2_ros::TransformListener tfListener(tf_buffer);
-    geometry_msgs::msg::TransformStamped transform;
-
-    try{
-      transform = tf_buffer_->lookupTransform("base_link", "base_link",tf2::TimePointZero, tf2::durationFromSec(1));
-        // display transformStamped
-        // RCLCPP_INFO(this->get_logger(), "transformStamped: %f", transformStamped);
-    }
-    catch (tf2::TransformException &ex) {
-        RCLCPP_WARN(this->get_logger(), "%s",ex.what());
-        rclcpp::sleep_for(std::chrono::milliseconds(100));
-        return;
-    }
-    // RCLCPP_INFO(this->get_logger(), "Translation: %f, %f, %f", transformStamped.transform.translation.x, transformStamped.transform.translation.y, transformStamped.transform.translation.z);
-    // RCLCPP_INFO(this->get_logger(), "Rotation: %f, %f, %f, %f", transformStamped.transform.rotation.x, transformStamped.transform.rotation.y, transformStamped.transform.rotation.z, transformStamped.transform.rotation.w);
-
-    // pi/2
-    // transformStamped.transform.rotation.x = 1.5;
-
-    // nav_msgs::msg::OccupancyGrid local_map_transformed;
-    // local_map_transformed.header.frame_id = "map";
-    // copy local map to local map transformed
-    // local_map_transformed.data = local_map_.data;
-    // // apply transform to local map
-    // tf2::doTransform(*msg, local_map_transformed, transform);
-
-
-    // displace local map by (pose_x,pose_y) and copy it to global map
-    for(int i = 0; i < local_map_.info.width; i++){
-        for(int j = 0; j < local_map_.info.height; j++){
-
-            // when yaw is 0
-            // int global_map_idx = i+pose_x + (j+pose_y+global_map_.info.width)*global_map_.info.width;
-            int global_map_idx = i+pose_x + (j+pose_y)*global_map_.info.width;
-
-            // compute global map index when yaw is not 0 and it is radians
-            // int global_map_idx = (int)(i*cos(yaw) - j*sin(yaw) + pose_x + (i*sin(yaw) + j*cos(yaw) + pose_y + global_map_.info.width)*global_map_.info.width);
-            // int global_map_idx = pose_x + i*cos(yaw) - j*sin(yaw) + (pose_y + i*sin(yaw) + j*cos(yaw))*global_map_.info.width;
-
-            // RCLCPP_INFO(this->get_logger(), "global_map_idx: %d, global_map_idx_og: %d", global_map_idx, global_map_idx_og);
-            // RCLCPP_INFO(this->get_logger(), "global_map_idx: %d", global_map_idx);
-            // if(global_map_idx < 0 || global_map_idx > global_map_.info.width*global_map_.info.height){
-            //     RCLCPP_INFO(this->get_logger(), "global_map_idx out of bounds: %d", global_map_idx);
-            //     // continue;
-            // }
-            // else{
-                int elevation  = local_map_.data[i + j*local_map_.info.width];
-                if (elevation!=0 && elevation!=100){
-                    // get positive mod
-                    int reset_idx = (global_map_idx % (global_map_.info.width*global_map_.info.height) + (global_map_.info.width*global_map_.info.height)) % (global_map_.info.width*global_map_.info.height);
-                    global_map_.data[reset_idx] = elevation;
-                    // RCLCPP_INFO(this->get_logger(), "elevation: %d", elevation);
-                }
-            // }
-        }
-    }
-    global_map_.data[0] = -100;
-
-    publisher_global_map_->publish(global_map_);
 }
