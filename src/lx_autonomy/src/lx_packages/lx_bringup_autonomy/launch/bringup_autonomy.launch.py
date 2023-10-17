@@ -16,6 +16,12 @@ def generate_launch_description():
                           PythonLaunchDescriptionSource(
                                 bringup_autonomy_dir + '/launch/param_server.launch.py'))
     
+    # robot description launch
+    description_dir = get_package_share_directory('lx_description')
+    description_launch = IncludeLaunchDescription(
+                          PythonLaunchDescriptionSource(
+                                description_dir + '/launch/description.launch.py'))
+    
     # diagnostics launch
     diagnostics_dir = get_package_share_directory('lx_diagnostics')
     diagnostics_launch = IncludeLaunchDescription(
@@ -39,46 +45,24 @@ def generate_launch_description():
     operation_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     operation_dir + '/launch/operation.launch.py'))
-                                    
+
+    # mapping launch                                
     mapping_dir = get_package_share_directory('lx_mapping')
     mapping_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     mapping_dir + '/launch/mapping.launch.py'))
     
+    # localization launch
     localization_dir = get_package_share_directory('lx_localization')
     localization_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     localization_dir + '/launch/lx_ekf.launch.py'))
     
+    # foxglove_bridge launch
     foxglove_dir = get_package_share_directory('foxglove_bridge')
-    # launch xml launch file foxglove_bridge_launch.xml
     foxglove_bridge_launch = IncludeLaunchDescription(
         AnyLaunchDescriptionSource([foxglove_dir, '/foxglove_bridge_launch.xml']),
     )
-
-    tf_node = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='camera_link_to_base_link',
-      output='screen',
-      arguments=['0.27', '0.21' ,'0.7' ,'0.0' ,'0.65' ,'-0.06', 'base_link', 'camera_link'],
-    ) # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
-
-    tf_camera_link = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='camera_link_to_camera_depth_frame',
-      output='screen',
-      arguments=['0.0', '0' ,'0' ,'0.0' ,'0' ,'0', '1', 'camera_link', 'camera_depth_frame'],
-    ) 
-
-    tf_camera_depth_link = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='camera_link_to_camera_depth_optical_frame',
-      output='screen',
-      arguments=['0.0', '0' ,'0' ,'-0.5' ,'0.5' ,'-0.5', '0.5', 'camera_depth_frame', 'camera_depth_optical_frame'],
-    ) 
 
     pcl_relay = Node(
       package='lx_mapping',
@@ -88,13 +72,11 @@ def generate_launch_description():
     )
     
     ld.add_action(param_server_launch)
+    ld.add_action(description_launch)
     ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
     ld.add_action(operation_launch)
-    ld.add_action(tf_node)
-    ld.add_action(tf_camera_link)
-    ld.add_action(tf_camera_depth_link)
     ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
     # ld.add_action(mapping_launch)
