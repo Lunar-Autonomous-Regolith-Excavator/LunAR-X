@@ -1,17 +1,13 @@
 /* Author: Dhruv Tyagi
  * Subscribers:
- *    - /topic: description
+ *    - /tool_height (std_msgs::msg::Float64): Tool height from aruco markers
  * Publishers:
- *    - /topic: description
- * Services:
- *    - /name (type): description
- * Actions:
- *    - /name (type): description
+ *    - /joint_states (sensor_msgs::msg::JointState): Joint states for rviz/foxglove
  *
- * - Summary
+ * - Node to help rviz/foxglove visualization of indirect joint states
  * 
  * TODO
- * - Add todos
+ * - Add drum rotation joint
  * */
 
 #include "lx_description/joint_viz.hpp"
@@ -19,6 +15,18 @@
 JointViz::JointViz(): Node("joint_viz_node"){
     // Set up subscriptions & publishers
     setupCommunications();
+
+    // Sleep 5 seconds to allow transforms to be published
+    rclcpp::sleep_for(std::chrono::seconds(5));
+
+    // Publish initial joint message
+    sensor_msgs::msg::JointState joint_state_msg;
+    joint_state_msg.header.stamp = this->get_clock()->now();
+    joint_state_msg.name = {"lift_assembly_joint"};
+    joint_state_msg.position = {-((0.25 - 0.096) * 1.622 - 0.3)};
+    joint_state_msg.velocity = {0};
+    joint_state_msg.effort = {0};
+    joint_state_publisher_->publish(joint_state_msg);
 
     RCLCPP_INFO(this->get_logger(), "joint_viz initialized");
 }
@@ -34,9 +42,9 @@ void JointViz::setupCommunications(){
 void JointViz::toolHeightCallBack(const std_msgs::msg::Float64::SharedPtr msg){
     // Create joint state message
     sensor_msgs::msg::JointState joint_state_msg;
-    joint_state_msg.header.stamp = msg->header.stamp;
+    joint_state_msg.header.stamp = this->get_clock()->now();
     joint_state_msg.name = {"lift_assembly_joint"};
-    joint_state_msg.position = {(msg->data - 0.096) * 1.622 - 0.3};
+    joint_state_msg.position = {-((msg->data - 0.096) * 1.622 - 0.3)};
     joint_state_msg.velocity = {0};
     joint_state_msg.effort = {0};
 

@@ -21,6 +21,11 @@ class JointViz: public rclcpp::Node
         * Set up subscribers and publishers of the node
         * */
         void setupCommunications();
+
+        /*
+        * Callback function for tool_height_subscriber_
+        * */
+        void toolHeightCallBack(const std_msgs::msg::Float64::SharedPtr msg);
         // --------------------------------------
 
     public:

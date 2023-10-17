@@ -1,0 +1,193 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="lunarx_rover">
+
+    <xacro:include filename="$(find lx_description)/urdf/husky_macro.urdf.xacro" />
+
+    <!-- Lifting & drum assembly -->
+    <link name="lift_assembly_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://lx_description/meshes/lift_assembly.dae"/>
+            </geometry>
+        </visual>
+    </link>
+    
+    <link name="drum_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://lx_description/meshes/drum.dae"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name="drum_joint" type="continuous">
+        <axis xyz="1 0 0" />
+        <origin xyz="0 -0.41 0.505" rpy="0 3.1415 0" />
+        <parent link="lift_assembly_link" />
+        <child link="drum_link" />
+    </joint>
+
+    <link name="front_plate_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://lx_description/meshes/front_plate.dae"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name="front_plate_joint" type="fixed">
+        <origin xyz="0.405 0 0" rpy="1.5707 0 1.5707" />
+        <parent link="base_link" />
+        <child link="front_plate_link" />
+    </joint>
+
+    <link name="brk_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://lx_description/meshes/brk.dae"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name="brk_joint" type="fixed">
+        <origin xyz="0 0.035 0.01" rpy="1.5707 0 0" />
+        <parent link="front_plate_link" />
+        <child link="brk_link" />
+    </joint>
+
+    <link name="lin_act_upper_link">
+        <visual>
+            <origin xyz="0 0 -0.1" rpy="0 0 0" />
+            <geometry>
+                <box size="0.02 0.03 0.25"/>
+            </geometry>
+            <material name="lin_act_upper_grey">
+                <color rgba="0.3 0.3 0.3 1"/>
+            </material>
+        </visual>
+    </link>
+
+    <link name="lin_act_lower_link">
+        <visual>
+            <origin xyz="0 0 -0.1" rpy="0 0 0" />
+            <geometry>
+                <box size="0.01 0.015 0.2"/>
+            </geometry>
+            <material name="lin_act_lower_grey">
+                <color rgba="0.3 0.3 0.3 1"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="lin_act_lower_joint" type="continuous">
+        <axis xyz="1 0 0" />
+        <origin xyz="0 0.035 0.025" rpy="-0.135 0 0" />
+        <mimic joint="lift_assembly_joint" multiplier="0.259" offset="0.019" />
+        <parent link="brk_link" />
+        <child link="lin_act_lower_link" />
+    </joint>
+
+    <joint name="lin_act_upper_joint" type="continuous">
+        <axis xyz="1 0 0" />
+        <origin xyz="0 0.025 0.19" rpy="-0.39 0 0" />
+        <mimic joint="lift_assembly_joint" multiplier="-0.729" offset="-0.73" />
+        <parent link="lift_assembly_link" />
+        <child link="lin_act_upper_link" />
+    </joint>
+
+    <joint name="lift_assembly_joint" type="revolute">
+        <axis xyz="1 0 0" />
+        <origin xyz="0.26 0 0.255" rpy="1 0 1.5707" />
+        <limit effort="100" lower="-0.3" upper="0.55" velocity="1.5707" />
+        <parent link="base_link" />
+        <child link="lift_assembly_link" />
+    </joint>
+
+    <!-- Electronics plate -->
+    <link name="electronics_plate_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <box size="0.42 0.4 0.01"/>
+            </geometry>
+            <material name="electornics_plate_black">
+                <color rgba="0 0 0 1"/>
+            </material>
+        </visual>
+    </link>
+    <joint name="electronics_plate_joint" type="fixed">
+        <origin xyz="-0.005 0 0.25" rpy="0 0 0" />
+        <parent link="base_link" />
+        <child link="electronics_plate_link" />
+    </joint>
+
+
+
+    <!-- RealSense -->
+    <link name="sensor_mast_link">
+        <visual>
+            <origin xyz="0 0 0.175" rpy="0 0 0" />
+            <geometry>
+                <box size="0.0254 0.0254 0.35" />
+            </geometry>
+            <material name="sensor_mast_black">
+                <color rgba="0 0 0 1"/>
+            </material>
+        </visual>
+    </link>
+    <joint name="sensor_mast_fixture" type="fixed">
+        <origin xyz="0.26 0.2 0.25" rpy="0 0 -1.5707" />
+        <parent link="base_link" />
+        <child link="sensor_mast_link" />
+    </joint>
+
+    <link name="camera_link"/>
+    <joint type="fixed" name="camera_link_joint">
+        <origin xyz="0.27 0.21 0.7" rpy="0 0.65 -0.16" />
+        <parent link="base_footprint" />
+        <child link="camera_link" />
+    </joint>
+
+    <link name="camera_depth_frame">
+        <visual>
+            <origin xyz="0 0 0" rpy="${pi/2} 0 ${pi/2}" />
+            <geometry>
+                <mesh filename="package://lx_description/meshes/d435.dae" />
+            </geometry>
+            <material name="realsense_grey">
+                <color rgba="0.5 0.5 0.5 1"/>
+            </material>
+        </visual>
+    </link>
+    <joint name="camera_depth_frame_joint" type="fixed">
+        <origin xyz="0.04 0 0" rpy="0 0 0" />
+        <parent link="camera_link" />
+        <child link="camera_depth_frame" />
+    </joint>
+
+    <link name="camera_depth_optical_frame"/>
+    <joint name="camera_depth_optical_frame_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="-1.5707 0 -1.5707" />
+        <parent link="camera_depth_frame" />
+        <child link="camera_depth_optical_frame" />
+    </joint>
+
+    
+    <!-- IMU -->
+    <link name="vectornav"/>
+    <joint name="vectornav_joint" type="fixed">
+        <origin xyz="0.17 0 0.52" rpy="1.5707 0 0" />
+        <parent link="base_footprint" />
+        <child link="vectornav" />
+    </joint>
+
+    <!-- Total Station Prism -->
+    <link name="total_station_prism"/>
+    <joint name="total_station_prism_joint" type="fixed">
+        <origin xyz="0.27 0.19 0.8" rpy="1.5707 0 0" />
+        <parent link="base_footprint" />
+        <child link="total_station_prism" />
+    </joint>
+
+</robot>

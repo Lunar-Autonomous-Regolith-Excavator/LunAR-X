@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(urdf REQUIRED)
 
 include_directories(include)
 
@@ -23,7 +24,11 @@ install(TARGETS
 
 install(DIRECTORY
   launch
+  meshes
+  urdf
   DESTINATION share/${PROJECT_NAME}
 )
 
+ament_export_dependencies(xacro)
+ament_export_dependencies(urdf)
 ament_package()
