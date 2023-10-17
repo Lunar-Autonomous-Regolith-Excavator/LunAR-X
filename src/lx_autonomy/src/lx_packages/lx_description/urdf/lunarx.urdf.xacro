@@ -104,6 +104,23 @@
         <child link="lift_assembly_link" />
     </joint>
 
+    <link name="lin_act_cylinder_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <cylinder length="0.1" radius="0.02"/>
+            </geometry>
+            <material name="lin_act_cylinder_black">
+                <color rgba="0 0 0 1"/>
+            </material>
+        </visual>
+    </link>
+    <joint name="lin_act_cylinder_joint" type="fixed">
+        <origin xyz="0 -0.035 -0.055" rpy="0 0 0" />
+        <parent link="lin_act_upper_link" />
+        <child link="lin_act_cylinder_link" />
+    </joint>
+
     <!-- Electronics plate -->
     <link name="electronics_plate_link">
         <visual>
