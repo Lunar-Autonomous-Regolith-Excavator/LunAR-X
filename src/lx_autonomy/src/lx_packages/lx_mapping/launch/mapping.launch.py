@@ -15,6 +15,12 @@ def generate_launch_description():
             name='merge_map_node',
         )
     
+    auto_dump_visual_servoing_node = Node(
+            package='lx_mapping',
+            executable='visual_servoing_node',
+            name='auto_dump_visual_servoing_node',
+        )
+    
     tf_node = Node(
       package='tf2_ros',
       executable='static_transform_publisher',
@@ -43,7 +49,8 @@ def generate_launch_description():
     # create a launch description with the nodes list
     ld = LaunchDescription()
     ld.add_action(perception_node)
-    ld.add_action(mapping_node)
+    # ld.add_action(mapping_node)
+    ld.add_action(auto_dump_visual_servoing_node)
     # ld.add_action(tf_node)
     # ld.add_action(tf_camera_link)
     # ld.add_action(tf_camera_depth_link)

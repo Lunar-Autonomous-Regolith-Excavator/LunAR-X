@@ -23,6 +23,8 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 // pcl passthrough
 #include <pcl/filters/passthrough.h>
+#include<vector>
+#include<iostream>
 
 
 #include <memory>
@@ -91,12 +93,12 @@ void GlobalMap::topic_callback_aruco_poses(const geometry_msgs::msg::PoseArray::
 }
 
 void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
+
     // Lookup the transform from the sensor frame to the target frame
-    geometry_msgs::msg::TransformStamped transform;
-    // RCLCPP_INFO(this->get_logger(), "Got point cloud");
+    geometry_msgs::msg::TransformStamped cam2map_transform;
     try
     {
-      transform = tf_buffer_->lookupTransform("camera_link", "base_link",tf2::TimePointZero, tf2::durationFromSec(1));
+      cam2map_transform = tf_buffer_->lookupTransform("camera_link", "base_link",tf2::TimePointZero, tf2::durationFromSec(1));
     }
     catch (tf2::TransformException& ex)
     {
@@ -105,11 +107,17 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     }
     
     // convert x,y,z,w to roll, pitch, yaw
-    tf2::Quaternion q(transform.transform.rotation.x, transform.transform.rotation.y, transform.transform.rotation.z, transform.transform.rotation.w);
+    tf2::Quaternion q(cam2map_transform.transform.rotation.x, cam2map_transform.transform.rotation.y, cam2map_transform.transform.rotation.z, cam2map_transform.transform.rotation.w);
     tf2::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
-    // RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
+    RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
+
+    // get xyz translation from cam2map_transform
+    double x = cam2map_transform.transform.translation.x;
+    double y = cam2map_transform.transform.translation.y;
+    double z = cam2map_transform.transform.translation.z;
+    RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", x, y, z);
 
     // crop the point cloud
     sensor_msgs::msg::PointCloud2 cropped_msg;
@@ -117,15 +125,7 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *cloud);
 
-    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
-
-    // Define a translation of 2.5 meters on the x axis.
-    transform_2.translation() << 0, 0.0, 0.0;
-
     // The same rotation matrix as before; theta radians around Z axis
-    transform_2.rotate(Eigen::AngleAxisf(-roll+3*3.1415/180, Eigen::Vector3f::UnitZ()));
-    transform_2.rotate(Eigen::AngleAxisf(pitch+2*3.1415/180+robot_pitch, Eigen::Vector3f::UnitX()));
-    transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY()));
 
     //remove noise from the point cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
@@ -135,25 +135,105 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     sor.setStddevMulThresh(1.0);
     sor.filter(*cloud_filtered);
 
+
+    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+
+    // Define a translation of 2.5 meters on the x axis.
+    // transform_2.translation() << 0, 0, 0.8;
+
+    transform_2.rotate(Eigen::AngleAxisf(-roll+3*3.1415/180, Eigen::Vector3f::UnitZ()));
+    transform_2.rotate(Eigen::AngleAxisf(pitch+2*3.1415/180, Eigen::Vector3f::UnitX()));
+    transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY()));
     // Executing the transformation
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
     // You can either apply transform_1 or transform_2; they are the same
-    pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, transform_2);
+    pcl::transformPointCloud(*cloud, *transformed_cloud, transform_2);
 
-    // Create a CropBox filter and set the region of interest
+    // print tool height wrt base link
+    RCLCPP_INFO(this->get_logger(), "tool_height_wrt_base_link_: %f", tool_height_wrt_base_link_);
+
+
+    // MODE: TRAVERSAL
     pcl::CropBox<pcl::PointXYZ> crop_box;
     crop_box.setInputCloud(transformed_cloud);
-    crop_box.setMin(Eigen::Vector4f(-10, -10, 0, 1.0));
-    crop_box.setMax(Eigen::Vector4f(10, 10, 1, 1.0));
+    if(tool_height_wrt_base_link_>0.2)
+        crop_box.setMin(Eigen::Vector4f(-10, 0.8-tool_height_wrt_base_link_, -10, 1.0));
+    else
+        crop_box.setMin(Eigen::Vector4f(-10, 0.5, -10, 1.0));
+    crop_box.setMax(Eigen::Vector4f(10, 1 ,10, 1.0));
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    crop_box.filter(*cropped_cloud);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_local_map(new pcl::PointCloud<pcl::PointXYZ>);
+    crop_box.filter(*cropped_cloud_local_map);
+
+    // MODE: TRAVERSAL TO AUTO-DUMP (APPROACHING BERM)
+    pcl::CropBox<pcl::PointXYZ> crop_box_2;
+    crop_box.setInputCloud(cropped_cloud_local_map);
+    crop_box.setMin(Eigen::Vector4f(-0.2, -1, 0, 1.0));
+    crop_box.setMax(Eigen::Vector4f(0.6, 1 , 2, 1.0));
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_target_berm(new pcl::PointCloud<pcl::PointXYZ>);
+    crop_box.filter(*cropped_cloud_target_berm);
+
+    // 2D vector of length 80x200
+    // define a vector
+    // std::vector< std::vector<int> > vec(4, std::vector<int>(4));
+    std::vector<double> vec(1,100);
+    int resolution = 5;
+    int num_rows = 200/resolution;
+    int num_cols = 80/resolution;
+    std::vector<std::vector<double>> row ((num_cols+1)*num_rows,vec);
+    RCLCPP_INFO(this->get_logger(), "D");
+
+    for(int i = 0; i < cropped_cloud_target_berm->points.size(); i++){
+        int idx = int(num_rows*100*(cropped_cloud_target_berm->points[i].x+0.2)/resolution) + int((100*cropped_cloud_target_berm->points[i].z)/resolution);
+        row[idx].push_back(cropped_cloud_target_berm->points[i].y);
+    }
+    RCLCPP_INFO(this->get_logger(), "E");
+
+    std::vector<double> median_vec(num_cols*num_rows,0);
+    std::vector<double> peak_y(num_cols,0);
+    std::vector<double> peak_z(num_cols,0);
+    RCLCPP_INFO(this->get_logger(), "A");
+
+    for(int i=0;i<num_cols;i++){
+        double max_elev = 1000;
+        for(int j=0;j<num_rows;j++){
+            int idx = num_rows*i+j;
+            std::sort(row[idx].begin(), row[idx].end());
+            median_vec[idx] = row[idx][row[idx].size()/2];
+            if(median_vec[idx]<max_elev){
+                max_elev = median_vec[idx];
+                peak_z[i] = max_elev;
+                peak_y[i] = j*resolution/100.0;
+            }
+        }
+    }
+    RCLCPP_INFO(this->get_logger(), "C");
+
+    for(int i=0;i<num_cols;i++){
+        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", i*resolution/100.0,peak_y[i],peak_z[i]);
+    }
+
+
+
+    // double median;
+    // int size = vec.size();
+
+    // if(size%2==1){
+    //     median = vec[size / 2];
+    // }
+    // else{
+    //     median = (vec[size / 2] + vec[size / 2 - 1])/2.0;
+    // }
+
+    // // print median
+    // RCLCPP_INFO(this->get_logger(), "median: %f", median);
 
     // print corrdinate of the cropped point cloud
     // for(int i = 0; i < cropped_cloud->points.size(); i++){
     //     RCLCPP_INFO(this->get_logger(), "cropped_cloud: %f, %f, %f", cropped_cloud->points[i].x, cropped_cloud->points[i].y, cropped_cloud->points[i].z);
     // }
-
+/*
     // fit a plane to the cropped point cloud
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
@@ -167,7 +247,7 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     seg.segment(*inliers, *coefficients);
 
     // print coefficients of the plane
-    // RCLCPP_INFO(this->get_logger(), "Plane coefficients: %f, %f, %f, %f", coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
+    RCLCPP_INFO(this->get_logger(), "Plane coefficients: %f, %f, %f, %f", coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
 
     // create a point cloud with only the inliers
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_inliers(new pcl::PointCloud<pcl::PointXYZ>);
@@ -252,7 +332,7 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     int count = 0;
 
     // transform coefficients by roll, pitch and yaw
-    // RCLCPP_INFO(this->get_logger(), "initial: Plane coefficients: %f, %f, %f, %f", coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
+    RCLCPP_INFO(this->get_logger(), "initial: Plane coefficients: %f, %f, %f, %f", coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
     coefficients->values[2] = -coefficients->values[1]*sin(pitch);
     coefficients->values[1] = -coefficients->values[1]*cos(pitch);
 
@@ -264,6 +344,10 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
             density_values[global_map_.info.width*global_map_.info.height] = 0;
     }
     // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f", pose_x, pose_y);
+    int bins[100];
+    for(int i = 0; i < 100; i++){
+        bins[i] = 0;
+    }
     for(int i = 0; i < cloud_plane_transformed->points.size(); i++){
         float x_part = (cloud_plane_transformed->points[i].x*cos(robot_yaw) - (cloud_plane_transformed->points[i].z-0.4)*sin(robot_yaw));
         float y_part = (cloud_plane_transformed->points[i].x*sin(robot_yaw) + (cloud_plane_transformed->points[i].z-0.4)*cos(robot_yaw));
@@ -288,7 +372,32 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
         // elevation_values[global_idx] += 100*(projected_d+pose_z-1.6);
         elevation_values[global_idx] += 150*(elev+4);
         density_values[global_idx] += 1;
+
+        bins[int(50*cloud_plane_transformed->points[i].z)] += 1;
     }
+
+    int max_bin_idx = 0;
+    int max_bin_val = 0;
+    for(int i = 0; i < 100  ; i++){
+        // RCLCPP_INFO(this->get_logger(), "bin %d: %d", i, bins[i]);
+        if(bins[i] > max_bin_val){
+            max_bin_val = bins[i];
+            max_bin_idx = i;
+        }
+    }
+    // do while loop
+    int peak_idx = max_bin_idx;
+    while(bins[peak_idx] > 20){
+        peak_idx++;
+    }
+    float berm_peak_height = peak_idx*0.02 - 0.4;
+    RCLCPP_INFO(this->get_logger(), "berm_peak_height: %f", berm_peak_height);
+
+    if(tool_height_wrt_base_link_ != -1000){
+        float height_diff = tool_height_wrt_base_link_ - berm_peak_height;
+        RCLCPP_INFO(this->get_logger(), "height_diff: %f", height_diff);
+    }
+
 
     // RCLCPP_INFO(this->get_logger(), "local_elevation_map2 size: %d", local_elevation_map.data.size());
 
@@ -296,8 +405,8 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     if(robot_yaw!=0){
         for(int i = 0; i < local_elevation_map.info.width*local_elevation_map.info.height; i++){
             if(density_values[i] > 0){
-                global_map_.data[i] = int(elevation_values[i]/density_values[i]);
-                elevation_values[i] = 0;
+                global_map_.data[i] = int(elevation_values[i]/density_values[i]) + 100;
+                elevation_values[i] = 0;    
                 density_values[i] = 0;
                 // RCLCPP_INFO(this->get_logger(), "global_map_.data[i]: %d", global_map_.data[i]);
             }
@@ -313,21 +422,21 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
     // pcl_ros::transformPointCloud(*cloud, *cloud, transform);
     // tf2::doTransform(*cloud, *cloud, transform);
-
+*/
     // Convert the cropped point cloud back to a PointCloud2 message
     sensor_msgs::msg::PointCloud2 result_msg;
-    pcl::toROSMsg(*cloud_inliers, result_msg);
+    pcl::toROSMsg(*cropped_cloud_target_berm, result_msg);
 
     // Publish the transformed message
     publisher_pc_->publish(result_msg);
-    publisher_global_map_->publish(global_map_);
+    // publisher_global_map_->publish(global_map_);
 
     // publish tool height
-    if(tool_height_wrt_base_link_ != -1000){
-        std_msgs::msg::Float32 tool_height_msg;
-        tool_height_msg.data = tool_height_wrt_base_link_ + height_correction;
-        publisher_tool_height_->publish(tool_height_msg);
-    }
+    // if(tool_height_wrt_base_link_ != -1000){
+    //     std_msgs::msg::Float32 tool_height_msg;
+    //     tool_height_msg.data = tool_height_wrt_base_link_ + height_correction;
+    //     publisher_tool_height_->publish(tool_height_msg);
+    // }
   }
 
 
@@ -351,20 +460,10 @@ void GlobalMap::topic_callback_current_pose(const nav_msgs::msg::Odometry::Share
     if(pose_y > max_y){
         max_y = pose_y;
     }
-    // print min and max x,y
-    // RCLCPP_INFO(this->get_logger(), "min_x: %f, min_y: %f, max_x: %f, max_y: %f", min_x, min_y, max_x, max_y);
-    // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f", pose_x, pose_y);
-    // pose_x = 0;
-    // pose_y = 0;
 
     // from x,y,z,w to yaw
     tf2::Quaternion q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
     tf2::Matrix3x3 m(q);
     m.getRPY(robot_roll, robot_pitch, robot_yaw);
     robot_yaw -= 1.5708;
-
-    // print roll, pitch, yaw
-    RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", robot_roll, robot_pitch, robot_yaw);
-
-    // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f, yaw: %f", pose_x, pose_y, yaw);
 }
