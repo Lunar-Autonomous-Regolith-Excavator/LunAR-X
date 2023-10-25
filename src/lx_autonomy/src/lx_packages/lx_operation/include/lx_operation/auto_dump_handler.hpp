@@ -13,6 +13,10 @@
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include <lx_msgs/msg/rover_command.hpp>
+#include "lx_msgs/action/auto_dig.hpp"
+#include "std_msgs/msg/float64.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 
 class AutoDumpHandler: public rclcpp::Node
 {
@@ -20,10 +24,31 @@ class AutoDumpHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using AutoDump = lx_msgs::action::AutoDump;
         using GoalHandleAutoDump = rclcpp_action::ServerGoalHandle<AutoDump>;
+        pid_struct tool_height_pid_, rover_x_pid;
+        double drum_height_ = 0;
+        double rover_x_ = 0;
+        rclcpp::Time tool_info_msg_time_;
+        double prev_error_height = 0, integral_error_height = 0;
+        double prev_error_x = 0, integral_error_x = 0;
+        const double DRUM_DUMP_SPEED = 0.5;
+        const double DRUM_DUMP_TIME_MS = 2500;
+        const double END_TOOL_HEIGHT = 0.35;
+        const double CLIP_X_CMD_VAL = 0.01;
+        const double CLIP_HEIGHT_CMD_VAL = 1;
+        
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
+        
         // Action server
         rclcpp_action::Server<AutoDump>::SharedPtr autodump_action_server_;
+        
+        // Subscribers
+        rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
+        rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr odom_sub_;
+
+        // Publishers
+        rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_cmd_pub_;
+
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -40,6 +65,9 @@ class AutoDumpHandler: public rclcpp::Node
         * Set up subscribers, publishers, clients & servers of the node
         * */
         void setupCommunications();
+
+        void drumHeightCB(const std_msgs::msg::Float64::SharedPtr);
+        void odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr);
 
         /*
         * Set up tracking of global parameters
