@@ -64,8 +64,8 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
     // configuring occupancy grid
     global_map_.header.frame_id = "map";
     global_map_.info.resolution = 0.05;
-    global_map_.info.width = 160;
-    global_map_.info.height = 160;
+    global_map_.info.width = 8.0/global_map_.info.resolution;
+    global_map_.info.height = 8.0/global_map_.info.resolution;
     global_map_.info.origin.position.x = -4;
     global_map_.info.origin.position.y = -4;
     global_map_.info.origin.position.z = 0;
@@ -87,7 +87,6 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
     double max_y = -1000.0;
     double min_x = 1000.0;
     double min_y = 1000.0;
-    int min_col = 1000, min_row = 1000, max_col = -1000, max_row = -1000;
 
 }
 
@@ -120,6 +119,11 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     m.getRPY(roll, pitch, yaw);
     // RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
     // yaw += 1.57;
+
+    double robot_x = cam2map_transform.transform.translation.x;
+    double robot_y = cam2map_transform.transform.translation.y;
+    double robot_z = cam2map_transform.transform.translation.z;
+    RCLCPP_INFO(this->get_logger(), "robot_x: %f, robot_y: %f, robot_z: %f", robot_x, robot_y, robot_z);
 
 
     // crop the point cloud
@@ -208,25 +212,13 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
         float y_part = (cropped_cloud_local_map->points[i].x*sin(robot_yaw) + (cropped_cloud_local_map->points[i].z)*cos(robot_yaw));
         int col_x = int((pose_x+x_part)/global_map_.info.resolution);
         int row_y = int((pose_y+y_part)/global_map_.info.resolution);
-        if(col_x < min_col){
-            min_col = col_x;
-        }
-        if(row_y < min_row){
-            min_row = row_y;
-        }
-        if(col_x > max_col){
-            max_col = col_x;
-        }
-        if(row_y > max_row){
-            max_row = row_y;
-        }
-        col_x = col_x % 160;
-        row_y = row_y % 160;
+        col_x = col_x % global_map_.info.width;
+        row_y = row_y % global_map_.info.width;
         if(col_x < 0){
-            col_x += 160;
+            col_x += global_map_.info.width;
         }
         if(row_y < 0){
-            row_y += 160;
+            row_y += global_map_.info.width;
         }
         int global_idx = col_x + row_y*global_map_.info.width;
         double elev = (cropped_cloud_local_map->points[i].y) + pose_z;
@@ -278,7 +270,7 @@ void GlobalMap::topic_callback_current_pose(const nav_msgs::msg::Odometry::Share
         max_y = pose_y;
     }
 
-    // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f, pose_z: %f", pose_x, pose_y, pose_z);
+    RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f, pose_z: %f", pose_x, pose_y, pose_z);
     tf2::Quaternion q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
     tf2::Matrix3x3 m(q);
     m.getRPY(robot_roll, robot_pitch, robot_yaw);

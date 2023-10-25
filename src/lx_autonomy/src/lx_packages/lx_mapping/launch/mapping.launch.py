@@ -49,8 +49,8 @@ def generate_launch_description():
     # create a launch description with the nodes list
     ld = LaunchDescription()
     ld.add_action(perception_node)
-    # ld.add_action(mapping_node)
-    ld.add_action(auto_dump_visual_servoing_node)
+    ld.add_action(mapping_node)
+    # ld.add_action(auto_dump_visual_servoing_node)
     # ld.add_action(tf_node)
     # ld.add_action(tf_camera_link)
     # ld.add_action(tf_camera_depth_link)
