@@ -9,10 +9,14 @@
 #include <thread>
 #include "lx_library/task.hpp"
 #include "lx_library/lx_utils.hpp"
+#include <lx_msgs/msg/tool_info.hpp>
+#include <lx_msgs/msg/rover_command.hpp>
 #include "lx_msgs/action/auto_dig.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "std_msgs/msg/float64.hpp"
+#include "lx_msgs/msg/node_diagnostics.hpp"
 
 class AutoDigHandler: public rclcpp::Node
 {
@@ -20,6 +24,15 @@ class AutoDigHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using AutoDig = lx_msgs::action::AutoDig;
         using GoalHandleAutoDig = rclcpp_action::ServerGoalHandle<AutoDig>;
+        lx_msgs::msg::ToolInfo tool_info_msg_;
+        double drum_height_ = 0;
+        bool inner_PID_control_rover_ = false;
+        unsigned int diagnostic_pub_period_ = 1;
+        bool debugging_publish_ = false;
+        // Time
+        rclcpp::Time tool_info_msg_time_;
+        rclcpp::TimerBase::SharedPtr rover_command_timer_;
+        rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
@@ -33,6 +46,33 @@ class AutoDigHandler: public rclcpp::Node
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> task_mode_param_cb_handle_;
+        // Subscribers
+        rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
+        rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
+        // Publishers
+        rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_cmd_pub_;
+        rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_current_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_current_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_height_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_height_pub_;
+        // Autodig Control
+        pid_struct autodig_pid_outer_,autodig_pid_inner_;
+        double prev_error_current = 0, integral_error_current = 0;
+        double prev_error_height = 0, integral_error_height = 0;
+        double target_drum_height = -1, target_rover_velocity = 0, target_drum_command = 0;
+
+        // Constants
+        const double OUTER_PID_CLIP_MIN = 0.01;
+        const double OUTER_PID_CLIP_MAX = 0.25;
+        const double FORWARD_SPEED = 0.025; // speed at which the rover moves forward (m/s)
+        const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
+        const double NOMINAL_CURRENT_VALUE_I = 1.3; 
+        const double NOMINAL_CURRENT_VALUE_F = 3.1;
+        const double T_END_SECONDS = 45; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
+        const double GOTO_TOOL_HEIGHT = 0.2; // the height the tool goes to before starting excavation
+        const double END_TOOL_HEIGHT = 0.35; // the height the tool goes to after excavation is complete
+        
         // --------------------------------------
 
         // Functions ----------------------------
@@ -55,6 +95,29 @@ class AutoDigHandler: public rclcpp::Node
         * Callback function for starting values of global parameters
         * */
         void paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture );
+
+        /*
+        * Argument(s):
+        *   - Tool info message shared pointer
+        * 
+        * Callback function for tool info subscription
+        * */
+        void toolInfoCB(const lx_msgs::msg::ToolInfo::SharedPtr );
+
+        /*
+        * Argument(s):
+        *   - Drum height message shared pointer
+        *   
+        * Callback function for drum height subscription
+        * */
+        void drumHeightCB(const std_msgs::msg::Float64::SharedPtr );
+
+        /*
+        * Argument(s):
+        * 
+        * Publish rover command at a specified rate
+        * */
+        void roverCommandTimerCallback();
 
         /*
         * Argument(s):
@@ -88,6 +151,11 @@ class AutoDigHandler: public rclcpp::Node
         * Execute requested action
         * */
         void executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> );
+
+        /*
+        * Diagnostic heartbeat published at a fixed rate
+        * */
+        void diagnosticPublish();
 
     public:
         // Functions

@@ -38,8 +38,6 @@ void ParamServer::initParameters(){
     this->declare_parameter("operational.dmp_lin_act_ext", 0.0);
     this->declare_parameter("operational.exc_drum_speed", 0.0);
     this->declare_parameter("operational.dmp_drum_speed", 0.0);
-    this->declare_parameter("autodig.pid_outer", std::vector<double>{0.0, 0.0, 0.0});
-    this->declare_parameter("autodig.pid_inner", std::vector<double>{0.0, 0.0, 0.0});
 
     // Parameter subscriber to listen to any changes
     param_subscriber_ = std::make_shared<rclcpp::ParameterEventHandler>(this);
@@ -54,9 +52,6 @@ void ParamServer::initParameters(){
     auto param_double_call_back = [this](const rclcpp::Parameter & p) {
             RCLCPP_INFO(this->get_logger(), "Parameter updated - \"%s\": %.2f", p.get_name().c_str(), p.as_double());
         };
-    auto param_pid_call_back = [this](const rclcpp::Parameter & p) {
-        RCLCPP_INFO(this->get_logger(), "Parameter updated - \"%s\": [%.3f, %.5f, %.3f]", p.get_name().c_str(), p.as_double_array()[0], p.as_double_array()[1], p.as_double_array()[2]);
-    };
 
     // Callback handles
     call_back_handle_[0] = param_subscriber_->add_parameter_callback("rover.mobility_lock", param_bool_call_back);
@@ -77,9 +72,6 @@ void ParamServer::initParameters(){
     call_back_handle_[15] = param_subscriber_->add_parameter_callback("operational.dmp_lin_act_ext", param_double_call_back);
     call_back_handle_[16] = param_subscriber_->add_parameter_callback("operational.exc_drum_speed", param_double_call_back);
     call_back_handle_[17] = param_subscriber_->add_parameter_callback("operational.dmp_drum_speed", param_double_call_back);
-    call_back_handle_[18] = param_subscriber_->add_parameter_callback("autodig.pid_outer", param_pid_call_back);
-    call_back_handle_[19] = param_subscriber_->add_parameter_callback("autodig.pid_inner", param_pid_call_back);
-    
 }
 
 void ParamServer::diagnosticPublish(){

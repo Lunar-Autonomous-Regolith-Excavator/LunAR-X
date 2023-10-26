@@ -30,10 +30,10 @@ class BagFileParser():
 
 if __name__ == "__main__":
     bag_files = []
-    bag_files.append('../bags/ts16_126deg_1_rosbag2_2023_09_27-01_03_31/rosbag2_2023_09_27-01_03_31_0.db3')
-    bag_files.append('../bags/ts16_126deg_2_rosbag2_2023_09_27-01_11_11/rosbag2_2023_09_27-01_11_11_0.db3')
-    bag_files.append('../bags/ts16_45deg_rosbag2_2023_09_27-01_12_35/rosbag2_2023_09_27-01_12_35_0.db3')
-    fig = plt.figure()
+    # bag_files.append('../bags/ts16_126deg_1_rosbag2_2023_09_27-01_03_31/rosbag2_2023_09_27-01_03_31_0.db3')
+    # bag_files.append('../bags/ts16_126deg_2_rosbag2_2023_09_27-01_11_11/rosbag2_2023_09_27-01_11_11_0.db3')
+    # bag_files.append('../bags/ts16_45deg_rosbag2_2023_09_27-01_12_35/rosbag2_2023_09_27-01_12_35_0.db3')
+    bag_files.append('../bags/rosbag2_2023_10_03-22_55_39/rosbag2_2023_10_03-22_55_39_0.db3')
 
     datas = []
     for i in range(len(bag_files)):
@@ -56,10 +56,20 @@ if __name__ == "__main__":
             z[i] = data[i][1].pose.pose.position.z
 
         # 3d plot  the data
-        ax.scatter(x, y, z, marker='o')
+        N_Points = len(data)
+        # N_Points = 30
+        ax.scatter(x[:N_Points], y[:N_Points], z[:N_Points], c='r', marker='o')
         ax.set_xlabel('X Label')
         ax.set_ylabel('Y Label')
         ax.set_zlabel('Z Label')
-
-        
+        # set axis equal
+        max_range = np.array([x.max()-x.min(), y.max()-y.min(), z.max()-z.min()]).max() / 2.0
+        mean_x = x.mean()
+        mean_y = y.mean()
+        mean_z = z.mean()
+        ax.set_xlim(6, 12)
+        ax.set_ylim(2, 10)
+        ax.set_zlim(-1, 6)
+        ax.scatter(6.9214193071805585, 2.365240518515818, 2.1934502662934223, c='b', marker='o') # Point A
+        ax.scatter(9.360909278688297, 2.367110199863955, 2.2201019663180643, c='b', marker='o') # Point B
     plt.show()

@@ -34,8 +34,6 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
-    double x_off = 0, y_off = 0, z_off = 0;
-    bool set_offset = false;
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
         // Update the frame_id field in the message
@@ -67,9 +65,6 @@ private:
             {
                 std::cout<<"No transform found, publishing directly"<<std::endl;
                 msg->header.frame_id = "map";
-                msg->pose.pose.position.x += x_off;
-                msg->pose.pose.position.y += y_off;
-                msg->pose.pose.position.z += z_off;
                 pose_pub_->publish(*msg);
             }
         }
@@ -77,15 +72,9 @@ private:
         {   
             // std::cout<<"Transform found, publishing"<<std::endl;
             geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
-            msg->pose.pose.position.x += x_off;
-            msg->pose.pose.position.y += y_off;
-            msg->pose.pose.position.z += z_off;
             tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink);
             pose_map_msg.header.frame_id = "map";
             pose_map_msg.header.stamp = msg->header.stamp;
-            // pose_map_msg.pose.pose.position.x += ;
-            // pose_map_msg.pose.pose.position.y += y_off;
-            // pose_map_msg.pose.pose.position.z += z_off;
             pose_pub_->publish(pose_map_msg);
         }
     }
