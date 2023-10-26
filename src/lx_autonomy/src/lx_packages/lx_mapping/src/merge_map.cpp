@@ -135,22 +135,11 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     double robot_x = cam2map_transform.transform.translation.x;
     double robot_y = cam2map_transform.transform.translation.y;
     double robot_z = cam2map_transform.transform.translation.z;
-    RCLCPP_INFO(this->get_logger(), "robot_x: %f, robot_y: %f, robot_z: %f, pose_x: %f, pose_y: %f, pose_z: %f", robot_x, robot_y, robot_z, pose_x, pose_y, pose_z);
+    // RCLCPP_INFO(this->get_logger(), "robot_x: %f, robot_y: %f, robot_z: %f, pose_x: %f, pose_y: %f, pose_z: %f", robot_x, robot_y, robot_z, pose_x, pose_y, pose_z);
 
-    if(robot_x < min_x){
-        min_x = robot_x;
-    }
-    if(robot_y < min_y){
-        min_y = robot_y;
-    }
-    if(robot_x > max_x){
-        max_x = robot_x;
-    }
-    if(robot_y > max_y){
-        max_y = robot_y;
-    }
 
-    RCLCPP_INFO(this->get_logger(), "min_x: %f, max_x: %f, min_y: %f, max_y: %f", min_x, max_x, min_y, max_y);
+
+    // RCLCPP_INFO(this->get_logger(), "min_x: %f, max_x: %f, min_y: %f, max_y: %f", min_x, max_x, min_y, max_y);
 
     // crop the point cloud
     sensor_msgs::msg::PointCloud2 cropped_msg;
@@ -168,6 +157,18 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     sor.setStddevMulThresh(1.0);
     sor.filter(*cloud_filtered);
 
+    Eigen::Affine3f transform_matrix = Eigen::Affine3f::Identity();
+    transform_matrix.translation() << cam2map_transform.transform.translation.x,
+                                    cam2map_transform.transform.translation.y,
+                                    cam2map_transform.transform.translation.z;
+
+    // Assuming cam2map_transform contains the rotation as a quaternion
+    Eigen::Quaternionf rotation_quaternion(cam2map_transform.transform.rotation.w,
+                                        cam2map_transform.transform.rotation.x,
+                                        cam2map_transform.transform.rotation.y,
+                                        cam2map_transform.transform.rotation.z);
+    transform_matrix.rotate(rotation_quaternion);   
+
 
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
 
@@ -176,12 +177,12 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     // transform_2.rotate(Eigen::AngleAxisf(-roll+3*3.1415/180, Eigen::Vector3f::UnitZ()));
     // transform_2.rotate(Eigen::AngleAxisf(pitch+2*3.1415/180, Eigen::Vector3f::UnitX()));
     // transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY()));
+    transform_2.translation() << robot_x, robot_y, robot_z;
     transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
     transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
     transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
-    // transform_2.translation() << -9, -5, 0;
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, transform_2);
+    pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, transform_matrix);
 
 
     // RCLCPP_INFO(this->get_logger(), "tool_height_wrt_base_link_: %f", tool_height_wrt_base_link_);
@@ -252,14 +253,33 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
         elevation_values[i] = 0.0;
         density_values[i] = 0.0;
     }
+
+    // print the location of the first point in the cropped cloud
+    RCLCPP_INFO(this->get_logger(), "cropped_cloud_local_map->points[0].x: %f, cropped_cloud_local_map->points[0].y: %f, cropped_cloud_local_map->points[0].z: %f", cropped_cloud_local_map->points[0].x, cropped_cloud_local_map->points[0].y, cropped_cloud_local_map->points[0].z);
     
+    if(cropped_cloud_local_map->points[0].x < min_x){
+        min_x = cropped_cloud_local_map->points[0].x;
+    }
+    if(cropped_cloud_local_map->points[0].y < min_y){
+        min_y = cropped_cloud_local_map->points[0].y;
+    }
+    if(cropped_cloud_local_map->points[0].x > max_x){
+        max_x = cropped_cloud_local_map->points[0].x;
+    }
+    if(cropped_cloud_local_map->points[0].y > max_y){
+        max_y = cropped_cloud_local_map->points[0].y;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "min_x: %f, max_x: %f, min_y: %f, max_y: %f", min_x, max_x, min_y, max_y);
+
+
     for(int i = 0; i < cropped_cloud_local_map->points.size(); i++){
         // float x_part = (cropped_cloud_local_map->points[i].x*cos(robot_yaw) - (cropped_cloud_local_map->points[i].z)*sin(robot_yaw));
         // float y_part = (cropped_cloud_local_map->points[i].x*sin(robot_yaw) + (cropped_cloud_local_map->points[i].z)*cos(robot_yaw));
         // int col_x = int((pose_x+x_part)/global_map_.info.resolution);
         // int row_y = int((pose_y+y_part)/global_map_.info.resolution);
-        int col_x = int((robot_x+cropped_cloud_local_map->points[i].x) / global_map_.info.resolution);
-        int row_y = int((robot_y+cropped_cloud_local_map->points[i].y) / global_map_.info.resolution);
+        int col_x = int((cropped_cloud_local_map->points[i].x) / global_map_.info.resolution);
+        int row_y = int((cropped_cloud_local_map->points[i].y) / global_map_.info.resolution);
 
         col_x = col_x % global_map_.info.width; 
         row_y = row_y % global_map_.info.width;
