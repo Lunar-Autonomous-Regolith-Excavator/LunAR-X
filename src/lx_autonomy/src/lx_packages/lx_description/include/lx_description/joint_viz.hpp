@@ -29,6 +29,11 @@ class JointViz: public rclcpp::Node
         * Callback function for tool_height_subscriber_
         * */
         void toolHeightCallBack(const std_msgs::msg::Float64::SharedPtr msg);
+
+        /*
+        * Callback function for tool_info_subscriber_
+        * */
+        void toolInfoCallBack(const lx_msgs::msg::ToolInfo::SharedPtr msg);
         // --------------------------------------
 
     public:
