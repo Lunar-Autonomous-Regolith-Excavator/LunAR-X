@@ -41,6 +41,9 @@ ament_target_dependencies(merge_map_node pcl_ros rclcpp tf2_geometry_msgs lx_msg
 add_executable(visual_servoing_node src/visual_servoing_node.cpp src/visual_servoing.cpp)
 ament_target_dependencies(visual_servoing_node pcl_ros rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
 
+add_executable(world_model_node src/world_model_node.cpp src/world_model.cpp)
+ament_target_dependencies(world_model_node rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
+
 add_executable(pcl_relay_node src/pcl_relay_node.cpp src/pcl_relay.cpp)
 ament_target_dependencies(pcl_relay_node rclcpp sensor_msgs)
 
@@ -49,6 +52,7 @@ install(TARGETS
   pcl_relay_node
   merge_map_node
   visual_servoing_node
+  world_model_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -59,5 +63,6 @@ install(DIRECTORY
 
 target_link_libraries(merge_map_node ${PCL_LIBRARIES})
 target_link_libraries(visual_servoing_node ${PCL_LIBRARIES})
+target_link_libraries(world_model_node ${PCL_LIBRARIES})
 
 ament_package()

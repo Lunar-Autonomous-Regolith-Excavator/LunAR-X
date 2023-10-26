@@ -68,6 +68,7 @@ private:
     nav_msgs::msg::Odometry current_pose_;
 
     double min_x, min_y, max_x, max_y;
+    int min_col, min_row, max_col, max_row;
     
     rclcpp::TimerBase::SharedPtr timer_;
 
