@@ -80,6 +80,14 @@ def generate_launch_description():
       arguments=['0.0', '0' ,'0' ,'-0.5' ,'0.5' ,'-0.5', '0.5', 'camera_depth_frame', 'camera_depth_optical_frame'],
     ) 
 
+    tf_moonyard_link = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      name='map_to_moonyard',
+      output='screen',
+      arguments=['9', '5' ,'0' ,'0' ,'0' ,'0', '0', 'map', 'moonyard'],
+    )
+
     pcl_relay = Node(
       package='lx_mapping',
       executable='pcl_relay_node',
@@ -95,6 +103,7 @@ def generate_launch_description():
     ld.add_action(tf_node)
     ld.add_action(tf_camera_link)
     ld.add_action(tf_camera_depth_link)
+    ld.add_ction(tf_moonyard_link)
     ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
     ld.add_action(mapping_launch)

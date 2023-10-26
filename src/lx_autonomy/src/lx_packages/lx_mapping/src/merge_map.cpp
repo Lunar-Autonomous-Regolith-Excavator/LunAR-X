@@ -66,8 +66,8 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
     global_map_.info.resolution = 0.05;
     global_map_.info.width = 8.0/global_map_.info.resolution;
     global_map_.info.height = 8.0/global_map_.info.resolution;
-    global_map_.info.origin.position.x = -4;
-    global_map_.info.origin.position.y = -4;
+    global_map_.info.origin.position.x = -9 -4;
+    global_map_.info.origin.position.y = -5 -4;
     global_map_.info.origin.position.z = 0;
     global_map_.info.origin.orientation.x = 0;
     global_map_.info.origin.orientation.y = 0;
@@ -103,7 +103,19 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     geometry_msgs::msg::TransformStamped cam2map_transform;
     try
     {
-      cam2map_transform = tf_buffer_->lookupTransform("camera_link", "map",tf2::TimePointZero, tf2::durationFromSec(1));
+      cam2map_transform = tf_buffer_->lookupTransform( "camera_depth_optical_frame", "moonyard",tf2::TimePointZero, tf2::durationFromSec(1));
+    }
+    catch (tf2::TransformException& ex)
+    {
+      RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+      RCLCPP_WARN(this->get_logger(), "C");
+      return;
+    }
+
+    geometry_msgs::msg::TransformStamped base2map_transform;
+    try
+    {
+      base2map_transform = tf_buffer_->lookupTransform("base_link", "map",tf2::TimePointZero, tf2::durationFromSec(1));
     }
     catch (tf2::TransformException& ex)
     {
@@ -123,8 +135,22 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     double robot_x = cam2map_transform.transform.translation.x;
     double robot_y = cam2map_transform.transform.translation.y;
     double robot_z = cam2map_transform.transform.translation.z;
-    RCLCPP_INFO(this->get_logger(), "robot_x: %f, robot_y: %f, robot_z: %f", robot_x, robot_y, robot_z);
+    RCLCPP_INFO(this->get_logger(), "robot_x: %f, robot_y: %f, robot_z: %f, pose_x: %f, pose_y: %f, pose_z: %f", robot_x, robot_y, robot_z, pose_x, pose_y, pose_z);
 
+    if(robot_x < min_x){
+        min_x = robot_x;
+    }
+    if(robot_y < min_y){
+        min_y = robot_y;
+    }
+    if(robot_x > max_x){
+        max_x = robot_x;
+    }
+    if(robot_y > max_y){
+        max_y = robot_y;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "min_x: %f, max_x: %f, min_y: %f, max_y: %f", min_x, max_x, min_y, max_y);
 
     // crop the point cloud
     sensor_msgs::msg::PointCloud2 cropped_msg;
@@ -146,25 +172,45 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
 
     // Define a translation of 2.5 meters on the x axis.
-    // transform_2.translation() << 0, 0, 0.8;
 
-    transform_2.rotate(Eigen::AngleAxisf(-roll+3*3.1415/180, Eigen::Vector3f::UnitZ()));
-    transform_2.rotate(Eigen::AngleAxisf(pitch+2*3.1415/180, Eigen::Vector3f::UnitX()));
-    transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY()));
+    // transform_2.rotate(Eigen::AngleAxisf(-roll+3*3.1415/180, Eigen::Vector3f::UnitZ()));
+    // transform_2.rotate(Eigen::AngleAxisf(pitch+2*3.1415/180, Eigen::Vector3f::UnitX()));
+    // transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY()));
+    transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
+    transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
+    transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
+    // transform_2.translation() << -9, -5, 0;
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, transform_2);
 
+
     // RCLCPP_INFO(this->get_logger(), "tool_height_wrt_base_link_: %f", tool_height_wrt_base_link_);
+
+    // find the best fit plane
+    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+    // find coefficients
+    pcl::SACSegmentation<pcl::PointXYZ> seg;
+    seg.setOptimizeCoefficients (true);
+    seg.setModelType (pcl::SACMODEL_PLANE); // SACMODEL_PERPENDICULAR_PLANE
+    seg.setMethodType (pcl::SAC_RANSAC);
+    seg.setDistanceThreshold(0.01);
+    seg.setInputCloud (transformed_cloud);
+    seg.segment (*inliers, *coefficients);
+    //print coefficients
+    RCLCPP_INFO(this->get_logger(), "Model coefficients: %f %f %f %f", coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
 
 
     // MODE: TRAVERSAL
     pcl::CropBox<pcl::PointXYZ> crop_box;
     crop_box.setInputCloud(transformed_cloud);
-    if(tool_height_wrt_base_link_>0.2)
-        crop_box.setMin(Eigen::Vector4f(-10, 0.8-tool_height_wrt_base_link_, -10, 1.0));
-    else
-        crop_box.setMin(Eigen::Vector4f(-10, 0.5, -10, 1.0));
-    crop_box.setMax(Eigen::Vector4f(10, 1 ,10, 1.0));
+    // if(tool_height_wrt_base_link_>0.2)
+    //     crop_box.setMin(Eigen::Vector4f(-10, 0.8-tool_height_wrt_base_link_, -10, 1.0));
+    // else
+    //     crop_box.setMin(Eigen::Vector4f(-10, 0.5, -10, 1.0));
+    // crop_box.setMax(Eigen::Vector4f(10, 1 ,10, 1.0));
+    crop_box.setMin(Eigen::Vector4f(-100, -100, -100, -100.0));
+    crop_box.setMax(Eigen::Vector4f(100, 100 ,100, 100.0));
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_local_map(new pcl::PointCloud<pcl::PointXYZ>);
     crop_box.filter(*cropped_cloud_local_map);
@@ -208,11 +254,14 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
     }
     
     for(int i = 0; i < cropped_cloud_local_map->points.size(); i++){
-        float x_part = (cropped_cloud_local_map->points[i].x*cos(robot_yaw) - (cropped_cloud_local_map->points[i].z)*sin(robot_yaw));
-        float y_part = (cropped_cloud_local_map->points[i].x*sin(robot_yaw) + (cropped_cloud_local_map->points[i].z)*cos(robot_yaw));
-        int col_x = int((pose_x+x_part)/global_map_.info.resolution);
-        int row_y = int((pose_y+y_part)/global_map_.info.resolution);
-        col_x = col_x % global_map_.info.width;
+        // float x_part = (cropped_cloud_local_map->points[i].x*cos(robot_yaw) - (cropped_cloud_local_map->points[i].z)*sin(robot_yaw));
+        // float y_part = (cropped_cloud_local_map->points[i].x*sin(robot_yaw) + (cropped_cloud_local_map->points[i].z)*cos(robot_yaw));
+        // int col_x = int((pose_x+x_part)/global_map_.info.resolution);
+        // int row_y = int((pose_y+y_part)/global_map_.info.resolution);
+        int col_x = int((robot_x+cropped_cloud_local_map->points[i].x) / global_map_.info.resolution);
+        int row_y = int((robot_y+cropped_cloud_local_map->points[i].y) / global_map_.info.resolution);
+
+        col_x = col_x % global_map_.info.width; 
         row_y = row_y % global_map_.info.width;
         if(col_x < 0){
             col_x += global_map_.info.width;
@@ -221,8 +270,9 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
             row_y += global_map_.info.width;
         }
         int global_idx = col_x + row_y*global_map_.info.width;
-        double elev = (cropped_cloud_local_map->points[i].y) + pose_z;
-        elevation_values[global_idx] += 100.0*(elev-2.0);
+        double elev = (cropped_cloud_local_map->points[i].z);
+        // RCLCPP_INFO(this->get_logger(), "z: %f", elev);
+        elevation_values[global_idx] += 100.0*(elev+1.0);
         density_values[global_idx] += 1.0;
     }
 
@@ -241,10 +291,38 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
     // Convert the cropped point cloud back to a PointCloud2 message
     sensor_msgs::msg::PointCloud2 result_msg;
+    sensor_msgs::msg::PointCloud2 result_msg_transformed;
+    
     // RCLCPP_INFO(this->get_logger(), "G, %d", cropped_cloud_local_map->points.size());
-    pcl::toROSMsg(*cloud_filtered, result_msg);
+    pcl::toROSMsg(*cropped_cloud_local_map, result_msg);
+    // set frame of  result_msg to map
+    result_msg.header.frame_id = "moonyard";
+    // dotransform
+    tf2::doTransform(result_msg, result_msg_transformed, cam2map_transform);
+
+    // // set points in result message to be the cloud_filtered points
+    // // use a for loop to iterate through the points in the cloud_filtered point cloud
+    // for(int i = 0; i < cropped_cloud_local_map->points.size(); i++){
+    //    // insert point in result_msg
+    //      geometry_msgs::msg::Point32 point;
+    //         point.x = cropped_cloud_local_map->points[i].x;
+    //         point.y = cropped_cloud_local_map->points[i].y;
+    //         point.z = cropped_cloud_local_map->points[i].z;
+    //         result_msg.data.push_back(point.x);
+    //         result_msg.data.push_back(point.y);
+    //         result_msg.data.push_back(point.z);
+    // }
+
+    // put frame of transformed_msg to map
     // Publish the transformed message
-    publisher_pc_->publish(result_msg);
+
+    // make new cloud object
+    // use doTransform to transform the point cloud
+    // tf2::doTransform(*msg, cropped_msg, cam2map_transform);
+
+    // SET FRAME OF result_msg to moo yard'
+    result_msg.header.frame_id = "moonyard";
+    publisher_pc_->publish(result_msg_transformed);
     publisher_global_map_->publish(global_map_);
   }
 
@@ -253,27 +331,27 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
 
 
 void GlobalMap::topic_callback_current_pose(const nav_msgs::msg::Odometry::SharedPtr msg){
-    pose_x = msg->pose.pose.position.x + 4.0;
-    pose_y = msg->pose.pose.position.y + 0.0;
+    pose_x = msg->pose.pose.position.x + global_map_.info.origin.position.x;
+    pose_y = msg->pose.pose.position.y + global_map_.info.origin.position.y;
     pose_z = msg->pose.pose.position.z; 
 
-    if(pose_x < min_x){
-        min_x = pose_x;
-    }
-    if(pose_y < min_y){
-        min_y = pose_y;
-    }
-    if(pose_x > max_x){
-        max_x = pose_x;
-    }
-    if(pose_y > max_y){
-        max_y = pose_y;
-    }
+    // if(pose_x < min_x){
+    //     min_x = pose_x;
+    // }
+    // if(pose_y < min_y){
+    //     min_y = pose_y;
+    // }
+    // if(pose_x > max_x){
+    //     max_x = pose_x;
+    // }
+    // if(pose_y > max_y){
+    //     max_y = pose_y;
+    // }
 
-    RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f, pose_z: %f", pose_x, pose_y, pose_z);
+    // RCLCPP_INFO(this->get_logger(), "pose_x: %f, pose_y: %f, pose_z: %f", pose_x, pose_y, pose_z);
     tf2::Quaternion q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
     tf2::Matrix3x3 m(q);
     m.getRPY(robot_roll, robot_pitch, robot_yaw);
-    robot_yaw += 1.5708;
+    // robot_yaw += 1.5708;
     // robot_yaw += 3.1415;
 }
