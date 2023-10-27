@@ -56,6 +56,8 @@ private:
 
     void topic_callback_aruco_poses(const geometry_msgs::msg::PoseArray::SharedPtr msg);
 
+    void transform_pc_cam2map(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_pc_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr subscription_global_map_;
 

@@ -51,12 +51,20 @@ def generate_launch_description():
     #   arguments=['0.0', '0' ,'0' ,'-0.5' ,'0.5' ,'-0.5', '0.5', 'camera_depth_frame', 'camera_depth_optical_frame'],
     # ) 
     
+    tf_moonyard_link = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      name='map_to_moonyard',
+      output='screen',
+      arguments=['-9', '-5' ,'0' ,'0' ,'0' ,'0', 'map', 'moonyard'],
+    )
 
     # create a launch description with the nodes list
     ld = LaunchDescription()
     ld.add_action(perception_node)
-    ld.add_action(mapping_node)
+    # ld.add_action(mapping_node)
     ld.add_action(world_model_node)
+    ld.add_action(tf_moonyard_link)
     # ld.add_action(auto_dump_visual_servoing_node)
     # ld.add_action(tf_node)
     # ld.add_action(tf_camera_link)

@@ -232,6 +232,8 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
             }
         }
     }
+    // sensor_msgs::msg::PointCloud2::SharedPtr do_transformed_msg(new sensor_msgs::msg::PointCloud2);
+    // tf2::doTransform(*msg, *do_transformed_msg, tf_buffer_, "moonyard");
 
     // Convert the cropped point cloud back to a PointCloud2 message
     sensor_msgs::msg::PointCloud2 result_msg;
