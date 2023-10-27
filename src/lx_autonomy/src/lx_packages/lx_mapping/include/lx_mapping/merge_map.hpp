@@ -37,7 +37,6 @@ public:
     GlobalMap();
 
 private:
-
     void topic_callback_local_map(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
 
     void topic_callback_current_pose(const nav_msgs::msg::Odometry::SharedPtr msg);
