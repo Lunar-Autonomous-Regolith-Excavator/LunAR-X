@@ -34,8 +34,6 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
-    double x_off = 10, y_off = -13, z_off = 11;
-    bool set_offset = false;
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
         // Update the frame_id field in the message
@@ -52,14 +50,6 @@ private:
 
     void pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
     {
-        // if(set_offset==false)
-        // {
-        //     x_off = -7;
-        //     y_off = -10;
-        //     z_off = 10;
-        //     // std::cout<<"Setting offset: "<<x_off<<", "<<y_off<<", "<<z_off<<std::endl;
-        //     set_offset = true;
-        // }
         if(this->got_transform == false)
         {
             try 
@@ -75,9 +65,6 @@ private:
             {
                 std::cout<<"No transform found, publishing directly"<<std::endl;
                 msg->header.frame_id = "map";
-                msg->pose.pose.position.x += x_off;
-                msg->pose.pose.position.y += y_off;
-                msg->pose.pose.position.z += z_off;
                 pose_pub_->publish(*msg);
             }
         }
@@ -85,15 +72,9 @@ private:
         {   
             // std::cout<<"Transform found, publishing"<<std::endl;
             geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
-            msg->pose.pose.position.x += x_off;
-            msg->pose.pose.position.y += y_off;
-            msg->pose.pose.position.z += z_off;
             tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink);
             pose_map_msg.header.frame_id = "map";
             pose_map_msg.header.stamp = msg->header.stamp;
-            // pose_map_msg.pose.pose.position.x += ;
-            // pose_map_msg.pose.pose.position.y += y_off;
-            // pose_map_msg.pose.pose.position.z += z_off;
             pose_pub_->publish(pose_map_msg);
         }
     }

@@ -32,7 +32,7 @@ Diagnostics::Diagnostics(): Node("diagnostics_node"){
 
 void Diagnostics::setupCommunications(){
     // Subscribers
-    diagnostics_subscriber_ = this->create_subscription<lx_msgs::msg::NodeDiagnostics>("diagnostics", 10, 
+    diagnostics_subscriber_ = this->create_subscription<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10, 
                         std::bind(&Diagnostics::diagnosticsCallBack, this, std::placeholders::_1));
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");

@@ -21,6 +21,12 @@ def generate_launch_description():
     status_relay_launch = IncludeLaunchDescription(
                           PythonLaunchDescriptionSource(
                           status_relay_dir + '/launch/status_relay.launch.py'))
+    
+    # tool height launch
+    tool_height_dir = get_package_share_directory('ros2_aruco')
+    tool_height_launch = IncludeLaunchDescription(
+                          PythonLaunchDescriptionSource(
+                          tool_height_dir + '/launch/aruco_recognition.launch.py'))
 
     imu_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(get_package_share_directory('vectornav') + '/launch/vectornav.launch.py'),
@@ -42,5 +48,6 @@ def generate_launch_description():
     ld.add_action(status_relay_launch)
     ld.add_action(imu_launch)
     ld.add_action(realsense_launch)
+    ld.add_action(tool_height_launch)
 
     return ld

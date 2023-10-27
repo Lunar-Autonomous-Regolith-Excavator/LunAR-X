@@ -8,9 +8,13 @@ topics:
     type: std_msgs/msg/Int32  # Type of topic to bridge
     queue_size: 1  # Queue size
   -
-    topic: /tool_raw_info  # Topic name on both ROS 1 and ROS 2
-    type: std_msgs/msg/Float64MultiArray  # Type of topic to bridge
+    topic: /drum_raw_current  # Topic name on both ROS 1 and ROS 2
+    type: std_msgs/msg/Float64  # Type of topic to bridge
     queue_size: 1  # Queue size   
+  -
+    topic: /drum_raw_position
+    type: std_msgs/msg/Float64
+    queue_size: 1
   -
     topic: /cmd_vel  # Topic name on both ROS 1 and ROS 2
     type: geometry_msgs/msg/Twist  # Type of topic to bridge
