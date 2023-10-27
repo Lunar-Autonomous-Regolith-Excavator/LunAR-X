@@ -15,7 +15,7 @@ camera:
         device_type: d435 # Make sure we're connecting to the correct device type        
         
         # Point cloud
-        pointcloud.enable: true # True to turn on the point cloud
+        pointcloud.enable: false # True to turn on the point cloud
         pointcloud_qos: "SENSOR_DATA" # Use 'Best Effort' publishing
         filters: decimation # Subsamples the point cloud 
         decimation_filter.enable: true
@@ -47,7 +47,7 @@ camera:
         enable_pose: false # True to enable pose data; not necessary for point cloud
         
         enable_sync: true # True to sync sensor frames (e.g. ir, rgb, depth); not necessary for point cloud
-        align_depth: false # True to publish additional alignment between rgb and depth images; not necessary for point cloud
+        align_depth.enable: true # True to publish additional alignment between rgb and depth images; not necessary for point cloud
         enable_confidence: false # Additional parameter from rqt_reconfigurel; not necessary for point cloud
 
         # Source settings
@@ -61,3 +61,6 @@ camera:
         depth_width: 848 # Set frame width for depth images, 640 observed to give ~14fps point cloud frame rate
         depth_qos: "SENSOR_DATA" # Set ROS2 Quality of Service for depth data, "SENSOR_DATA" here maps to "Best Effort" in ROS2
         
+        # RTABMap depth compatibility
+        depth_module.depth_format: 16UC1
+        align_depth_qos: "SENSOR_DATA"

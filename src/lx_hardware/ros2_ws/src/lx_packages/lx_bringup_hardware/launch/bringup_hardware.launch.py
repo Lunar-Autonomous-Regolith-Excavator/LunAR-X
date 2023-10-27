@@ -37,7 +37,9 @@ def generate_launch_description():
         launch.launch_description_sources.AnyLaunchDescriptionSource(
             os.path.join(get_package_share_directory('realsense2_camera'), 'launch', 'rs_launch.py')
         ),
-        launch_arguments={'config_file': f"'{realsense_params_path}'"}.items()
+        launch_arguments={#'config_file': f"'{realsense_params_path}'"
+                            'align_depth.enable': 'true', 
+                           'depth_module.depth_format': '16UC1'}.items()
     )
 
     status_relay_launch = IncludeLaunchDescription(
@@ -47,7 +49,7 @@ def generate_launch_description():
     ld.add_action(hardware_mux_launch)
     ld.add_action(status_relay_launch)
     ld.add_action(imu_launch)
-    ld.add_action(realsense_launch)
+    # ld.add_action(realsense_launch)
     ld.add_action(tool_height_launch)
 
     return ld
