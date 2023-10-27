@@ -41,27 +41,6 @@ def generate_launch_description():
         ('odometry/filtered', 'odometry/ekf_global_node')
       ]
     ),
-
-    # static tf transform from base_link to imu_link
-    Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='base_link_to_imu_link',
-      output='screen',
-      arguments=['0.17', '0', '0.52', '0', '0', '3.1415', 'base_link', 'vectornav'],
-      parameters=[{'use_sim_time': use_sim_time_param}]
-    ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
-
-    # static tf transform from base_link to total_station_prism
-    Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='base_link_to_total_station',
-      output='screen',
-      arguments=['0.27', '0.19', '0.8', '0.785398', '0', '0', 'base_link', 'total_station_prism'],
-      # arguments=['0.27', '0.19', '0.8', '0.523599', '0', '0', 'base_link', 'total_station_prism'],
-      parameters=[{'use_sim_time': use_sim_time_param}]
-    ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
   
     Node(
       package='lx_localization',
@@ -79,16 +58,14 @@ def generate_launch_description():
     #   parameters=[{'use_sim_time': use_sim_time_param}],
     # ),
     
-  ]
-  if(launch_rviz):
-    node_list.append(
-      Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time_param}],
-      )
+    Node(
+      package='rviz2',
+      executable='rviz2',
+      name='rviz2',
+      output='screen',
+      parameters=[{'use_sim_time': use_sim_time_param}],
+      condition=launch.conditions.IfCondition(launch_rviz)
     )
+  ]
   
   return LaunchDescription(node_list)

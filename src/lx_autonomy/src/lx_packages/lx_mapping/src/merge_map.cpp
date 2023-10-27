@@ -4,30 +4,18 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2_ros/buffer.h>
-
-// tf2_geometry_msgs
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-// pcl
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-// pcl cropbox
 #include <pcl/filters/crop_box.h>
-// pcl plane segmentation
 #include <pcl/ModelCoefficients.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
-// pcl transform
 #include <pcl/common/transforms.h>
-// pcl noise removal
 #include <pcl/filters/statistical_outlier_removal.h>
-// pcl passthrough
 #include <pcl/filters/passthrough.h>
 #include<vector>
-#include<iostream>
-
-
-#include <memory>
 
 GlobalMap::GlobalMap() : Node("global_mapping_node")
 {   
@@ -58,8 +46,6 @@ GlobalMap::GlobalMap() : Node("global_mapping_node")
 
     subscription_aruco_poses_ = this->create_subscription<geometry_msgs::msg::PoseArray>(
         "/aruco_poses", 1, std::bind(&GlobalMap::topic_callback_aruco_poses, this, _1)); //subscribes to the aruco markers topic at 10Hz
-
-    publisher_tool_height_ = this->create_publisher<std_msgs::msg::Float32>("lx_mapping/tool_height", 10);
 
     // configuring occupancy grid
     global_map_.header.frame_id = "map";
@@ -308,6 +294,8 @@ void GlobalMap::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr
             }
         }
     }
+    // sensor_msgs::msg::PointCloud2::SharedPtr do_transformed_msg(new sensor_msgs::msg::PointCloud2);
+    // tf2::doTransform(*msg, *do_transformed_msg, tf_buffer_, "moonyard");
 
     // Convert the cropped point cloud back to a PointCloud2 message
     sensor_msgs::msg::PointCloud2 result_msg;

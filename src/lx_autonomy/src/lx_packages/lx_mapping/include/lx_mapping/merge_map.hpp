@@ -37,7 +37,6 @@ public:
     GlobalMap();
 
 private:
-
     void topic_callback_local_map(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
 
     void topic_callback_current_pose(const nav_msgs::msg::Odometry::SharedPtr msg);
@@ -68,6 +67,7 @@ private:
     nav_msgs::msg::Odometry current_pose_;
 
     double min_x, min_y, max_x, max_y;
+    int min_col, min_row, max_col, max_row;
     
     rclcpp::TimerBase::SharedPtr timer_;
 

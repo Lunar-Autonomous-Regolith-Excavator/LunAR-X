@@ -16,10 +16,11 @@ class Diagnostics: public rclcpp::Node
         std::vector<std::string> nodes_list_ {"param_server_node", 
                                               "external_interface_node",
                                               "operations_handler_node", 
-                                              "command_mux_node"};
+                                              "command_mux_node",
+                                              "auto_dig_handler_node"};
         // Time
         unsigned int timeout_period_sec_ = 3;
-        rclcpp::TimerBase::SharedPtr diagnostics_timers_[4];
+        rclcpp::TimerBase::SharedPtr diagnostics_timers_[5];
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostics_subscriber_;
         // Clients

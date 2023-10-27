@@ -16,6 +16,12 @@ def generate_launch_description():
                           PythonLaunchDescriptionSource(
                                 bringup_autonomy_dir + '/launch/param_server.launch.py'))
     
+    # robot description launch
+    description_dir = get_package_share_directory('lx_description')
+    description_launch = IncludeLaunchDescription(
+                          PythonLaunchDescriptionSource(
+                                description_dir + '/launch/description.launch.py'))
+    
     # diagnostics launch
     diagnostics_dir = get_package_share_directory('lx_diagnostics')
     diagnostics_launch = IncludeLaunchDescription(
@@ -39,19 +45,21 @@ def generate_launch_description():
     operation_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     operation_dir + '/launch/operation.launch.py'))
-                                    
+
+    # mapping launch                                
     mapping_dir = get_package_share_directory('lx_mapping')
     mapping_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     mapping_dir + '/launch/mapping.launch.py'))
     
+    # localization launch
     localization_dir = get_package_share_directory('lx_localization')
     localization_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     localization_dir + '/launch/lx_ekf.launch.py'))
     
+    # foxglove_bridge launch
     foxglove_dir = get_package_share_directory('foxglove_bridge')
-    # launch xml launch file foxglove_bridge_launch.xml
     foxglove_bridge_launch = IncludeLaunchDescription(
         AnyLaunchDescriptionSource([foxglove_dir, '/foxglove_bridge_launch.xml']),
     )
@@ -96,6 +104,7 @@ def generate_launch_description():
     )
     
     ld.add_action(param_server_launch)
+    ld.add_action(description_launch)
     ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
