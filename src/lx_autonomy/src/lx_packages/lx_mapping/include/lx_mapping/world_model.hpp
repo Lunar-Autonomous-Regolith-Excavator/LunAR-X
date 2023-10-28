@@ -52,11 +52,9 @@ private:
 
     void topic_callback_zones(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-    void topic_callback_current_pose(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void topic_callback_get_tool_height(const geometry_msgs::msg::PoseArray::SharedPtr msg);
 
-    void topic_callback_aruco_poses(const geometry_msgs::msg::PoseArray::SharedPtr msg);
-
-    void transform_pc_cam2map(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr transform_pc_cam2map(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_pc_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr subscription_global_map_;
@@ -79,7 +77,7 @@ private:
     double pose_x, pose_y, pose_z;
     double robot_roll, robot_pitch, robot_yaw;
 
-    double min_x, min_y, max_x, max_y;
+    double min_x, min_y, max_x, max_y, min_z, max_z;
     int min_col, min_row, max_col, max_row;
     
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
