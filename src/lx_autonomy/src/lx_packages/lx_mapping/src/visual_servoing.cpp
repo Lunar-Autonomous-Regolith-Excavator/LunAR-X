@@ -40,15 +40,12 @@ VisualServoing::VisualServoing() : Node("visual_servoing_node")
     // not defined
     tool_height_wrt_base_link_ = 1000;
     
-    subscription_pc_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "camera/depth/color/points", 10, std::bind(&VisualServoing::topic_callback_pc, this, _1)); //subscribes to the point cloud topic at 1Hz
-
     subscription_aruco_poses_ = this->create_subscription<geometry_msgs::msg::PoseArray>(
         "/aruco_poses", 10, std::bind(&VisualServoing::topic_callback_aruco_poses, this, _1)); //subscribes to the aruco markers topic at 10Hz
-
-    publisher_pc_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("lx_mapping/vs_pc", 10);
     
     publisher_vs_error_ = this->create_publisher<std_msgs::msg::Float32>("lx_mapping/visual_servoing_error", 10);
+
+    service_vs_ = this->create_service<lx_msgs::srv::Map>("lx_mapping/start_stop_visual_servoing", std::bind(&VisualServoing::startStopVSCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -62,6 +59,86 @@ void VisualServoing::topic_callback_aruco_poses(const geometry_msgs::msg::PoseAr
    }
 }
 
+
+
+
+
+
+
+
+void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Map::Request> request,
+        std::shared_ptr<lx_msgs::srv::Map::Response> response){
+    if(request->start){
+        this->subscription_pc_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+            "lx_mapping/transformed_pc_", 10, std::bind(&VisualServoing::topic_callback_vs, this, _1)); //subscribes to the point cloud topic at 1Hz
+    
+    }
+    else{
+        this->subscription_pc_.reset();
+    }
+    response->success = true;
+}
+
+
+
+void VisualServoing::topic_callback_vs(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_target_berm(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromROSMsg(*msg, *cropped_cloud_target_berm);
+    // 2D vector of length 80x200
+    // define a vector
+    // std::vector< std::vector<int> > vec(4, std::vector<int>(4));
+    std::vector<double> vec(1,100);
+    int resolution = 5;
+    int num_rows = 200/resolution;
+    int num_cols = 80/resolution;
+    std::vector<std::vector<double>> row ((num_cols+1)*num_rows,vec);
+    RCLCPP_INFO(this->get_logger(), "D");
+
+    for(int i = 0; i < cropped_cloud_target_berm->points.size(); i++){
+        int idx = int(num_rows*100*(cropped_cloud_target_berm->points[i].x+0.2)/resolution) + int((100*cropped_cloud_target_berm->points[i].z)/resolution);
+        row[idx].push_back(cropped_cloud_target_berm->points[i].y);
+    }
+    RCLCPP_INFO(this->get_logger(), "E");
+
+    std::vector<double> median_vec(num_cols*num_rows,0);
+    std::vector<double> peak_y(num_cols,0);
+    std::vector<double> peak_z(num_cols,0);
+    RCLCPP_INFO(this->get_logger(), "A");
+
+    for(int i=0;i<num_cols;i++){
+        double max_elev = 1000;
+        for(int j=0;j<num_rows;j++){
+            int idx = num_rows*i+j;
+            std::sort(row[idx].begin(), row[idx].end());
+            median_vec[idx] = row[idx][row[idx].size()/2];
+            if(median_vec[idx]<max_elev && row[idx].size()>1){
+                max_elev = median_vec[idx];
+                peak_z[i] = max_elev;
+                peak_y[i] = j*resolution/100.0;
+            }
+        }
+    }
+    RCLCPP_INFO(this->get_logger(), "C");
+
+    for(int i=0;i<num_cols;i++){
+        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", i*resolution/100.0,peak_y[i],peak_z[i]);
+    }
+
+    sensor_msgs::msg::PointCloud2 result_msg;
+
+    // publisher_pc_->publish(result_msg);
+
+
+}
+
+
+
+
+
+
+
+/*
 void VisualServoing::topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
     if(tool_height_wrt_base_link_<0.2){
@@ -183,3 +260,5 @@ void VisualServoing::topic_callback_pc(const sensor_msgs::msg::PointCloud2::Shar
 
     publisher_pc_->publish(result_msg);
   }
+
+*/

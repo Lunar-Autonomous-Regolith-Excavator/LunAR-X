@@ -35,29 +35,24 @@
 using std::placeholders::_1;
 using namespace std::chrono_literals;
 
-class WorldModel : public rclcpp::Node
+class PointCloudHandler : public rclcpp::Node
 {
 public:
-    WorldModel();
+    PointCloudHandler();
 
 private:
-    rclcpp::Service<lx_msgs::srv::Map>::SharedPtr service_map_;
+    rclcpp::Service<lx_msgs::srv::Map>::SharedPtr service_pc_;
 
-    void startStopMappingCallback(const std::shared_ptr<lx_msgs::srv::Map::Request> request,
+    void startStopPCHCallback(const std::shared_ptr<lx_msgs::srv::Map::Request> request,
         std::shared_ptr<lx_msgs::srv::Map::Response> response);
 
-    void topic_callback_fuse_map(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void topic_callback_get_tool_height(const geometry_msgs::msg::PoseArray::SharedPtr msg);
 
-    void topic_callback_global_map(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
-
-    void topic_callback_zones(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void transform_pc_cam2map(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_pc_;
-    rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr subscription_global_map_;
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_pc_;
-    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_global_map_;
-    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisher_world_model_;
     
     bool debug_mode_;
     sensor_msgs::msg::PointCloud2 pointcloud;
@@ -69,6 +64,7 @@ private:
     rclcpp::TimerBase::SharedPtr timer_;
     rclcpp::Clock clock;
 
+    double tool_height_wrt_base_link_;
     double pose_x, pose_y, pose_z;
     double robot_roll, robot_pitch, robot_yaw;
 

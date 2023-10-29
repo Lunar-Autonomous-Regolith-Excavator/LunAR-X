@@ -16,7 +16,7 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_eigen/tf2_eigen.hpp>
-#include "lx_msgs/srv/berm_metrics.hpp"
+#include "lx_msgs/srv/map.hpp"
 
 // header file for nav_msgs::msg::Odometry
 #include "nav_msgs/msg/odometry.hpp"
@@ -38,13 +38,16 @@ public:
 
 private:
 
-    void topic_callback_local_map(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
+    rclcpp::Service<lx_msgs::srv::Map>::SharedPtr service_vs_;
 
     void topic_callback_current_pose(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-    void topic_callback_pc(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void topic_callback_vs(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     void topic_callback_aruco_poses(const geometry_msgs::msg::PoseArray::SharedPtr msg);
+
+    void startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Map::Request> request,
+        std::shared_ptr<lx_msgs::srv::Map::Response> response);
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_pc_;
     rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr subscription_aruco_poses_;

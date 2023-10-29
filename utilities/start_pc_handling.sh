@@ -1,0 +1,1 @@
+ros2 service call lx_mapping/pc_handler lx_msgs/srv/Map 'start: true'

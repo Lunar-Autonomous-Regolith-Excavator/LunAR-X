@@ -9,6 +9,13 @@ def generate_launch_description():
             name='berm_evaluation_node',
         )
     
+    pc_handler_node = Node(
+            package='lx_mapping',
+            executable='pc_handler_node',
+            name='pc_handler_node',
+        )
+
+    
     mapping_node = Node(
             package='lx_mapping',
             executable='merge_map_node',
@@ -63,9 +70,10 @@ def generate_launch_description():
     ld = LaunchDescription()
     # ld.add_action(perception_node)
     # ld.add_action(mapping_node)
+    ld.add_action(pc_handler_node)
     ld.add_action(world_model_node)
     ld.add_action(tf_moonyard_link)
-    # # ld.add_action(auto_dump_visual_servoing_node)
+    ld.add_action(auto_dump_visual_servoing_node)
     # ld.add_action(tf_node)
     # ld.add_action(tf_camera_link)
     # ld.add_action(tf_camera_depth_link)
