@@ -120,7 +120,7 @@ class AutoNavHandler: public rclcpp::Node
         void computePathResultCallback(const GoalHandleComputePathToPose::WrappedResult& );
 
         // Functions to handle Nav2 Controller action
-        bool followPath(const nav_msgs::msg::Path& );
+        bool followPath();
 
         void followPathResponseCallback(GoalHandleFollowPath::SharedPtr );
 

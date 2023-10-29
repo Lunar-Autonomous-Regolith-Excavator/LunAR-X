@@ -1,4 +1,4 @@
-/* Author: 
+/* Author: Hariharan Ravichandran
  * Subscribers:
  *    - /topic: description
  * Publishers:
@@ -95,12 +95,6 @@ void AutoNavHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>:
 }
 
 void AutoNavHandler::setupCommunications(){
-    // Subscribers 
-
-    // Publishers
-    
-    // Service servers
-
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
     
@@ -211,6 +205,10 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<AutoNav::Feedback>();
     auto result = std::make_shared<AutoNav::Result>();
+
+    // Clear nav2 variables
+    this->path_ = nav_msgs::msg::Path();
+    this->planning_time_ = builtin_interfaces::msg::Duration();
     
     if (!this->computePath(goal->goal)) {
         result->success = false;
@@ -223,16 +221,12 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     RCLCPP_INFO(this->get_logger(), "Planning time: %f ms", this->planning_time_.sec * 1000 + this->planning_time_.nanosec / 1000000.0);
 
     // Follow path
-    if (!this->followPath(this->path_)) {
+    if (!this->followPath()) {
         result->success = false;
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Autonav failed");
         return;
     }
-
-    // Clear nav2 variables
-    this->path_ = nav_msgs::msg::Path();
-    this->planning_time_ = builtin_interfaces::msg::Duration();
     
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {
@@ -293,7 +287,7 @@ bool AutoNavHandler::computePath(const geometry_msgs::msg::PoseStamped& goal_pos
     return false;
 }
 
-bool AutoNavHandler::followPath(const nav_msgs::msg::Path& path){
+bool AutoNavHandler::followPath(){
     using namespace std::placeholders;
     if (!this->follow_path_client_->wait_for_action_server(std::chrono::seconds(10))) {
         RCLCPP_ERROR(this->get_logger(), "Follow path action server not available after waiting");
@@ -310,7 +304,7 @@ bool AutoNavHandler::followPath(const nav_msgs::msg::Path& path){
     
     // Create goal message
     auto goal_msg = FollowPath::Goal();
-    goal_msg.path = path;
+    goal_msg.path = path_;
     goal_msg.controller_id = "FollowPath";
     goal_msg.goal_checker_id = "goal_checker";
 
