@@ -20,6 +20,8 @@ The LunAR-X codebase
 - Right Stick : Linear actuator/lifting controls
 - Left Trigger : Drum -ve
 - Right Trigger : Drum +ve
+- A Button : Start mapping switch
+- B Button : Stop mapping switch
 
 ## Development Notes
 A few things to remember while developing code for this repository
