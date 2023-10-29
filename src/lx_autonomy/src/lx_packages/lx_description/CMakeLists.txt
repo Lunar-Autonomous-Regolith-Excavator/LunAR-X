@@ -10,12 +10,13 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(urdf REQUIRED)
+find_package(lx_msgs REQUIRED)
 
 include_directories(include)
 
 # Joint visualization node
 add_executable(joint_viz_node src/joint_viz_node.cpp src/joint_viz.cpp)
-ament_target_dependencies(joint_viz_node rclcpp sensor_msgs)
+ament_target_dependencies(joint_viz_node rclcpp sensor_msgs lx_msgs)
 
 install(TARGETS
   joint_viz_node
