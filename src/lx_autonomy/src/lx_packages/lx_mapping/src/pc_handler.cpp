@@ -1,69 +1,80 @@
+/* Author: Anish Senathi
+ * Subscribers:
+ *    - /topic: description
+ * Publishers:
+ *    - /topic: description
+ * Services:
+ *    - /name (type): description
+ * Actions:
+ *    - /name (type): description
+ *
+ * - Summary
+ * 
+ * TODO
+ * - Add Documentation
+ * - Test with rover
+ * - Check compatibility with planner
+ * */
+
+
 #include "lx_mapping/pc_handler.hpp"
 
-
-const double MAP_DIMENSION = 8.0;
-const double MAP_RESOLUTION = 0.05;
 PointCloudHandler::PointCloudHandler() : Node("pc_handler_node")
 {   
     debug_mode_ = true;
-
-    auto qos = rclcpp::SensorDataQoS();
-
-    std::placeholders::_2;
-
-    publisher_pc_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("lx_mapping/transformed_pc_", 10);
     
-    got_pointcloud = false;
+    // Setup Communications
+    setupCommunications();
 
-    service_pc_ = this->create_service<lx_msgs::srv::Map>("lx_mapping/pc_handler", std::bind(&PointCloudHandler::startStopPCHCallback, this, std::placeholders::_1, std::placeholders::_2));
-
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
-    min_x = 1000, min_y = 1000, max_x = -1000, max_y = -1000, min_z = 1000, max_z = -1000;
-    min_col = 1000, min_row = 1000, max_col = -1000, max_row = -1000;
     this->tool_height_wrt_base_link_ = 1000.0;
 }
 
 
-
-
-void PointCloudHandler::startStopPCHCallback(const std::shared_ptr<lx_msgs::srv::Map::Request> request,
-    std::shared_ptr<lx_msgs::srv::Map::Response> response){
-        // print the request message
-        RCLCPP_INFO(this->get_logger(), "Incoming request\nstart: %d", request->start);
-        if(request->start){
-            this->create_subscription<sensor_msgs::msg::PointCloud2>(
-                "camera/depth/color/points", 10, std::bind(&PointCloudHandler::transform_pc_cam2map, this, _1)); //subscribes to the point cloud topic at 1Hz
-
-        }
-        else{
-            this->subscription_pc_.reset();
-        }
-        response->success = true;
-    }
-
-
-
-
-
-
-
-void PointCloudHandler::topic_callback_get_tool_height(const geometry_msgs::msg::PoseArray::SharedPtr msg){
-   if(msg->poses.size()>0){
-        geometry_msgs::msg::Pose aruco_pose = msg->poses[0];
-        tool_height_wrt_base_link_ = -(aruco_pose.position.y* 0.7349 + aruco_pose.position.z* 0.2389 -0.2688)/0.6346;
-   }
+void PointCloudHandler::setupCommunications(){
+    // Publishers
+    transformed_pointcloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10);
+    // Servers
+    pointcloud_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/pointcloud_switch", 
+                        std::bind(&PointCloudHandler::pointCloudSwitchCallback, this, std::placeholders::_1, std::placeholders::_2));
+    // Transform Listener
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
 
+void PointCloudHandler::pointCloudSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
+                                                    std::shared_ptr<lx_msgs::srv::Switch::Response> res){
+
+    this->tool_height_wrt_base_link_ = 1000.0;
+
+    if(req->start){
+        tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>(
+                    "tool_height", 10, std::bind(&PointCloudHandler::toolHeightCallback, this, _1));
+        pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+                    "camera/depth/color/points", 10, std::bind(&PointCloudHandler::transform_pc_cam2map, this, _1));
+
+    }
+    else{
+        this->pointcloud_subscriber_.reset();
+    }
+
+    res->success = true;
+}
 
 
+void PointCloudHandler::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr msg){
+   tool_height_wrt_base_link_ = msg->data;
+}
 
 
+void PointCloudHandler::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
+    pointcloud_thread_ = std::thread(std::bind(&PointCloudHandler::processPointCloud, this, msg));
+
+    pointcloud_thread_.detach();
+}
 
 
-void PointCloudHandler::transform_pc_cam2map(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
+void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
     // Lookup the transform from the sensor frame to the target frame
     geometry_msgs::msg::TransformStamped cam2map_transform;
     try
@@ -133,5 +144,5 @@ void PointCloudHandler::transform_pc_cam2map(const sensor_msgs::msg::PointCloud2
     sensor_msgs::msg::PointCloud2 result_msg;
     pcl::toROSMsg(*result_cloud, result_msg);   
     result_msg.header.frame_id = "moonyard"; 
-    publisher_pc_->publish(result_msg);
+    transformed_pointcloud_publisher_->publish(result_msg);
 }

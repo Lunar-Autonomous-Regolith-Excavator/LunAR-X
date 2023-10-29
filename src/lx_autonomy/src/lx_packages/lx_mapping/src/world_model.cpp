@@ -1,28 +1,58 @@
+/* Author: Anish Senathi
+ * Subscribers:
+ *    - /topic: description
+ * Publishers:
+ *    - /topic: description
+ * Services:
+ *    - /name (type): description
+ * Actions:
+ *    - /name (type): description
+ *
+ * - Summary
+ * 
+ * TODO
+ * - Add Documentation
+ * - Add special zones from user input
+ * - Test with rover
+ * - Check compatibility with planner
+ * */
+
+
 #include "lx_mapping/world_model.hpp"
 
 
-const double MAP_DIMENSION = 8.0;
-const double MAP_RESOLUTION = 0.05;
 WorldModel::WorldModel() : Node("world_model_node")
 {   
     debug_mode_ = false;
 
-    auto qos = rclcpp::SensorDataQoS();
+    // Setup Communications
+    setupCommunications();
 
-    std::placeholders::_2;
+    // Setup Maps
+    configureMaps();
 
-    subscription_global_map_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
-        "lx_mapping/global_map", 10, std::bind(&WorldModel::topic_callback_global_map, this, _1)); //subscribes to the point cloud topic at 1Hz
+    // Initializing occupancy grid
+    this->global_map_.data.resize(global_map_.info.width*global_map_.info.height);
+    for(int i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
+        this->global_map_.data[i] = 0;
+    }
+}
 
-    publisher_pc_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("lx_mapping/transformed_pc_", 10);
-    publisher_global_map_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_mapping/global_map", 10);
-    publisher_world_model_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("lx_mapping/world_model", 10);
-    
-    got_pointcloud = false;
+void WorldModel::setupCommunications(){
 
-    service_map_ = this->create_service<lx_msgs::srv::Map>("lx_mapping/start_stop_mapping", std::bind(&WorldModel::startStopMappingCallback, this, std::placeholders::_1, std::placeholders::_2));
+    // Publishers
+    global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map", 10);
+    world_model_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/world_model", 10);
 
-    // configuring occupancy grid
+    // Servers
+    map_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/map_switch", 
+                                                            std::bind(&WorldModel::mapSwitchCallback, 
+                                                            this, std::placeholders::_1, std::placeholders::_2));
+}
+
+void WorldModel::configureMaps(){
+    // Configuring occupancy grid
+
     this->global_map_.header.frame_id = "moonyard";
     this->global_map_.info.resolution = MAP_RESOLUTION;
     this->global_map_.info.width = MAP_DIMENSION/MAP_RESOLUTION;
@@ -30,45 +60,44 @@ WorldModel::WorldModel() : Node("world_model_node")
     this->global_map_.info.origin.position.x = -MAP_DIMENSION/2.0;
     this->global_map_.info.origin.position.y = -MAP_DIMENSION/2.0;
 
-    // initializing occupancy grid
-    this->global_map_.data.resize(global_map_.info.width*global_map_.info.height);
-    for(int i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
-        this->global_map_.data[i] = 0;
-    }
+    elevation_costmap_.header.frame_id = "moonyard";
+    elevation_costmap_.info = global_map_.info;
 
-    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    slope_costmap_.header.frame_id = "moonyard";
+    slope_costmap_.info = global_map_.info;
 
-    min_x = 1000, min_y = 1000, max_x = -1000, max_y = -1000, min_z = 1000, max_z = -1000;
-    min_col = 1000, min_row = 1000, max_col = -1000, max_row = -1000;
+    berm_costmap_.header.frame_id = "moonyard";
+    berm_costmap_.info = global_map_.info;
+
+    zone_costmap_.header.frame_id = "moonyard";
+    zone_costmap_.info = global_map_.info;
+
+    world_model_.header.frame_id = "moonyard";
+    world_model_.info = global_map_.info;
 }
 
-
-
-
-
-
-
-
-void WorldModel::startStopMappingCallback(const std::shared_ptr<lx_msgs::srv::Map::Request> request,
-        std::shared_ptr<lx_msgs::srv::Map::Response> response){
-    if(request->start){
-        subscription_pc_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-            "lx_mapping/transformed_pc_", 10, std::bind(&WorldModel::topic_callback_fuse_map, this, _1)); //subscribes to the point cloud topic at 1Hz
-    
+void WorldModel::mapSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
+                                                std::shared_ptr<lx_msgs::srv::Switch::Response> res){
+    if(req->switch_state){
+        // Subscribe to the point cloud topic
+        transformed_pcl_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
+                                                                                    std::bind(&WorldModel::transformedPCLCallback, this, _1));
     }
     else{
-        subscription_pc_.reset();
+        transformed_pcl_subscriber_.reset();
     }
-    response->success = true;
+    res->success = true;
 }
 
+void WorldModel::transformedPCLCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
+    fuse_map_thread_ = std::thread(std::bind(&WorldModel::fuseMap, this, msg));
 
+    // Have to detach thread before it goes out of scope
+    fuse_map_thread_.detach();
+}
 
+void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
-
-void WorldModel::topic_callback_fuse_map(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
-    
     pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_local_map(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *cropped_cloud_local_map);  
 
@@ -104,28 +133,14 @@ void WorldModel::topic_callback_fuse_map(const sensor_msgs::msg::PointCloud2::Sh
         }
     }
     
-    publisher_global_map_->publish(global_map_);
-  }
+    global_map_publisher_->publish(global_map_);
+
+    buildWorldModel();
+}
 
 
+void WorldModel::buildWorldModel(){
 
-
-
-
-
-
-
-
-
-
-
-
-
-void WorldModel::topic_callback_global_map(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
-    global_map_ = *msg;
-    elevation_costmap_ = *msg;
-    slope_costmap_ = *msg;
-    world_model_ = *msg;
     for(int i = 0; i < elevation_costmap_.data.size(); i++){
         if (global_map_.data[i] != 0 && global_map_.data[i] < 20){
             elevation_costmap_.data[i] = 100 - global_map_.data[i];
@@ -166,5 +181,5 @@ void WorldModel::topic_callback_global_map(const nav_msgs::msg::OccupancyGrid::S
     for(int i=0;i<world_model_.data.size();i++){
         world_model_.data[i] = std::max(elevation_costmap_.data[i], slope_costmap_.data[i]);
     }
-    publisher_world_model_->publish(world_model_);
+    world_model_publisher_->publish(world_model_);
 }
