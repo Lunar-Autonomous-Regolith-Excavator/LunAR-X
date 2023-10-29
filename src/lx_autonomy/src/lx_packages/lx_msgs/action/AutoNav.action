@@ -1,5 +1,4 @@
-float32 to_be_decided_1
-float32 to_be_decided_2
+geometry_msgs/PoseStamped goal
 ---
 bool success
 ---

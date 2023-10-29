@@ -15,6 +15,8 @@ find_package(lx_library REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 
 include_directories(include)
 
@@ -32,7 +34,7 @@ ament_target_dependencies(auto_dump_handler_node rclcpp rclcpp_action rclcpp_com
 
 # Auto Nav Handler node
 add_executable(auto_nav_handler_node src/auto_nav_handler_node.cpp src/auto_nav_handler.cpp)
-ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
+ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library nav_msgs nav2_msgs)
 
 
 install(TARGETS

@@ -103,12 +103,17 @@ void AutoNavHandler::setupCommunications(){
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    
     // Action server
     using namespace std::placeholders;
     this->autonav_action_server_ = rclcpp_action::create_server<AutoNav>(this, "operations/autonav_action",
                                             std::bind(&AutoNavHandler::handle_goal, this, _1, _2),
                                             std::bind(&AutoNavHandler::handle_cancel, this, _1),
                                             std::bind(&AutoNavHandler::handle_accepted, this, _1));
+    
+    // Action client
+    this->compute_path_client_ = rclcpp_action::create_client<ComputePathToPose>(this, "compute_path_to_pose");
+    this->follow_path_client_ = rclcpp_action::create_client<FollowPath>(this, "follow_path");
 }
 
 void AutoNavHandler::setupParams(){
@@ -206,13 +211,28 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<AutoNav::Feedback>();
     auto result = std::make_shared<AutoNav::Result>();
-
-    // If autonav fails, return goal aborted. Uncomment following:
     
-    // result->success = false;
-    // goal_handle->abort(result);
-    // RCLCPP_ERROR(this->get_logger(), "Autonav failed");
-    // return;
+    if (!this->computePath(goal->goal)) {
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autonav failed");
+        return;
+    }
+
+    // Print planning time in ms
+    RCLCPP_INFO(this->get_logger(), "Planning time: %f ms", this->planning_time_.sec * 1000 + this->planning_time_.nanosec / 1000000.0);
+
+    // Follow path
+    if (!this->followPath(this->path_)) {
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autonav failed");
+        return;
+    }
+
+    // Clear nav2 variables
+    this->path_ = nav_msgs::msg::Path();
+    this->planning_time_ = builtin_interfaces::msg::Duration();
     
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {
@@ -220,4 +240,192 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autonav succeeded");
     }
+}
+
+bool AutoNavHandler::computePath(const geometry_msgs::msg::PoseStamped& goal_pose){
+    using namespace std::placeholders;
+    if (!this->compute_path_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Compute path action server not available after waiting");
+        return false;
+    }
+    
+    // Block action until path is computed
+    action_blocking_ = true;
+    action_server_responded_ = false;
+    action_accepted_ = false;
+    action_success_ = false;
+    
+    // Create goal message
+    auto goal_msg = ComputePathToPose::Goal();
+    goal_msg.goal = goal_pose;
+    goal_msg.planner_id = "GridBased";
+    goal_msg.use_start = false; // No need to provide start pose --  it will use the current robot pose
+
+    RCLCPP_INFO(this->get_logger(), "Sending goal to compute path action server");
+    
+    auto send_goal_options = rclcpp_action::Client<ComputePathToPose>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&AutoNavHandler::computePathResponseCallback, this, _1);
+    send_goal_options.result_callback = std::bind(&AutoNavHandler::computePathResultCallback, this, _1);
+
+    auto goal_handle_future = this->compute_path_client_->async_send_goal(goal_msg, send_goal_options);
+
+    // Block till action complete
+    rclcpp::Rate loop_rate(10);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(action_blocking_ && rclcpp::ok() && this->distance_to_goal_ < 0.01) { // Within 1 cm of goal
+        RCLCPP_INFO(this->get_logger(), "In progress...");
+        loop_rate.sleep();
+    }
+
+    if (!action_accepted_) {
+        RCLCPP_ERROR(this->get_logger(), "Compute path action was rejected");
+        return false;
+    }
+    else if (!action_success_) {
+        RCLCPP_ERROR(this->get_logger(), "Compute path action failed");
+        return false;
+    }
+    else {
+        RCLCPP_INFO(this->get_logger(), "Compute path action succeeded");
+        return true;
+    }
+
+    return false;
+}
+
+bool AutoNavHandler::followPath(const nav_msgs::msg::Path& path){
+    using namespace std::placeholders;
+    if (!this->follow_path_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Follow path action server not available after waiting");
+        return false;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Inside follow path");
+    
+    // Block action until path is followed
+    action_blocking_ = true;
+    action_server_responded_ = false;
+    action_accepted_ = false;
+    action_success_ = false;
+    
+    // Create goal message
+    auto goal_msg = FollowPath::Goal();
+    goal_msg.path = path;
+    goal_msg.controller_id = "FollowPath";
+    goal_msg.goal_checker_id = "goal_checker";
+
+    RCLCPP_INFO(this->get_logger(), "Sending goal to follow path action server");
+    
+    auto send_goal_options = rclcpp_action::Client<FollowPath>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&AutoNavHandler::followPathResponseCallback, this, _1);
+    send_goal_options.result_callback = std::bind(&AutoNavHandler::followPathResultCallback, this, _1);
+
+    auto goal_handle_future = this->follow_path_client_->async_send_goal(goal_msg, send_goal_options);
+
+    // Block till action complete
+    rclcpp::Rate loop_rate(10);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(action_blocking_ && rclcpp::ok()) {
+        // Print feedback
+        RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f, Speed: %f", this->distance_to_goal_, this->rov_speed_);
+        loop_rate.sleep();
+    }
+
+    if (!action_accepted_) {
+        RCLCPP_ERROR(this->get_logger(), "Follow path action was rejected");
+        return false;
+    }
+    else if (!action_success_) {
+        RCLCPP_ERROR(this->get_logger(), "Follow path action failed");
+        return false;
+    }
+    else {
+        RCLCPP_INFO(this->get_logger(), "Follow path action succeeded");
+        return true;
+    }
+
+    return false;
+}
+
+void AutoNavHandler::computePathResponseCallback(GoalHandleComputePathToPose::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+        action_blocking_ = false;
+        action_server_responded_ = true;
+        action_accepted_ = false;
+        action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
+        action_server_responded_ = true;
+        action_accepted_ = true;
+    }
+}
+
+void AutoNavHandler::computePathResultCallback(const GoalHandleComputePathToPose::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Path computed successfully");
+            action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
+            action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
+            action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            action_success_ = false;
+            break;
+    }
+    action_blocking_ = false;
+    if (action_success_) {
+        this->path_ = result.result->path;
+        this->planning_time_ = result.result->planning_time;
+    }
+}
+
+void AutoNavHandler::followPathResponseCallback(GoalHandleFollowPath::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+        action_blocking_ = false;
+        action_server_responded_ = true;
+        action_accepted_ = false;
+        action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
+        action_server_responded_ = true;
+        action_accepted_ = true;
+    }
+}
+
+void AutoNavHandler::followPathFeedbackCallback(GoalHandleFollowPath::SharedPtr, const std::shared_ptr<const FollowPath::Feedback> feedback){
+    this->distance_to_goal_ = feedback->distance_to_goal;
+    this->rov_speed_ = feedback->speed;
+}
+
+void AutoNavHandler::followPathResultCallback(const GoalHandleFollowPath::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Path followed successfully");
+            action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
+            action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
+            action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            action_success_ = false;
+            break;
+    }
+    action_blocking_ = false;
 }
