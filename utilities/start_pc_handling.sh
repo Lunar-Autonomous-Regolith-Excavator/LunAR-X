@@ -1,1 +1,1 @@
-ros2 service call lx_mapping/pc_handler lx_msgs/srv/Map 'start: true'
+ros2 service call mapping/pointcloud_switch lx_msgs/srv/Switch 'switch_state: true'

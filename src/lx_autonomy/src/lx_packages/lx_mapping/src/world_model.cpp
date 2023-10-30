@@ -81,7 +81,7 @@ void WorldModel::mapSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::R
     if(req->switch_state){
         // Subscribe to the point cloud topic
         transformed_pcl_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
-                                                                                    std::bind(&WorldModel::transformedPCLCallback, this, _1));
+                                                                                    std::bind(&WorldModel::transformedPCLCallback, this, std::placeholders::_1));
     }
     else{
         transformed_pcl_subscriber_.reset();

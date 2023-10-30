@@ -27,7 +27,7 @@ class PointCloudHandler : public rclcpp::Node
         // Variables & pointers -----------------
         const double MAP_DIMENSION = 8.0;
         const double MAP_RESOLUTION = 0.05;
-        bool debug_mode_;
+        const bool debug_mode_ = false;
         double tool_height_wrt_base_link_;
         // Transforms
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -57,6 +57,9 @@ class PointCloudHandler : public rclcpp::Node
         /*
         *
         * */
+        void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr );
+
+
         void toolHeightCallback(const std_msgs::msg::Float64::SharedPtr );
 
         /*

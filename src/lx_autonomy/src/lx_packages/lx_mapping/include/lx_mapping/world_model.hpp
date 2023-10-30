@@ -6,6 +6,10 @@
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "lx_msgs/srv/switch.hpp"
 #include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <thread>
+
 
 
 class WorldModel : public rclcpp::Node

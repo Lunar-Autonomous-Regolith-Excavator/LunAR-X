@@ -36,9 +36,10 @@ VisualServoing::VisualServoing() : Node("visual_servoing_node")
 void VisualServoing::setupCommunications(){
     // Subscribers
     tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>("tool_height", 10, 
-                                    std::bind(&VisualServoing::toolHeightCallback, this, _1));
+                                    std::bind(&VisualServoing::toolHeightCallback, this, std::placeholders::_1));
     // Publishers
-    visual_servo_publisher_ = this->create_publisher<std_msgs::msg::Float32>("mapping/visual_servoing_error", 10);
+    visual_servo_publisher_ = this->create_publisher<std_msgs::msg::Float64>("mapping/visual_servoing_error", 10);
+    visual_servo_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/visual_servoing_marker", 10);
     // Servers
     visual_servo_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/visual_servo_switch", 
                         std::bind(&VisualServoing::startStopVSCallback, this, std::placeholders::_1, std::placeholders::_2));
@@ -50,9 +51,9 @@ void VisualServoing::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr 
 
 void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
                                                 std::shared_ptr<lx_msgs::srv::Switch::Response> res){
-    if(req->start){
+    if(req->switch_state){
         this->pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
-                                        std::bind(&VisualServoing::pointCloudCallback, this, _1));
+                                        std::bind(&VisualServoing::pointCloudCallback, this, std::placeholders::_1));
     }
     else{
         this->pointcloud_subscriber_.reset();
@@ -61,56 +62,86 @@ void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Swi
 }
 
 void VisualServoing::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
-    pointcloud_thread_ = std::thread(std::bind(&PointCloudHandler::getVisualServoError, this, msg));
+    pointcloud_thread_ = std::thread(std::bind(&VisualServoing::getVisualServoError, this, msg));
 
     pointcloud_thread_.detach();
 }
 
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_target_berm(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::fromROSMsg(*msg, *cropped_cloud_target_berm);
-    // 2D vector of length 80x200
-    // define a vector
-    // std::vector< std::vector<int> > vec(4, std::vector<int>(4));
-    std::vector<double> vec(1,100);
-    int resolution = 5;
-    int num_rows = 200/resolution;
-    int num_cols = 80/resolution;
-    std::vector<std::vector<double>> row ((num_cols+1)*num_rows,vec);
-    RCLCPP_INFO(this->get_logger(), "D");
+    pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromROSMsg(*msg, *input_cloud);
 
-    for(int i = 0; i < cropped_cloud_target_berm->points.size(); i++){
-        int idx = int(num_rows*100*(cropped_cloud_target_berm->points[i].x+0.2)/resolution) + int((100*cropped_cloud_target_berm->points[i].z)/resolution);
-        row[idx].push_back(cropped_cloud_target_berm->points[i].y);
+    std::vector<std::vector<std::vector<double>>> bin_values(NUM_BINS, std::vector<std::vector<double>>(NUM_BINS, std::vector<double>())); // 2D vector of bin values
+
+    RCLCPP_INFO(this->get_logger(), "D");
+    // print cloud size
+    RCLCPP_INFO(this->get_logger(), "cloud size: %d", input_cloud->points.size());
+
+    for(int i = 0; i < input_cloud->points.size(); i++){
+        int row_idx = int((input_cloud->points[i].x-PCL_X_MIN_M)/(PCL_X_MAX_M-PCL_X_MIN_M)*NUM_BINS);
+        int col_idx = int((input_cloud->points[i].y-PCL_Y_MIN_M)/(PCL_Y_MAX_M-PCL_Y_MIN_M)*NUM_BINS);
+        if(row_idx<0 || row_idx>=NUM_BINS || col_idx<0 || col_idx>=NUM_BINS){
+            continue;
+        }
+        // bin_values[row_idx][col_idx].push_back(input_cloud->points[i].z);
+        bin_values[row_idx][col_idx].push_back(input_cloud->points[i].z);
     }
+    // print min and max values
     RCLCPP_INFO(this->get_logger(), "E");
 
-    std::vector<double> median_vec(num_cols*num_rows,0);
-    std::vector<double> peak_y(num_cols,0);
-    std::vector<double> peak_z(num_cols,0);
-    RCLCPP_INFO(this->get_logger(), "A");
+    std::vector<std::vector<double>> median_vec(NUM_BINS, std::vector<double>(NUM_BINS,0.0)); // 2D vector of bin values
+    for(int i=0;i<NUM_BINS;i++){
+        for(int j=0;j<NUM_BINS;j++){
+            // calculate median of bin using O(N) algorithm
+            int bin_size = bin_values[i][j].size();
+            if(bin_size<1){
+                continue;
+            }
+            std::nth_element(bin_values[i][j].begin(), bin_values[i][j].begin() + bin_size/2, bin_values[i][j].end());
+            median_vec[i][j] = bin_values[i][j][bin_size/2];
+        }
+    }
 
-    for(int i=0;i<num_cols;i++){
-        double max_elev = 1000;
-        for(int j=0;j<num_rows;j++){
-            int idx = num_rows*i+j;
-            std::sort(row[idx].begin(), row[idx].end());
-            median_vec[idx] = row[idx][row[idx].size()/2];
-            if(median_vec[idx]<max_elev && row[idx].size()>1){
-                max_elev = median_vec[idx];
-                peak_z[i] = max_elev;
-                peak_y[i] = j*resolution/100.0;
+    // for every bin in y, find the x value with the highest z value
+    std::vector<int> peak_x(NUM_BINS,0.0);
+    std::vector<double> peak_z(NUM_BINS,0.0);
+    for(int j=0;j<NUM_BINS;j++){
+        double max_z = 0.0;
+        for(int i=0;i<NUM_BINS;i++){
+            if(median_vec[i][j]>max_z){
+                max_z = median_vec[i][j];
+                peak_x[j] = i;
+                peak_z[j] = max_z;
             }
         }
     }
-    RCLCPP_INFO(this->get_logger(), "C");
 
-    for(int i=0;i<num_cols;i++){
-        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, z: %f", i*resolution/100.0,peak_y[i],peak_z[i]);
+    for(int i=0;i<NUM_BINS;i++){
+        RCLCPP_INFO(this->get_logger(), "peak_x[%d]: %d", i, peak_x[i]);
+    }
+    // visualization_msgs/MarkerArray.msg make
+    visualization_msgs::msg::Marker marker_array_msg;
+    // fill (peak_x[i], i, peak_z[i]) into marker_array_msg
+    marker_array_msg.header.frame_id = "base_link";
+    marker_array_msg.header.stamp = this->get_clock()->now();
+    marker_array_msg.ns = "visual_servoing";
+    marker_array_msg.id = 0;
+    marker_array_msg.type = visualization_msgs::msg::Marker::POINTS;
+    marker_array_msg.action = visualization_msgs::msg::Marker::ADD;
+    marker_array_msg.pose.orientation.w = 1.0;
+    marker_array_msg.scale.x = 0.05;
+    marker_array_msg.scale.y = 0.05;
+    marker_array_msg.color.r = 1.0;
+    marker_array_msg.color.a = 1.0;
+    for(int i=0;i<NUM_BINS;i++){
+        geometry_msgs::msg::Point p;
+        p.x = ((double)peak_x[i]*(PCL_X_MAX_M-PCL_X_MIN_M)/NUM_BINS) + PCL_X_MIN_M;
+        p.y = (double)i*(PCL_Y_MAX_M-PCL_Y_MIN_M)/NUM_BINS + PCL_Y_MIN_M;
+        p.z = peak_z[i];
+        marker_array_msg.points.push_back(p);
     }
 
-    sensor_msgs::msg::PointCloud2 result_msg;
-
-    // publisher_pc_->publish(result_msg);
+   
+    visual_servo_marker_publisher_->publish(marker_array_msg);    
 }

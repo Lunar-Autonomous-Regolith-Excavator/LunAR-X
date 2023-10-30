@@ -20,9 +20,7 @@
 #include "lx_mapping/pc_handler.hpp"
 
 PointCloudHandler::PointCloudHandler() : Node("pc_handler_node")
-{   
-    debug_mode_ = true;
-    
+{       
     // Setup Communications
     setupCommunications();
 
@@ -47,11 +45,11 @@ void PointCloudHandler::pointCloudSwitchCallback(const std::shared_ptr<lx_msgs::
 
     this->tool_height_wrt_base_link_ = 1000.0;
 
-    if(req->start){
+    if(req->switch_state){
         tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>(
-                    "tool_height", 10, std::bind(&PointCloudHandler::toolHeightCallback, this, _1));
+                    "tool_height", 10, std::bind(&PointCloudHandler::toolHeightCallback, this, std::placeholders::_1));
         pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-                    "camera/depth/color/points", 10, std::bind(&PointCloudHandler::transform_pc_cam2map, this, _1));
+                    "camera/depth/color/points", 10, std::bind(&PointCloudHandler::processPointCloud, this, std::placeholders::_1));
 
     }
     else{
@@ -79,7 +77,7 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
     geometry_msgs::msg::TransformStamped cam2map_transform;
     try
     {
-      cam2map_transform = tf_buffer_->lookupTransform("moonyard","camera_depth_optical_frame",tf2::TimePointZero, tf2::durationFromSec(1));
+      cam2map_transform = tf_buffer_->lookupTransform("base_link","camera_depth_optical_frame",tf2::TimePointZero, tf2::durationFromSec(1));
     }
     catch (tf2::TransformException& ex)
     {
@@ -113,6 +111,7 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, transform_2);
 
+    if(debug_mode_){
         // find the best fit plane
         pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
         pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
@@ -124,7 +123,7 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
         seg.setDistanceThreshold(0.01);
         seg.setInputCloud (transformed_cloud);
         seg.segment (*inliers, *coefficients);
-    if(debug_mode_){
+
         RCLCPP_INFO(this->get_logger(), "Model coefficients: %f %f %f %f", coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
     }
 
@@ -132,17 +131,18 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
     pcl::PointCloud<pcl::PointXYZ>::Ptr result_cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::CropBox<pcl::PointXYZ> cropFilter;
     cropFilter.setInputCloud(transformed_cloud);
+    // TODO: check for z direction
     if(this->tool_height_wrt_base_link_ == 1000.0){
-        cropFilter.setMin(Eigen::Vector4f(-1000, -1000, coefficients->values[3]-0.45, 1.0));
+        cropFilter.setMax(Eigen::Vector4f(1000, 1000, 0.3, 1.0));
     }
     else{
-        cropFilter.setMin(Eigen::Vector4f(-1000, -1000, coefficients->values[3]-tool_height_wrt_base_link_, 1.0));
+        cropFilter.setMax(Eigen::Vector4f(1000, 1000, tool_height_wrt_base_link_-0.2, 1.0));
     }
-    cropFilter.setMax(Eigen::Vector4f(1000, 1000, 2.0, 1.0));
+    cropFilter.setMin(Eigen::Vector4f(-1000, -1000, -20.0, 1.0));
     cropFilter.filter(*result_cloud);
 
     sensor_msgs::msg::PointCloud2 result_msg;
     pcl::toROSMsg(*result_cloud, result_msg);   
-    result_msg.header.frame_id = "moonyard"; 
+    result_msg.header.frame_id = "base_link"; 
     transformed_pointcloud_publisher_->publish(result_msg);
 }

@@ -8,7 +8,9 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/common/transforms.h>
+#include <visualization_msgs/msg/marker.hpp>
 #include<vector>
+
 
 class VisualServoing : public rclcpp::Node
 {
@@ -16,12 +18,16 @@ class VisualServoing : public rclcpp::Node
         // Variables & pointers -----------------
         bool debug_mode_;
         double tool_height_wrt_base_link_;
+        const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
+        const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
+        const int NUM_BINS = 50; // number of bins in each dim the ROI
         std::thread pointcloud_thread_;
         // Subscribers
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_subscriber_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr tool_height_subscriber_;
         // Publishers
-        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr visual_servo_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr visual_servo_publisher_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_servo_marker_publisher_;
         // Servers
         rclcpp::Service<lx_msgs::srv::Switch>::SharedPtr visual_servo_switch_server_;
         // --------------------------------------
@@ -35,11 +41,16 @@ class VisualServoing : public rclcpp::Node
         /*
         *
         * */
-        void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr )
+        void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr );
 
         /*
         *
         * */
+        pcl::PointCloud<pcl::PointXYZ>::Ptr  processPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr );
+
+        /*
+        *
+        */
         void getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr );
 
         /*
@@ -51,7 +62,7 @@ class VisualServoing : public rclcpp::Node
         /*
         *
         * */
-        void toolHeightCallback(const std_msgs::msg::Float64::SharedPtr )
+        void toolHeightCallback(const std_msgs::msg::Float64::SharedPtr );
 
     public:
         // Functions
