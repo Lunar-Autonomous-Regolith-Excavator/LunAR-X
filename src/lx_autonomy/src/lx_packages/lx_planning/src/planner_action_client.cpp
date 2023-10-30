@@ -36,8 +36,13 @@ private:
     // Fill in the goal_msg with your desired pose information
     goal_msg.goal.header.frame_id = "map";
     goal_msg.goal.header.stamp = now();
-    goal_msg.goal.pose.position.x = 0.0;
-    goal_msg.goal.pose.position.y = 0.0;
+    goal_msg.goal.pose.position.x = -10;
+    goal_msg.goal.pose.position.y = -6;
+    // Make orientation -90 degrees
+    goal_msg.goal.pose.orientation.x = 0;
+    goal_msg.goal.pose.orientation.y = 0;
+    goal_msg.goal.pose.orientation.z = 0.707;
+    goal_msg.goal.pose.orientation.w = 0.707;
 
     auto send_goal_options = rclcpp_action::Client<AutoNav>::SendGoalOptions();
     send_goal_options.goal_response_callback =

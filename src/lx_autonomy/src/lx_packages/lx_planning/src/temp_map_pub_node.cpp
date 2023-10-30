@@ -29,10 +29,12 @@ private:
     // Set map properties
     map_msg.info.map_load_time = this->get_clock()->now();
     map_msg.info.resolution = 0.05;  // replace with your map resolution
-    map_msg.info.width = 140;       // replace with your map width
-    map_msg.info.height = 140;      // replace with your map height
-    map_msg.info.origin.position.x = -3.5;  // replace with your map origin x
-    map_msg.info.origin.position.y = -3.5;  // replace with your map origin y
+    map_msg.info.width = 160;       // replace with your map width
+    map_msg.info.height = 160;      // replace with your map height
+    // map_msg.info.origin.position.x = -4;  // replace with your map origin x
+    // map_msg.info.origin.position.y = -4;  // replace with your map origin y
+    map_msg.info.origin.position.x = -13;  // replace with your map origin x
+    map_msg.info.origin.position.y = -9;  // replace with your map origin y
     map_msg.info.origin.position.z = 0.0;
     map_msg.info.origin.orientation.x = 0.0;
     map_msg.info.origin.orientation.y = 0.0;
