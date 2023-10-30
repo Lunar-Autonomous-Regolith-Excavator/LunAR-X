@@ -9,7 +9,19 @@
 #include <pcl/point_cloud.h>
 #include <pcl/common/transforms.h>
 #include <visualization_msgs/msg/marker.hpp>
+#include <pcl/ModelCoefficients.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/sample_consensus/ransac.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/passthrough.h>
+// get_logger
+#include "rclcpp/logger.hpp"
 #include<vector>
+
 
 
 class VisualServoing : public rclcpp::Node
@@ -21,6 +33,7 @@ class VisualServoing : public rclcpp::Node
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
         const int NUM_BINS = 50; // number of bins in each dim the ROI
+
         std::thread pointcloud_thread_;
         // Subscribers
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_subscriber_;
@@ -51,6 +64,12 @@ class VisualServoing : public rclcpp::Node
         /*
         *
         */
+
+        void bestPlaneFit(pcl::PointCloud<pcl::PointXYZ>::Ptr , int , double , int , pcl::PointIndices::Ptr , pcl::ModelCoefficients::Ptr );
+        /*
+        *
+        */
+
         void getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr );
 
         /*

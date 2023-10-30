@@ -30,7 +30,6 @@ VisualServoing::VisualServoing() : Node("visual_servoing_node")
 
     // When tool height not defined
     tool_height_wrt_base_link_ = 1000;
-
 }
 
 void VisualServoing::setupCommunications(){
@@ -65,6 +64,31 @@ void VisualServoing::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sha
     pointcloud_thread_ = std::thread(std::bind(&VisualServoing::getVisualServoError, this, msg));
 
     pointcloud_thread_.detach();
+}
+
+//function to apply RANSAC to fit ground plane on a pointcloud
+pcl::PointIndices::Ptr fitBestPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int max_iterations, double distance_threshold, int round, pcl::PointIndices::Ptr inliers, pcl::ModelCoefficients::Ptr coefficients){
+    // Create the segmentation object
+    pcl::SACSegmentation<pcl::PointXYZ> seg;
+
+    // Optional
+    seg.setOptimizeCoefficients (true);
+    // Mandatory
+    seg.setModelType (pcl::SACMODEL_PLANE); // fit a plane
+    seg.setMethodType (pcl::SAC_RANSAC); // use RANSAC
+    seg.setMaxIterations (max_iterations); // set max iterations
+    seg.setDistanceThreshold (distance_threshold); // set distance threshold
+
+    seg.setInputCloud (cloud);
+    // if(round == 1){
+    //     seg.segment (*this->inliers_1, *this->coefficients_1);
+    // }
+    // else{
+    //     seg.segment (*inliers_2, *coefficients_2);
+    // }
+    seg.segment (*inliers, *coefficients);
+
+    return inliers;
 }
 
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
@@ -117,9 +141,37 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         }
     }
 
-    for(int i=0;i<NUM_BINS;i++){
-        RCLCPP_INFO(this->get_logger(), "peak_x[%d]: %d", i, peak_x[i]);
-    }
+    // for(int i=0;i<NUM_BINS;i++){
+    //     RCLCPP_INFO(this->get_logger(), "peak_x[%d]: %d", i, peak_x[i]);
+    // }
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_minus_plane1(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
+    fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
+    // delete inliers from cloud
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(input_cloud);
+    extract.setIndices(inliers_1);
+    extract.setNegative(true);
+    extract.filter(*cloud_minus_plane1);
+
+    pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
+    fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
+
+    // print coefficients1 and coefficients2
+    // RCLCPP_INFO(this->get_logger(), "Model coefficients 1: %f %f %f %f", coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]);
+    // RCLCPP_INFO(this->get_logger(), "Model coefficients 2: %f %f %f %f", coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]);
+
+    double cos_theta;
+    cos_theta = coefficients_1->values[2]/sqrt(coefficients_1->values[0]*coefficients_1->values[0] + coefficients_1->values[1]*coefficients_1->values[1] + coefficients_1->values[2]*coefficients_1->values[2]);
+    // double sin_theta;
+    // sin_theta = coefficients_1->values[0]/sqrt(coefficients_1->values[0]*coefficients_1->values[0] + coefficients_1->values[1]*coefficients_1->values[1] + coefficients_1->values[2]*coefficients_1->values[2]);
+
+    RCLCPP_INFO(this->get_logger(), "cos_theta: %f", cos_theta);
+    // RCLCPP_INFO(this->get_logger(), "sin_theta: %f", sin_theta);
+
     // visualization_msgs/MarkerArray.msg make
     visualization_msgs::msg::Marker marker_array_msg;
     // fill (peak_x[i], i, peak_z[i]) into marker_array_msg
