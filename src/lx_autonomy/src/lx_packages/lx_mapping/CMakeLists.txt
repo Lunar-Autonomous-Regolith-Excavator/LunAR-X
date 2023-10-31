@@ -19,7 +19,6 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
-find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -29,18 +28,28 @@ find_package(tf2_eigen REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
 
 include_directories(include)
 
-add_executable(berm_evaluation_node src/berm_evaluation_node.cpp src/berm_evaluation.cpp)
-ament_target_dependencies(berm_evaluation_node rclcpp lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
+add_executable(visual_servoing_node src/visual_servoing_node.cpp src/visual_servoing.cpp)
+ament_target_dependencies(visual_servoing_node pcl_ros rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions visualization_msgs)
+
+add_executable(world_model_node src/world_model_node.cpp src/world_model.cpp)
+ament_target_dependencies(world_model_node lx_msgs rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
+
+add_executable(pc_handler_node src/pc_handler_node.cpp src/pc_handler.cpp)
+ament_target_dependencies(pc_handler_node lx_msgs rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
 
 add_executable(pcl_relay_node src/pcl_relay_node.cpp src/pcl_relay.cpp)
 ament_target_dependencies(pcl_relay_node rclcpp sensor_msgs)
 
 install(TARGETS 
-  berm_evaluation_node
   pcl_relay_node
+  visual_servoing_node
+  world_model_node
+  pc_handler_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -48,5 +57,9 @@ install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+target_link_libraries(visual_servoing_node ${PCL_LIBRARIES})
+target_link_libraries(world_model_node ${PCL_LIBRARIES})
+target_link_libraries(pc_handler_node ${PCL_LIBRARIES})
 
 ament_package()

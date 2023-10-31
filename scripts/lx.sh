@@ -1,4 +1,5 @@
 # #!/bin/bash
+
 cd "$(dirname "$0")" # to set the script's directory
 xhost +local:docker && # allow docker to access the X server
 

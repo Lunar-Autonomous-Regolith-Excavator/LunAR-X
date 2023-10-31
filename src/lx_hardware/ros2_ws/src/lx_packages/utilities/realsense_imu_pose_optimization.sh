@@ -1,0 +1,1 @@
+ros2 launch realsense2_camera rs_launch.py pointcloud.enable:=true enable_gyro:=true enable_accel:=true align_depth:=true
