@@ -17,6 +17,9 @@
 #include "lx_msgs/action/auto_dig.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+//geometry_msgs/Point Message
+#include "geometry_msgs/msg/point.hpp"
+
 
 class AutoDumpHandler: public rclcpp::Node
 {
@@ -24,17 +27,16 @@ class AutoDumpHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using AutoDump = lx_msgs::action::AutoDump;
         using GoalHandleAutoDump = rclcpp_action::ServerGoalHandle<AutoDump>;
-        pid_struct tool_height_pid_, rover_x_pid;
-        double drum_height_ = 0;
-        double rover_x_ = 0;
+        pid_struct tool_height_pid_, rover_x_pid_, rover_yaw_pid_;
+        double drum_height_;
         rclcpp::Time tool_info_msg_time_;
-        double prev_error_height = 0, integral_error_height = 0;
-        double prev_error_x = 0, integral_error_x = 0;
+
         const double DRUM_DUMP_SPEED = 0.5;
         const double DRUM_DUMP_TIME_MS = 2500;
         const double END_TOOL_HEIGHT = 0.35;
-        const double CLIP_X_CMD_VAL = 0.01;
+        const double CLIP_VEL_CMD_VAL = 0.01;
         const double CLIP_HEIGHT_CMD_VAL = 1;
+        const double CLIP_YAW_CMD_VAL = 0.05;
         
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
@@ -44,7 +46,7 @@ class AutoDumpHandler: public rclcpp::Node
         
         // Subscribers
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
-        rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr odom_sub_;
+        // rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr odom_sub_;
 
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_cmd_pub_;
@@ -67,7 +69,7 @@ class AutoDumpHandler: public rclcpp::Node
         void setupCommunications();
 
         void drumHeightCB(const std_msgs::msg::Float64::SharedPtr);
-        void odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr);
+        // void odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr);
 
         /*
         * Set up tracking of global parameters

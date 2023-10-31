@@ -1,4 +1,4 @@
-/* Author: 
+/* Author: Vibhakar Mohta
  * Subscribers:
  *    - /topic: description
  * Publishers:
@@ -6,13 +6,36 @@
  * Services:
  *    - /name (type): description
  *
- * - Summary
+ * - Auto Dig Action Server
  * 
  * TODO
  * - Add map update call after dumping material
  * */
 
 #include "lx_operation/auto_dump_handler.hpp"
+
+// Class for PID
+class PID{
+    public:
+        double kp, ki, kd;
+        double CLIP_MIN, CLIP_MAX;
+        double prev_error = 0, integral_error = 0;
+        PID(pid_struct gains, double CLIP_MIN, double CLIP_MAX){
+            this->kp = gains.kp;
+            this->ki = gains.ki;
+            this->kd = gains.kd;
+            this->CLIP_MIN = CLIP_MIN;
+            this->CLIP_MAX = CLIP_MAX;
+        }
+        double getCommand(double error)
+        {
+            double pid_command = kp*error + ki*integral_error + kd*(error - prev_error);
+            prev_error = error;
+            integral_error += error;
+            pid_command = std::min(std::max(pid_command, CLIP_MIN), CLIP_MAX);
+            return pid_command;
+        }
+};
 
 AutoDumpHandler::AutoDumpHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("auto_dump_handler_node"){
     (void)options;
@@ -31,9 +54,13 @@ AutoDumpHandler::AutoDumpHandler(const rclcpp::NodeOptions& options = rclcpp::No
     tool_height_pid_.ki = 0.0000;
     tool_height_pid_.kd = 0.5;
 
-    rover_x_pid.kp = 0.1;
-    rover_x_pid.ki = 0.0000;
-    rover_x_pid.kd = 0.0;
+    rover_x_pid_.kp = 0.1;
+    rover_x_pid_.ki = 0.0000;
+    rover_x_pid_.kd = 0.0;
+
+    rover_yaw_pid_.kp = 0.05;
+    rover_yaw_pid_.ki = 0.0000;
+    rover_yaw_pid_.kd = 0.0;
 
     RCLCPP_INFO(this->get_logger(), "AutoDump handler initialized");
 }
@@ -106,8 +133,8 @@ void AutoDumpHandler::setupCommunications(){
     // Subscribers 
     drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/tool_height", 10,
                         std::bind(&AutoDumpHandler::drumHeightCB, this, std::placeholders::_1));
-    odom_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("/odometry/ekf_global_node", 10,
-                        std::bind(&AutoDumpHandler::odomCB, this, std::placeholders::_1));
+    // odom_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("/odometry/ekf_global_node", 10,
+    //                     std::bind(&AutoDumpHandler::odomCB, this, std::placeholders::_1));
 
     // Publishers
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
@@ -127,9 +154,9 @@ void AutoDumpHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
     this->drum_height_ = msg->data;
 }
 
-void AutoDumpHandler::odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg){
-    this->rover_x_ = msg->pose.pose.position.x;
-}
+// void AutoDumpHandler::odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg){
+//     this->rover_x_ = msg->pose.pose.position.x;
+// }
 
 void AutoDumpHandler::setupParams(){
     // Subscriber for global parameter events
@@ -227,20 +254,14 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     auto feedback = std::make_shared<AutoDump::Feedback>();
     auto result = std::make_shared<AutoDump::Result>();
 
-    // Reset integral errors
-    integral_error_height = 0;
-    integral_error_x = 0;
-    prev_error_height = 0;
-    prev_error_x = 0;
-
-    // Read offsets and set targets
-    double height_offset = 0; double x_offset = 0;
-    double target_height = drum_height_ + height_offset;
-    double target_x = rover_x_ + x_offset;
-
     rclcpp::Time action_start_time = this->get_clock()->now();
 
     // Move to targets
+    // 3 PIDs for drum height, rover x and rover y
+    auto pid_height = PID(tool_height_pid_, -CLIP_HEIGHT_CMD_VAL, CLIP_HEIGHT_CMD_VAL);
+    auto pid_x = PID(rover_x_pid_, -CLIP_VEL_CMD_VAL, CLIP_VEL_CMD_VAL);
+    auto pid_yaw = PID(rover_yaw_pid_, -CLIP_YAW_CMD_VAL, CLIP_YAW_CMD_VAL);
+
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
     while(rclcpp::ok() && !goal_handle->is_canceling()){
@@ -255,30 +276,23 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
             return;
         }
 
-        // Drum control
-        double drum_height_error = drum_height_ - target_height;
-        double drum_pid_command = tool_height_pid_.kp*drum_height_error 
-                                        + tool_height_pid_.ki*integral_error_height 
-                                        + tool_height_pid_.kd*(drum_height_error - prev_error_height);
-        prev_error_height = drum_height_error;
-        drum_pid_command = std::min(std::max(drum_pid_command, -CLIP_HEIGHT_CMD_VAL), CLIP_HEIGHT_CMD_VAL);
+        // Read errors from service call
+        double dx =0, dy = 0, dz = 0;
 
-        // X control
-        double x_error = rover_x_ - target_x;
-        double x_pid_command = rover_x_pid.kp*x_error 
-                                        + rover_x_pid.ki*integral_error_x 
-                                        + rover_x_pid.kd*(x_error - prev_error_x);
-        prev_error_x = x_error;
-        x_pid_command = std::min(std::max(x_pid_command, -CLIP_X_CMD_VAL), CLIP_X_CMD_VAL);
+        // Drum control
+        double drum_cmd = pid_height.getCommand(dz);
+        double x_vel = pid_x.getCommand(dx);
+        double yaw_vel = pid_yaw.getCommand(dy);
 
         // Publish to rover
-        rover_cmd.actuator_speed =  drum_pid_command;
-        rover_cmd.mobility_twist.linear.x = x_pid_command;
+        rover_cmd.actuator_speed =  drum_cmd;
+        rover_cmd.mobility_twist.linear.x = x_vel;
+        rover_cmd.mobility_twist.angular.z = yaw_vel;
         this->rover_auto_cmd_pub_->publish(rover_cmd);
         
-        
-        RCLCPP_DEBUG(this->get_logger(), "[AUTODUMP] Drum height: %f, Target: %f, Error: %f, Command: %f", drum_height_, target_height, drum_height_error, drum_pid_command);
-        RCLCPP_DEBUG(this->get_logger(), "[AUTODUMP] Rover x: %f, Target: %f, Error: %f, Command: %f", rover_x_, target_x, x_error, x_pid_command);
+        RCLCPP_DEBUG(this->get_logger(), "[AUTODUMP] Drum: Error: %f, Command: %f", dz, drum_cmd);
+        RCLCPP_DEBUG(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
+        RCLCPP_DEBUG(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
 
         loop_rate.sleep();
     }
@@ -303,16 +317,11 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     this->rover_auto_cmd_pub_->publish(rover_cmd);
 
     // Raise the drum to END_TOOL_HEIGHT
-    integral_error_height = 0;
-    prev_error_height = 0;
+    pid_height = PID(tool_height_pid_, -CLIP_HEIGHT_CMD_VAL, CLIP_HEIGHT_CMD_VAL);
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
         double drum_height_error = drum_height_ - END_TOOL_HEIGHT;
-        double drum_pid_command = tool_height_pid_.kp*drum_height_error 
-                                        + tool_height_pid_.ki*integral_error_height 
-                                        + tool_height_pid_.kd*(drum_height_error - prev_error_height);
-        prev_error_height = drum_height_error;
-        drum_pid_command = std::min(std::max(drum_pid_command, -CLIP_HEIGHT_CMD_VAL), CLIP_HEIGHT_CMD_VAL);
+        double drum_pid_command = pid_height.getCommand(drum_height_error);
 
         // Publish to rover
         rover_cmd.actuator_speed =  drum_pid_command;
@@ -331,16 +340,16 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     if (rclcpp::ok() && !goal_handle->is_canceling()) {
       result->success = true;
       goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Autodig succeeded");
+      RCLCPP_INFO(this->get_logger(), "Autodump succeeded");
     }
     else if(rclcpp::ok() && goal_handle->is_canceling()){
         result->success = false;
         goal_handle->canceled(result);
-        RCLCPP_INFO(this->get_logger(), "Autodig canceled");
+        RCLCPP_INFO(this->get_logger(), "Autodump canceled");
     }
     else{
         result->success = false;
         goal_handle->abort(result);
-        RCLCPP_ERROR(this->get_logger(), "Autodig failed");
+        RCLCPP_ERROR(this->get_logger(), "Autodump failed");
     }
 }
