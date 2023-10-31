@@ -9,27 +9,26 @@
  * - Summary
  * 
  * TODO
- * - Get tool height pose 
- * - Collision check in two layers
+ * - One shot planning:
+ *      Find the sequence of berm to be built
+ * - Dynamic planning:
+ *      Get berm height in each berm section and plan accordingly
  * */
 
 #include "lx_planning/task_planner.hpp"
 
-// Function to convert euler angles to quaternion
-geometry_msgs::msg::Quaternion eulerToQuaternion(double roll, double pitch, double yaw){
-    geometry_msgs::msg::Quaternion quaternion;
-    quaternion.x = sin(roll/2) * cos(pitch/2) * cos(yaw/2) - cos(roll/2) * sin(pitch/2) * sin(yaw/2);
-    quaternion.y = cos(roll/2) * sin(pitch/2) * cos(yaw/2) + sin(roll/2) * cos(pitch/2) * sin(yaw/2);
-    quaternion.z = cos(roll/2) * cos(pitch/2) * sin(yaw/2) - sin(roll/2) * sin(pitch/2) * cos(yaw/2);
-    quaternion.w = cos(roll/2) * cos(pitch/2) * cos(yaw/2) + sin(roll/2) * sin(pitch/2) * sin(yaw/2);
-    return quaternion;
+double distanceBetweenPoses(const geometry_msgs::msg::Pose& pose_1, const geometry_msgs::msg::Pose& pose_2) {
+    double x_diff = pose_1.position.x - pose_2.position.x;
+    double y_diff = pose_1.position.y - pose_2.position.y;
+    return std::sqrt(std::pow(x_diff, 2) + std::pow(y_diff, 2));
 }
-
 
 TaskPlanner::TaskPlanner(): Node("task_planner_node"){
     
     // Set up subscriptions, publishers, servers & clients
     setupCommunications();
+
+    // initializeMap();
 
     RCLCPP_INFO(this->get_logger(), "Task Planner initialized");
 }
@@ -38,6 +37,11 @@ void TaskPlanner::setupCommunications(){
     // Subscribers
 
     // Publishers
+    rclcpp::QoS qos(10);  // initialize to default
+    qos.transient_local();
+    qos.reliable();
+    qos.keep_last(1);
+    map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("map", qos);
 
     // Clients
 
@@ -50,88 +54,206 @@ void TaskPlanner::setupCommunications(){
     
 }
 
-void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> req,
-                                          std::shared_ptr<lx_msgs::srv::Plan::Response> res){
+void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> req, std::shared_ptr<lx_msgs::srv::Plan::Response> res) {
+    
     RCLCPP_INFO(this->get_logger(), "Received task planning request");
+
+    // Change frequency parameter of global costmap
+    // TODO
 
     // Get points of the berm
     std::vector<geometry_msgs::msg::Point> berm_points = req->berm_input;
+    desired_berm_height_ = req->berm_height;
+    section_length_ = req->section_length;
 
-    // Loop through the points
-    for (int i = 0; i < berm_points.size() - 1; i++){
-        // Point 1
-        geometry_msgs::msg::Point point_1 = berm_points[i];
-
-        // Point 2
-        geometry_msgs::msg::Point point_2 = berm_points[i + 1];
-
-        // Find slope of the line and the center
-        double slope = -(point_2.x - point_1.x) / (point_2.y - point_1.y);
-
-        geometry_msgs::msg::Point center;
-        center.x = (point_1.x + point_2.x) / 2;
-        center.y = (point_1.y + point_2.y) / 2;
-
-        // Add to berm sections
-        TaskPlanner::BermSection berm_section(center, slope);
-        berm_sections_.push_back(berm_section);
+    if (!findBermSequence(berm_points)) {
+        return;
     }
 
     // For each berm section, there will be an excavation task and a dump task
 
     /********** EXCAVATION TASK **********/
     // Assuming that the corner near the router is the origin
-    // Temporary start and end pose for excavation at (2,2) and (5,2) respectively with orientation of zero degrees throughout
+    // Temporary start pose for excavation at (3,1) with orientation of zero degrees throughout
     lx_msgs::msg::PlannedTask excavation_task;
     excavation_task.task_type = lx_msgs::msg::PlannedTask::EXCAVATION;
 
     geometry_msgs::msg::Pose start_pose;
-    start_pose.position.x = 2;
-    start_pose.position.y = 2;
-    excavation_task.pose_array.poses.push_back(start_pose);
-
-    geometry_msgs::msg::Pose end_pose;
-    end_pose.position.x = 5;
-    end_pose.position.y = 2;
-    excavation_task.pose_array.poses.push_back(end_pose);
+    start_pose.position.x = 3;
+    start_pose.position.y = 1;
+    excavation_task.pose = start_pose;
 
     // Loop through the berm sections
-    for (int i = 0; i < berm_sections_.size(); i++){
+    for (int i = 0; i < berm_sequence_.size(); i++){
         // Get the berm section
-        BermSection berm_section = berm_sections_[i];
+        BermSection berm_section = berm_sequence_[i];
+        // Find the dump pose
+        geometry_msgs::msg::Pose dump_pose = findDumpPose(berm_section, start_pose);
+        // Find the number of iterations and update the berm section iterations
+        int num_iterations = numOfDumps(i);
+        berm_section_iterations_[i] = num_iterations;
 
-        // Get the center and slope
-        geometry_msgs::msg::Point center = berm_section.center;
-        // double slope = berm_section.slope;
+        for (int j = 0; j < num_iterations; j++){
+            // Add navigation task to the plan
+            lx_msgs::msg::PlannedTask navigation_task;
+            navigation_task.task_type = lx_msgs::msg::PlannedTask::NAVIGATION;
+            navigation_task.pose = start_pose;
+            res->plan.push_back(navigation_task);
 
-        // Assuming a straight berm, the dump pose will be calculated as 50 cm lower than the berm section center in y direction
-        geometry_msgs::msg::Pose dump_pose;
-        dump_pose.position.x = center.x;
-        dump_pose.position.y = center.y - 0.5;
-        // Direction should be 90 degrees
-        dump_pose.orientation = eulerToQuaternion(0, 0, 1.5708);
+            // Add excavation task to the plan
+            res->plan.push_back(excavation_task);
 
-        // Add navigation task to the plan
-        lx_msgs::msg::PlannedTask navigation_task;
-        navigation_task.task_type = lx_msgs::msg::PlannedTask::NAVIGATION;
-        navigation_task.pose_array.poses.push_back(start_pose);
+            // Add navigation task to the plan
+            navigation_task.pose = dump_pose;
+            res->plan.push_back(navigation_task);
 
-        // Add excavation task to the plan
-        res->plan.push_back(excavation_task);
-
-        // Add navigation task to the plan
-        navigation_task.pose_array.poses.clear();
-        navigation_task.pose_array.poses.push_back(dump_pose);
-
-        res->plan.push_back(navigation_task);
-
-        // Add dump task to the plan
-        lx_msgs::msg::PlannedTask dump_task;
-        dump_task.task_type = lx_msgs::msg::PlannedTask::DUMP;
-        dump_task.pose_array.poses.push_back(dump_pose);
-
-        res->plan.push_back(dump_task);
-
-        res->plan.push_back(navigation_task);
+            // Add dump task to the plan
+            lx_msgs::msg::PlannedTask dump_task;
+            dump_task.task_type = lx_msgs::msg::PlannedTask::DUMP;
+            dump_task.pose = dump_pose;
+            res->plan.push_back(dump_task);
+        }
     }
+
+    // Change back parameter of global costmap
+    // TODO
+}
+
+bool TaskPlanner::findBermSequence(const std::vector<geometry_msgs::msg::Point> &berm_points) {
+    // Clear class variables
+    berm_sequence_.clear();
+    berm_section_iterations_.clear();
+    
+    try {
+        // Loop through the points
+        for (int i = 0; i < berm_points.size() - 1; i++){
+            // Berm end points
+            geometry_msgs::msg::Point point_1 = berm_points[i];
+            geometry_msgs::msg::Point point_2 = berm_points[i + 1];
+
+            // Calculate center and angle of berm section
+            geometry_msgs::msg::Point center;
+            center.x = (point_1.x + point_2.x) / 2;
+            center.y = (point_1.y + point_2.y) / 2;
+            double angle = atan2(point_2.y - point_1.y, point_2.x - point_1.x);
+
+            // Add to berm sequence
+            BermSection berm_section(center, angle);
+            berm_sequence_.push_back(berm_section);
+        }
+
+        // Calculate number of iterations for each berm section
+        int num_iterations = static_cast<int>(std::round(std::pow(desired_berm_height_ / INIT_BERM_HEIGHT, 2)));
+        berm_section_iterations_.resize(berm_sequence_.size(), num_iterations);
+    }
+    catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Error in finding berm sequence: %s", e.what());
+        return false;
+    }
+
+    return true;
+}
+
+geometry_msgs::msg::Pose TaskPlanner::findDumpPose(const BermSection &berm_section, const geometry_msgs::msg::Pose &start_pose) {
+    geometry_msgs::msg::Pose dump_pose_1, dump_pose_2;
+    tf2::Quaternion q;
+
+    // Calculate dump poses on either side of the berm section with drum_to_base_ distance from the berm section center
+    double angle_1 = berm_section.angle + PI / 2;
+    dump_pose_1.position.x = berm_section.center.x + drum_to_base_ * cos(angle_1);
+    dump_pose_1.position.y = berm_section.center.y + drum_to_base_ * sin(angle_1);
+    q.setRPY(0.0, 0.0, angle_1);
+    dump_pose_1.orientation = tf2::toMsg(q);
+
+    double angle_2 = berm_section.angle - PI / 2;
+    dump_pose_2.position.x = berm_section.center.x + drum_to_base_ * cos(angle_2);
+    dump_pose_2.position.y = berm_section.center.y + drum_to_base_ * sin(angle_2);
+    q.setRPY(0.0, 0.0, angle_2);
+    dump_pose_2.orientation = tf2::toMsg(q);
+
+    // Find which is closer to start pose
+    double distance_1 = distanceBetweenPoses(dump_pose_1, start_pose);
+    double distance_2 = distanceBetweenPoses(dump_pose_2, start_pose);
+
+    geometry_msgs::msg::Pose dump_pose;
+    if (distance_1 < distance_2) {
+        dump_pose = dump_pose_1;
+    }
+    else {
+        dump_pose = dump_pose_2;
+    }
+
+    return dump_pose;
+}
+
+int TaskPlanner::numOfDumps(int berm_section_index) {
+    // Estimate volume (area) of berm section
+    double section_height = berm_section_heights_[berm_section_index];
+    double est_section_width = 2 * section_height / tan(ANGLE_OF_REPOSE * PI / 180);
+    double est_cross_section_area = 0.5 * est_section_width * section_length_;
+
+    // Estimate volume (area) of desired berm section
+    double desired_section_height = desired_berm_height_;
+    double est_desired_section_width = 2 * desired_section_height / tan(ANGLE_OF_REPOSE * PI / 180);
+    double est_desired_cross_section_area = 0.5 * est_desired_section_width * section_length_;
+
+    // Estimate volume (area) of each dump
+    double dump_height = TaskPlanner::INIT_BERM_HEIGHT;
+    double est_dump_width = 2 * dump_height / tan(ANGLE_OF_REPOSE * PI / 180);
+    double est_dump_cross_section_area = 0.5 * est_dump_width * section_length_;
+
+    // Volume to be dumped
+    double volume_to_be_dumped = est_desired_cross_section_area - est_cross_section_area;
+
+    // Number of dumps
+    int num_dumps = static_cast<int>(std::round(volume_to_be_dumped / est_dump_cross_section_area));
+
+    return num_dumps;
+}
+
+// Functions to publish map for costmap
+// Required for Nav2 hybrid A* planner
+void TaskPlanner::initializeMap() {    
+    map_msg_.header.frame_id = "map";
+    map_msg_.info.resolution = TaskPlanner::MAP_RESOLUTION;
+    map_msg_.info.width = TaskPlanner::MAP_DIMENSION;
+    map_msg_.info.height = TaskPlanner::MAP_DIMENSION;
+    map_msg_.info.origin.position.x = TaskPlanner::MAP_ORIGIN_X;
+    map_msg_.info.origin.position.y = TaskPlanner::MAP_ORIGIN_Y;
+    map_msg_.info.origin.position.z = 0.0;
+    map_msg_.info.origin.orientation.x = 0.0;
+    map_msg_.info.origin.orientation.y = 0.0;
+    map_msg_.info.origin.orientation.z = 0.0;
+    map_msg_.info.origin.orientation.w = 1.0;
+
+    // Set up map
+    map_data_.resize(map_msg_.info.width * map_msg_.info.height, 0);
+    // Make the borders of the map occupied
+    for (int i = 0; i < map_msg_.info.width; i++) {
+      map_msg_.data[GETMAXINDEX(i, 0, map_msg_.info.width)] = 100;
+      map_msg_.data[GETMAXINDEX(i, map_msg_.info.height - 1, map_msg_.info.width)] = 100;
+    }
+    for (int i = 0; i < map_msg_.info.height; i++) {
+      map_msg_.data[GETMAXINDEX(0, i, map_msg_.info.width)] = 100;
+      map_msg_.data[GETMAXINDEX(map_msg_.info.width - 1, i, map_msg_.info.width)] = 100;
+    }
+
+    // Set up a timer to periodically publish map data
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&TaskPlanner::publishMap, this));
+}
+
+void TaskPlanner::publishMap() {
+    map_msg_.header.stamp = this->get_clock()->now();
+    map_msg_.info.map_load_time = this->get_clock()->now();
+    map_msg_.data = map_data_;
+    map_publisher_->publish(map_msg_);
+}
+
+void TaskPlanner::updateMap(const geometry_msgs::msg::Point &berm_point) {
+    // TODO
+    return;
+}
+
+void TaskPlanner::clearMap() {
+    return;
 }
