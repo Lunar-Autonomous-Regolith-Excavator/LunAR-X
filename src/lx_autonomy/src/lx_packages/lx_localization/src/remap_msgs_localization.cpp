@@ -32,6 +32,7 @@ private:
     geometry_msgs::msg::TransformStamped eigen_transform_prism_baselink;
     geometry_msgs::msg::TransformStamped eigen_transform_imu_baselink;
     bool got_transforms = false;
+    bool printed_all_working = false;
 
     // Subscribers and publishers
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -84,6 +85,11 @@ private:
                 std::cout<<"No transforms found, please check if base_link to total_station_prism and base_link to vectornav are published"<<std::endl;
                 return;
             }
+        }
+        if(this->got_transforms ==true && printed_all_working == false)
+        {
+            printed_all_working = true;
+            RCLCPP_INFO(this->get_logger(), "----------------------All Transforms found, publishing---------------------");
         }
         if(this->got_imu == false)
         {
