@@ -14,6 +14,7 @@ find_package(geometry_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RoverCommand.msg"
   "msg/ToolInfo.msg"
+  "msg/DrumPosition.msg"
   DEPENDENCIES geometry_msgs
 )
 
