@@ -17,8 +17,9 @@
 #include "lx_msgs/action/auto_dig.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
-//geometry_msgs/Point Message
 #include "geometry_msgs/msg/point.hpp"
+#include "lx_msgs/srv/switch.hpp"
+
 
 
 class AutoDumpHandler: public rclcpp::Node
@@ -28,8 +29,9 @@ class AutoDumpHandler: public rclcpp::Node
         using AutoDump = lx_msgs::action::AutoDump;
         using GoalHandleAutoDump = rclcpp_action::ServerGoalHandle<AutoDump>;
         pid_struct tool_height_pid_, rover_x_pid_, rover_yaw_pid_;
+        geometry_msgs::msg::Point visual_servo_error_;
         double drum_height_;
-        rclcpp::Time tool_info_msg_time_;
+        rclcpp::Time servoing_msg_time;
 
         const double DRUM_DUMP_SPEED = 0.5;
         const double DRUM_DUMP_TIME_MS = 2500;
@@ -40,12 +42,14 @@ class AutoDumpHandler: public rclcpp::Node
         
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
+        rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr switch_client_;
         
         // Action server
         rclcpp_action::Server<AutoDump>::SharedPtr autodump_action_server_;
         
         // Subscribers
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
+        rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr visual_servo_error_sub_;
         // rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr odom_sub_;
 
         // Publishers
@@ -69,6 +73,8 @@ class AutoDumpHandler: public rclcpp::Node
         void setupCommunications();
 
         void drumHeightCB(const std_msgs::msg::Float64::SharedPtr);
+        void visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg);
+
         // void odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr);
 
         /*

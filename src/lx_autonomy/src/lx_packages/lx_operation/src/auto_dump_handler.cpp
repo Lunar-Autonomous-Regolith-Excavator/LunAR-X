@@ -131,16 +131,21 @@ void AutoDumpHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>
 
 void AutoDumpHandler::setupCommunications(){
     // Subscribers 
-    drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/tool_height", 10,
+    drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/tool_height", 1,
                         std::bind(&AutoDumpHandler::drumHeightCB, this, std::placeholders::_1));
     // odom_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("/odometry/ekf_global_node", 10,
     //                     std::bind(&AutoDumpHandler::odomCB, this, std::placeholders::_1));
 
+    visual_servo_error_sub_ = this->create_subscription<geometry_msgs::msg::Point>("/mapping/visual_servo_error", 1,
+                        std::bind(&AutoDumpHandler::visualServoErrorCB, this, std::placeholders::_1));
+
     // Publishers
-    rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
+    rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 1);
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/visual_servo_switch");
+
     // Action server
     using namespace std::placeholders;
     this->autodump_action_server_ = rclcpp_action::create_server<AutoDump>(this, "operations/autodump_action",
@@ -152,6 +157,11 @@ void AutoDumpHandler::setupCommunications(){
 // Callbacks
 void AutoDumpHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
     this->drum_height_ = msg->data;
+}
+
+void AutoDumpHandler::visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg){
+    this->visual_servo_error_ = *msg;
+    this->servoing_msg_time = this->get_clock()->now();
 }
 
 // void AutoDumpHandler::odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg){
@@ -262,22 +272,35 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     auto pid_x = PID(rover_x_pid_, -CLIP_VEL_CMD_VAL, CLIP_VEL_CMD_VAL);
     auto pid_yaw = PID(rover_yaw_pid_, -CLIP_YAW_CMD_VAL, CLIP_YAW_CMD_VAL);
 
+    // Start Visual Servoing
+    auto switch_request = std::make_shared<lx_msgs::srv::Switch::Request>();
+    switch_request->switch_state = true;
+    while(!switch_client_->wait_for_service(std::chrono::seconds(2)))
+    {
+        RCLCPP_INFO(this->get_logger(), "Could not contact visual servo switch");
+        result->success = false;
+        goal_handle->abort(result);
+        return;
+    }
+    auto switch_result_ = switch_client_->async_send_request(switch_request);
+
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
     while(rclcpp::ok() && !goal_handle->is_canceling()){
         rclcpp::Time action_curr_time = this->get_clock()->now();
 
         // Abort action if no tool info message recieved in last 1 second
-        if((action_curr_time - tool_info_msg_time_).seconds() > 1){
-            // Set the rover free from inner PID control
+        if((action_curr_time - servoing_msg_time).seconds() > 1){
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
-            return;
+            break;
         }
 
-        // Read errors from service call
-        double dx =0, dy = 0, dz = 0;
+        // Read errors from visual servoing
+        double dx  = visual_servo_error_.x;
+        double dy = visual_servo_error_.y;
+        double dz = visual_servo_error_.z;
 
         // Drum control
         double drum_cmd = pid_height.getCommand(dz);
@@ -294,12 +317,22 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         RCLCPP_DEBUG(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
         RCLCPP_DEBUG(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
 
+        if (abs(dz) < 0.01 && abs(dx) < 0.01 && abs(dy) < 0.01)
+        {
+            RCLCPP_INFO(this->get_logger(), "Autodump reached targets");
+            break;
+        }
+
         loop_rate.sleep();
     }
     // Set targets to 0 to stop the rover
     rover_cmd.actuator_speed = 0;
     rover_cmd.mobility_twist.linear.x = 0;
     this->rover_auto_cmd_pub_->publish(rover_cmd);
+
+    // Stop Visual Servoing
+    switch_request->switch_state = false;
+    switch_result_ = switch_client_->async_send_request(switch_request);
 
     // Dump!
     auto dump_start_time = this->get_clock()->now();
