@@ -11,7 +11,7 @@ camera:
         ######
 
         # Device Configuration
-        initial_reset: true # refresh the connection on startup
+        initial_reset: false # refresh the connection on startup
         device_type: d435 # Make sure we're connecting to the correct device type        
         
         # Point cloud

@@ -38,7 +38,7 @@ from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseArray, Pose
-from ros2_aruco_interfaces.msg import ArucoMarkers, ToolHeight
+from ros2_aruco_interfaces.msg import ArucoMarkers, ToolHeight, DrumPosition
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 
@@ -191,12 +191,12 @@ class ArucoNode(rclpy.node.Node):
                 )
             for i, marker_id in enumerate(marker_ids):
                 pose = Pose()
-                heights = ToolHeight()
+                heights = Float64()
 		
                 pose.position.x = tvecs[i][0][0]
                 pose.position.y = tvecs[i][0][1]
                 pose.position.z = tvecs[i][0][2]
-                heights.tool_height = -(tvecs[i][0][1]* 0.7349 + tvecs[i][0][2]* 0.2389 -0.2688)/0.6346
+                heights.data = -(tvecs[i][0][1]* 0.7349 + tvecs[i][0][2]* 0.2389 -0.2688)/0.6346
 
                 rot_matrix = np.eye(4)
                 rot_matrix[0:3, 0:3] = cv2.Rodrigues(np.array(rvecs[i][0]))[0]
@@ -215,7 +215,7 @@ class ArucoNode(rclpy.node.Node):
             heights.data = self.filtered_heights
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
-            # self.tool_height_pub.publish(heights)
+            self.tool_height_pub.publish(heights)
 	
 
 

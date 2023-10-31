@@ -49,14 +49,6 @@ def generate_launch_description():
       output='screen',
       parameters=[{'use_sim_time': use_sim_time_param}],
     ),
-
-    # Node(
-    #   package='lx_localization',
-    #   executable='custom_localization',
-    #   name='custom_localization',
-    #   output='screen',
-    #   parameters=[{'use_sim_time': use_sim_time_param}],
-    # ),
     
     Node(
       package='rviz2',
