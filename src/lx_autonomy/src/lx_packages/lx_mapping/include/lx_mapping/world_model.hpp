@@ -8,6 +8,11 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/transforms.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include <thread>
 
 
@@ -25,6 +30,10 @@ class WorldModel : public rclcpp::Node
                                      berm_costmap_, 
                                      zone_costmap_, 
                                      world_model_;
+        // Transforms
+        std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
         // Subscribers
         std::thread fuse_map_thread_;
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr transformed_pcl_subscriber_;
@@ -44,6 +53,12 @@ class WorldModel : public rclcpp::Node
         /*
         *
         * */
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr transformMap(const sensor_msgs::msg::PointCloud2::SharedPtr);
+
+        /*
+        *
+        */
         void configureMaps();
 
         /*

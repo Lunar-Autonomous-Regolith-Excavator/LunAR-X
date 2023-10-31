@@ -96,10 +96,71 @@ void WorldModel::transformedPCLCallback(const sensor_msgs::msg::PointCloud2::Sha
     fuse_map_thread_.detach();
 }
 
+pcl::PointCloud<pcl::PointXYZ>::Ptr WorldModel::transformMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
+    
+    RCLCPP_INFO(this->get_logger(), "A2");
+    geometry_msgs::msg::TransformStamped base2moonyard_transform;
+    RCLCPP_INFO(this->get_logger(), "B2");
+    try
+    {
+      base2moonyard_transform = tf_buffer_->lookupTransform("moonyard","base_link",tf2::TimePointZero, tf2::durationFromSec(10));
+      RCLCPP_INFO(this->get_logger(), "Transform found");
+    }
+    catch (tf2::TransformException& ex)
+    {
+      RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+
+      return nullptr;
+    }
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromROSMsg(*msg, *cloud);
+
+    RCLCPP_INFO(this->get_logger(), "cloud size: %d", cloud->points.size());
+
+    // convert x,y,z,w to roll, pitch, yaw
+    tf2::Quaternion q(base2moonyard_transform.transform.rotation.x, base2moonyard_transform.transform.rotation.y, base2moonyard_transform.transform.rotation.z, base2moonyard_transform.transform.rotation.w);
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
+
+    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+    transform_2.translation() << base2moonyard_transform.transform.translation.x, base2moonyard_transform.transform.translation.y, base2moonyard_transform.transform.translation.z;
+    transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
+    transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
+    transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
+
+    RCLCPP_INFO(this->get_logger(), "C");
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
+    RCLCPP_INFO(this->get_logger(), "D");
+    pcl::transformPointCloud(*cloud, *transformed_cloud, transform_2);
+    RCLCPP_INFO(this->get_logger(), "E");
+
+    return transformed_cloud;
+}
+
 void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_local_map(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::fromROSMsg(*msg, *cropped_cloud_local_map);  
+    RCLCPP_INFO(this->get_logger(), "A");
+    try
+    {
+        cropped_cloud_local_map = transformMap(msg);
+        RCLCPP_INFO(this->get_logger(), "C3");
+    }
+    catch(const std::exception& e)
+    {
+        RCLCPP_INFO(this->get_logger(), "F");
+        std::cerr << e.what() << '\n';
+        RCLCPP_INFO(this->get_logger(), "F");
+        return;
+    }
+    
+
+    RCLCPP_INFO(this->get_logger(), "B");
 
     // calculate average y-values of inliers in the square patch with corners (x=0.05,z=0.45) and (x=0.1, z = 0.5)
     double sum_y = 0;
