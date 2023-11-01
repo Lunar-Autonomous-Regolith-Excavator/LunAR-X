@@ -311,7 +311,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     // A-button rising-edge calls service to start mapping
     if(joy_msg->buttons[int(JoyButtons::A)] && !joy_last_state_.buttons[int(JoyButtons::A)]){
         // Check debounce time
-        if((this->get_clock()->now() - a_debounce_timer_).seconds() > 1.0){
+        if((this->get_clock()->now() - a_debounce_timer_).seconds() > 1.0 && current_rover_op_mode_ == OpModeEnum::TELEOP){
             callStartMappingSwitch(true);
         }
         a_debounce_timer_ = this->get_clock()->now();
@@ -320,7 +320,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     // B-button rising-edge calls service to stop mapping
     if(joy_msg->buttons[int(JoyButtons::B)] && !joy_last_state_.buttons[int(JoyButtons::B)]){
         // Check debounce time
-        if((this->get_clock()->now() - b_debounce_timer_).seconds() > 1.0){
+        if((this->get_clock()->now() - b_debounce_timer_).seconds() > 1.0 && current_rover_op_mode_ == OpModeEnum::TELEOP){
             callStartMappingSwitch(false);
         }
         b_debounce_timer_ = this->get_clock()->now();
