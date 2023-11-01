@@ -46,6 +46,7 @@ class ArucoNode(rclpy.node.Node):
     def __init__(self):
         super().__init__("aruco_node")
         self.filtered_heights = 0
+        self.not_got_msg_count = 0
 
         # Declare and read parameters
         self.declare_parameter(
@@ -216,6 +217,14 @@ class ArucoNode(rclpy.node.Node):
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
             self.tool_height_pub.publish(heights)
+            self.not_got_msg_count = 0 
+            
+        if marker_ids is None:
+            self.not_got_msg_count += 1
+            if self.not_got_msg_count > 20:
+                heights = Float64()
+                heights.data = 0.48
+                self.tool_height_pub.publish(heights)        
 	
 
 

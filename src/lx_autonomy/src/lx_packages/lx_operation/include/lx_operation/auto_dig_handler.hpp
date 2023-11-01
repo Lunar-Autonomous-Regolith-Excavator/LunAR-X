@@ -30,7 +30,7 @@ class AutoDigHandler: public rclcpp::Node
         unsigned int diagnostic_pub_period_ = 1;
         bool debugging_publish_ = false;
         // Time
-        rclcpp::Time tool_info_msg_time_;
+        rclcpp::Time tool_info_msg_time_ = rclcpp::Time(0,0,RCL_ROS_TIME);
         rclcpp::TimerBase::SharedPtr rover_command_timer_;
         rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
         // Service clients
@@ -71,7 +71,7 @@ class AutoDigHandler: public rclcpp::Node
         const double NOMINAL_CURRENT_VALUE_F = 3.1;
         const double T_END_SECONDS = 45; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
         const double GOTO_TOOL_HEIGHT = 0.2; // the height the tool goes to before starting excavation
-        const double END_TOOL_HEIGHT = 0.35; // the height the tool goes to after excavation is complete
+        const double END_TOOL_HEIGHT = 0.45; // the height the tool goes to after excavation is complete
         
         // --------------------------------------
 

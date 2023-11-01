@@ -68,7 +68,7 @@ def generate_launch_description():
       name='remap_msgs_localization',
       output='screen',
       parameters=[{'use_sim_time': use_sim_time_param}],
-    ),    
+    ),
     
     Node(
       package='rviz2',
