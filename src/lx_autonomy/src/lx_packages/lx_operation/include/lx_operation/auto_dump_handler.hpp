@@ -31,12 +31,12 @@ class AutoDumpHandler: public rclcpp::Node
         pid_struct tool_height_pid_, rover_x_pid_, rover_yaw_pid_;
         geometry_msgs::msg::Point visual_servo_error_;
         double drum_height_;
-        rclcpp::Time servoing_msg_time;
+        rclcpp::Time servoing_msg_time= rclcpp::Time(0,0,RCL_ROS_TIME);
 
-        const double DRUM_DUMP_SPEED = 0.5;
-        const double DRUM_DUMP_TIME_MS = 2500;
-        const double END_TOOL_HEIGHT = 0.35;
-        const double CLIP_VEL_CMD_VAL = 0.01;
+        const double DRUM_DUMP_SPEED = 0.8;
+        const double DRUM_DUMP_TIME_S = 16;
+        const double END_TOOL_HEIGHT = 0.45;
+        const double CLIP_VEL_CMD_VAL = 0.05;
         const double CLIP_HEIGHT_CMD_VAL = 1;
         const double CLIP_YAW_CMD_VAL = 0.05;
         
