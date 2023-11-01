@@ -20,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PlannedTask.msg"
   "msg/NodeDiagnostics.msg"
   "srv/BermMetrics.srv"
+  "srv/Switch.srv"
   "srv/Plan.srv"
   "srv/UserInputRecord.srv"
   "srv/BermService.srv"

@@ -42,7 +42,10 @@ endif()
 #remap node for husky odom
 add_executable(remap_msgs_localization src/remap_msgs_localization.cpp)
 ament_target_dependencies(remap_msgs_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs)
-install(TARGETS remap_msgs_localization DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS
+  remap_msgs_localization
+  DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
   params
