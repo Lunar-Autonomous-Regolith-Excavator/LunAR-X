@@ -18,9 +18,6 @@
 #include <vector>
 #include <cmath>
 
-#ifndef PI
-#define PI 3.14159265358979323846
-#endif
 #define GETMAXINDEX(x, y, width) (y * width + x)
 
 struct BermSection {
@@ -95,7 +92,7 @@ class TaskPlanner: public rclcpp::Node
 
         static constexpr double INIT_BERM_HEIGHT = 0.1;   // m
         static constexpr double ANGLE_OF_REPOSE = 30;      // degrees
-        static constexpr int MAP_DIMENSION = 160;          // 8 m x 8 m
+        static constexpr int MAP_DIMENSION = 140;          // 8 m x 8 m
         static constexpr double MAP_RESOLUTION = 0.05;     // 5 cm
         static constexpr double MAP_ORIGIN_X = -13;    
         static constexpr double MAP_ORIGIN_Y = -9;

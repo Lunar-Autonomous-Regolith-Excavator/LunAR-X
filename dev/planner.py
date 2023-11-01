@@ -2,12 +2,27 @@ import numpy as np
 from scipy.ndimage import gaussian_filter, rotate
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib import animation
+from matplotlib.animation import FuncAnimation, PillowWriter  # For gif
+
+# visualization
+fig = plt.figure()
+ax = plt.gca()
+ax.set_aspect('equal')
+
+height_grid_arr = []
+corners_arr = []
+corners_tool_arr = []
+robot_pose_arr = []
+path_arr = []
+berm_pts_arr = []
+task_arr = []
+
+# Task types
+task_types = ['EXCAVATION', 'NAVIGATION', 'DUMP']
 
 # Global variables
-dt = 1e-2
+dt = 1e-1
 angle_of_repose = 30 # degrees
-next_berm_width = 60 # cms
 
 # class for Robot
 class Robot:
@@ -83,12 +98,20 @@ class Robot:
         self.tool_x = self.x + Robot.TOOL_POS * np.cos(self.theta)
         self.tool_y = self.y + Robot.TOOL_POS * np.sin(self.theta)
     
+    def shift(self, dx, dy, dtheta):
+        self.x += dx
+        self.y += dy
+        self.theta += dtheta
+        self.rot_mat = np.array([[np.cos(self.theta), -np.sin(self.theta)], [np.sin(self.theta), np.cos(self.theta)]])
+        self.tool_x = self.x + Robot.TOOL_POS * np.cos(self.theta)
+        self.tool_y = self.y + Robot.TOOL_POS * np.sin(self.theta)
+    
     def actuate_tool(self, v):
         global dt
         self.tool_height += np.sign(v) * Robot.TOOL_VEL * dt
         return np.clip(self.tool_height, Robot.MIN_TOOL_HEIGHT, Robot.MAX_TOOL_HEIGHT)
 
-def visualize(fig, ax, height_grid, robot, path):
+def visualize(berm_input_pts, height_grid, robot, path):
     # visualize the height map with legend with y axis inverted
     plt.imshow(height_grid.T, cmap='viridis', origin='lower')
     plt.colorbar(label='Value')
@@ -96,17 +119,48 @@ def visualize(fig, ax, height_grid, robot, path):
     # visualize the robot as rectangle
     corners = robot.get_corners()
     rectangle = patches.Polygon(corners, color='r')
-    ax.add_patch(rectangle)
+    plt.gca().add_patch(rectangle)
     # visualize the tool
     corners_tool = robot.get_corners_tool()
     tool = patches.Polygon(corners_tool, color='r')
-    ax.add_patch(tool)
+    plt.gca().add_patch(tool)
     # join robot and tool
     plt.plot([robot.x, robot.tool_x], [robot.y, robot.tool_y], 'r')
 
     # visualize the path
     plt.plot(path[:-100, 0], path[:-100, 1], 'b')
+
+    # plot berm input points and connect them
+    plt.plot(berm_input_pts[:, 0], berm_input_pts[:, 1], 'bo-')
+
     plt.show()
+
+def getFrame(i, berm_pts_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr):
+    artists = []
+
+    plt.gca().cla()
+    
+    # visualize the height map with legend with y axis inverted
+    artists.append(plt.imshow(height_grid_arr[i].T, cmap='viridis', origin='lower'))
+    # artists.append(plt.colorbar(label='Value'))
+
+    # visualize the robot as rectangle
+    artists.append(plt.gca().add_patch(patches.Polygon(corners_arr[i], color='r')))
+    # visualize the tool
+    artists.append(plt.gca().add_patch(patches.Polygon(corners_tool_arr[i], color='r')))
+    # join robot and tool
+    artists.append(plt.plot([robot_pose_arr[i][0], robot_pose_arr[i][2]], [robot_pose_arr[i][1], robot_pose_arr[i][3]], 'r'))
+
+    # visualize the path
+    artists.append(plt.plot(path_arr[i][:, 0], path_arr[i][:, 1], 'b'))
+
+    # plot berm input points and connect them
+    artists.append(plt.plot(berm_pts_arr[i][:, 0], berm_pts_arr[i][:, 1], 'bo-'))
+
+    # Add task as title
+    artists.append(plt.title('Task: ' + task_arr[i]))
+    
+    return artists
 
 def get_berm(theta: float, length: int, height: int):
     global angle_of_repose
@@ -114,6 +168,9 @@ def get_berm(theta: float, length: int, height: int):
     radius = int(np.ceil(height / np.tan(np.deg2rad(angle_of_repose))))
     width = 2 * radius # even 
     total_length = width + length # even
+    # total_length = length # even
+    # length = total_length - width # even
+
     berm_grid = np.zeros((width, total_length))
     
     X, Y = np.meshgrid(np.arange(-radius, radius), np.arange(-radius, radius))
@@ -158,17 +215,13 @@ def overlay_berm(berm, berm_x, berm_y, height_grid, occupancy_grid):
 
     return height_grid
 
-
 if __name__ == '__main__':
 
-    desired_berm_height = 15 # cms
+    desired_berm_height = 10 # cms
+    berm_section_length = 40 # cms
     
     # Set a seed for reproducibility
     # np.random.seed(42)
-
-    # visualization
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal')
 
     # Generate a 70 by 70 array with random height values
     height_grid = np.random.rand(70, 70)
@@ -180,12 +233,89 @@ if __name__ == '__main__':
     occupancy_grid = np.zeros(height_grid.shape)
     occupancy_grid[height_grid > 5] = 1
 
+    # read input CSV for berm points
+    berm_points = np.genfromtxt('./dev/input.csv', delimiter=',')
+    # convert to cms
+    berm_points *= 100
+
+    # read output CSV
+    output_points = np.genfromtxt('./dev/output.csv', delimiter=',')
+
     # generate a robot
-    robot = Robot(100, 350, np.deg2rad(90))
+    robot = Robot(350, 100, np.deg2rad(90))
 
-    # generate a berm and overlay it on the height map
-    berm = get_berm(robot.theta, Robot.TOOL_WIDTH, desired_berm_height)
-    height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid, occupancy_grid)
+    # # generate a berm and overlay it on the height map
+    # berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
+    # height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid, occupancy_grid)
+    
+    robot_path = []
+    for out in output_points:
+        task, x, y, theta = out
+        task = int(task)
+        # convert to cms
+        x *= 100
+        y *= 100
+        # convert to radians
+        theta = np.deg2rad(theta)
+    
+        if task == 0: # excavation
+            dx = 0
+            dy = 150
+            dtheta = 0
+            for i in range(0, 10):
+                robot_path.append([robot.x, robot.y])
+                height_grid_arr.append(height_grid.copy())
+                corners_arr.append(robot.get_corners())
+                corners_tool_arr.append(robot.get_corners_tool())
+                robot_pose_arr.append([robot.x, robot.y, robot.tool_x, robot.tool_y])
+                path_arr.append(np.array(robot_path)[-10:, :])
+                berm_pts_arr.append(berm_points.copy())
+                task_arr.append(task_types[task])
 
-    # visualize the robot
-    visualize(fig, ax, height_grid, robot, np.array([[robot.x, robot.y]]))
+                robot.shift(dx * dt, dy * dt, dtheta * dt)
+        
+        elif task == 1: # navigation
+            dx = x - robot.x
+            dy = y - robot.y
+            dtheta = theta - robot.theta
+            if dx == 0 and dy == 0 and dtheta == 0:
+                continue
+
+            for i in range(0, 10):
+                robot_path.append([robot.x, robot.y])
+                height_grid_arr.append(height_grid.copy())
+                corners_arr.append(robot.get_corners())
+                corners_tool_arr.append(robot.get_corners_tool())
+                robot_pose_arr.append([robot.x, robot.y, robot.tool_x, robot.tool_y])
+                path_arr.append(np.array(robot_path)[-10:, :])
+                berm_pts_arr.append(berm_points.copy())
+                task_arr.append(task_types[task])
+
+                robot.shift(dx * dt, dy * dt, dtheta * dt)
+        
+        elif task == 2: # dump
+            berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
+            height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid, occupancy_grid)
+            berm_points = berm_points[1:, :]
+            for i in range(0, 10):
+                robot_path.append([robot.x, robot.y])
+                height_grid_arr.append(height_grid.copy())
+                corners_arr.append(robot.get_corners())
+                corners_tool_arr.append(robot.get_corners_tool())
+                robot_pose_arr.append([robot.x, robot.y, robot.tool_x, robot.tool_y])
+                path_arr.append(np.array(robot_path)[-10:, :])
+                berm_pts_arr.append(berm_points.copy())
+                task_arr.append(task_types[task])
+
+
+    # # visualize the robot
+    # # visualize(berm_points, height_grid, robot, np.array(robot_path))
+
+    animation = FuncAnimation(fig, getFrame, frames=len(height_grid_arr), fargs=(berm_pts_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr))
+    animation.save('animation.gif', writer='pillow', fps=10)
+
+    # save the height map in png
+    plt.imshow(height_grid.T, cmap='viridis', origin='lower')
+    # colorbar bottom
+    plt.colorbar(label='Value', orientation='horizontal')
+    plt.savefig('height_map.png')

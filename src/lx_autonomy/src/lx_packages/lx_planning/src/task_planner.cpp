@@ -66,7 +66,8 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     desired_berm_height_ = req->berm_height;
     section_length_ = req->section_length;
 
-    if (!findBermSequence(berm_points)) {
+    // Find berm sequence if not already found
+    if (berm_sequence_.size() == 0 && !findBermSequence(berm_points)) {
         return;
     }
 
@@ -79,12 +80,20 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     excavation_task.task_type = lx_msgs::msg::PlannedTask::EXCAVATION;
 
     geometry_msgs::msg::Pose start_pose;
-    start_pose.position.x = 3;
+    start_pose.position.x = 3.5;
     start_pose.position.y = 1;
+    start_pose.position.z = 0;
+    tf2::Quaternion q;
+    q.setRPY(0.0, 0.0, M_PI / 2);
+    start_pose.orientation = tf2::toMsg(q);
     excavation_task.pose = start_pose;
 
+    // TEMPORARY
+    drum_to_base_ = 1.0;
+    berm_section_heights_.resize(berm_sequence_.size(), 0.0);
+
     // Loop through the berm sections
-    for (int i = 0; i < berm_sequence_.size(); i++){
+    for (int i = 0; i < berm_sequence_.size(); i++) {
         // Get the berm section
         BermSection berm_section = berm_sequence_[i];
         // Find the dump pose
@@ -159,16 +168,16 @@ geometry_msgs::msg::Pose TaskPlanner::findDumpPose(const BermSection &berm_secti
     tf2::Quaternion q;
 
     // Calculate dump poses on either side of the berm section with drum_to_base_ distance from the berm section center
-    double angle_1 = berm_section.angle + PI / 2;
+    double angle_1 = berm_section.angle + M_PI / 2;
     dump_pose_1.position.x = berm_section.center.x + drum_to_base_ * cos(angle_1);
     dump_pose_1.position.y = berm_section.center.y + drum_to_base_ * sin(angle_1);
-    q.setRPY(0.0, 0.0, angle_1);
+    q.setRPY(0.0, 0.0, angle_1 - M_PI);
     dump_pose_1.orientation = tf2::toMsg(q);
 
-    double angle_2 = berm_section.angle - PI / 2;
+    double angle_2 = berm_section.angle - M_PI / 2;
     dump_pose_2.position.x = berm_section.center.x + drum_to_base_ * cos(angle_2);
     dump_pose_2.position.y = berm_section.center.y + drum_to_base_ * sin(angle_2);
-    q.setRPY(0.0, 0.0, angle_2);
+    q.setRPY(0.0, 0.0, angle_2 + M_PI);
     dump_pose_2.orientation = tf2::toMsg(q);
 
     // Find which is closer to start pose
@@ -189,21 +198,21 @@ geometry_msgs::msg::Pose TaskPlanner::findDumpPose(const BermSection &berm_secti
 int TaskPlanner::numOfDumps(int berm_section_index) {
     // Estimate volume (area) of berm section
     double section_height = berm_section_heights_[berm_section_index];
-    double est_section_width = 2 * section_height / tan(ANGLE_OF_REPOSE * PI / 180);
+    double est_section_width = 2 * section_height / tan(ANGLE_OF_REPOSE * M_PI / 180);
     double est_cross_section_area = 0.5 * est_section_width * section_length_;
 
     // Estimate volume (area) of desired berm section
     double desired_section_height = desired_berm_height_;
-    double est_desired_section_width = 2 * desired_section_height / tan(ANGLE_OF_REPOSE * PI / 180);
+    double est_desired_section_width = 2 * desired_section_height / tan(ANGLE_OF_REPOSE * M_PI / 180);
     double est_desired_cross_section_area = 0.5 * est_desired_section_width * section_length_;
 
     // Estimate volume (area) of each dump
     double dump_height = TaskPlanner::INIT_BERM_HEIGHT;
-    double est_dump_width = 2 * dump_height / tan(ANGLE_OF_REPOSE * PI / 180);
+    double est_dump_width = 2 * dump_height / tan(ANGLE_OF_REPOSE * M_PI / 180);
     double est_dump_cross_section_area = 0.5 * est_dump_width * section_length_;
 
     // Volume to be dumped
-    double volume_to_be_dumped = est_desired_cross_section_area - est_cross_section_area;
+    double volume_to_be_dumped = std::max(est_desired_cross_section_area - est_cross_section_area, 0.0);
 
     // Number of dumps
     int num_dumps = static_cast<int>(std::round(volume_to_be_dumped / est_dump_cross_section_area));
