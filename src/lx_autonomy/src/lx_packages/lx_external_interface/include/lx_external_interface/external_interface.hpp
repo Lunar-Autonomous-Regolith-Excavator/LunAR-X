@@ -34,7 +34,7 @@ class ExternalInterface: public rclcpp::Node
         // Clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
 		rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
-        // rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr map_switch_client_;
+        rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr map_switch_client_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_publisher_;
@@ -153,12 +153,12 @@ class ExternalInterface: public rclcpp::Node
         /*
         * Call service to switch on or off mapping
         * */
-        // void callStartMappingSwitch(bool );
+        void callStartMappingSwitch(bool );
 
         /*
         * Callback function for map switch service
         * */
-        // void mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture );
+        void mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture );
 
         /*
         * Diagnostic heartbeat published at a fixed rate

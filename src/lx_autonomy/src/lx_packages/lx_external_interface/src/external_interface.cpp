@@ -64,12 +64,11 @@ void ExternalInterface::setupCommunications(){
 
     // Publishers
     rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_teleop_cmd", 10);
-    last_berm_eval_publisher_ = this->create_publisher<lx_msgs::msg::BermMetrics>("last_berm_config", 10);
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
-    // map_switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/map_switch");
+    map_switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/map_switch");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
 }
 
@@ -313,9 +312,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     if(joy_msg->buttons[int(JoyButtons::A)] && !joy_last_state_.buttons[int(JoyButtons::A)]){
         // Check debounce time
         if((this->get_clock()->now() - a_debounce_timer_).seconds() > 1.0){
-            if(current_rover_op_mode_ == OpModeEnum::TELEOP){
-                // callStartMappingSwitch(true);
-            }
+            callStartMappingSwitch(true);
         }
         a_debounce_timer_ = this->get_clock()->now();
     }
@@ -324,9 +321,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     if(joy_msg->buttons[int(JoyButtons::B)] && !joy_last_state_.buttons[int(JoyButtons::B)]){
         // Check debounce time
         if((this->get_clock()->now() - b_debounce_timer_).seconds() > 1.0){
-            if(current_rover_op_mode_ == OpModeEnum::TELEOP){
-                // callStartMappingSwitch(false);
-            }
+            callStartMappingSwitch(false);
         }
         b_debounce_timer_ = this->get_clock()->now();
     }
@@ -449,35 +444,35 @@ double ExternalInterface::remapTrig(float trig_val){
     return (trig_val - original_range_start) / (original_range_end - original_range_start) * (remapped_range_end - remapped_range_start) + remapped_range_start;
 }
 
-// void ExternalInterface::callStartMappingSwitch(bool map_switch){
-//     // Call start mapping switch service
-//     while(!map_switch_client_->wait_for_service(std::chrono::seconds(1))){
-//         RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
-//     }
+void ExternalInterface::callStartMappingSwitch(bool map_switch){
+    // Call start mapping switch service
+    while(!map_switch_client_->wait_for_service(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
+    }
 
-//     auto set_request = std::make_shared<lx_msgs::srv::Switch::Request>();
+    auto set_request = std::make_shared<lx_msgs::srv::Switch::Request>();
 
-//     set_request->switch_status = map_switch;
+    set_request->switch_state = map_switch;
 
-//     RCLCPP_INFO(this->get_logger(), "Calling start mapping service");
+    RCLCPP_INFO(this->get_logger(), "Calling start mapping service");
 
-//     auto future_result = map_switch_client_->async_send_request(set_request, std::bind(&ExternalInterface::mapSwitchCB, this, std::placeholders::_1));
-// }
+    auto future_result = map_switch_client_->async_send_request(set_request, std::bind(&ExternalInterface::mapSwitchCB, this, std::placeholders::_1));
+}
 
-// void ExternalInterface::mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
-//     auto status = future.wait_for(std::chrono::milliseconds(100));
-//     if(status == std::future_status::ready){ 
-//         if(future.get()->success){
-//             RCLCPP_INFO(this->get_logger(), "Map status switched");
-//         }
-//         else{
-//             RCLCPP_WARN(this->get_logger(), "Map switch server returned 'unsuccesful'");
-//         }
-//     } 
-//     else{
-//         RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
-//     }
-// }
+void ExternalInterface::mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    if(status == std::future_status::ready){ 
+        if(future.get()->success){
+            RCLCPP_INFO(this->get_logger(), "Map status switched");
+        }
+        else{
+            RCLCPP_WARN(this->get_logger(), "Map switch server returned 'unsuccesful'");
+        }
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
+}
 
 void ExternalInterface::diagnosticPublish(){
     // Publish diagnostic message
