@@ -24,6 +24,8 @@ services:
       - ./utilities/:/home/lx_autonomy/lx_autonomy_ws/utilities/
       - /dev/:/dev/
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
 
     tty: true
     stdin_open: true
@@ -49,6 +51,8 @@ services:
       - ./src/lx_hardware/init_hardware.sh:/home/lx_hardware/init_hardware.sh
       - /dev/:/dev/
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
 
     tty: true
     stdin_open: true
