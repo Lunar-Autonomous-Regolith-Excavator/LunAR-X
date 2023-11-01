@@ -21,6 +21,29 @@
 #include "lx_msgs/srv/switch.hpp"
 
 
+// Class for PID
+class PID{
+    public:
+        double kp, ki, kd;
+        double CLIP_MIN, CLIP_MAX;
+        double prev_error = 0, integral_error = 0;
+        PID(pid_struct gains, double CLIP_MIN, double CLIP_MAX){
+            this->kp = gains.kp;
+            this->ki = gains.ki;
+            this->kd = gains.kd;
+            this->CLIP_MIN = CLIP_MIN;
+            this->CLIP_MAX = CLIP_MAX;
+        }
+        double getCommand(double error)
+        {
+            double pid_command = kp*error + ki*integral_error + kd*(error - prev_error);
+            prev_error = error;
+            integral_error += error;
+            pid_command = std::min(std::max(pid_command, CLIP_MIN), CLIP_MAX);
+            return pid_command;
+        }
+};
+
 
 class AutoDumpHandler: public rclcpp::Node
 {
@@ -32,6 +55,7 @@ class AutoDumpHandler: public rclcpp::Node
         geometry_msgs::msg::Point visual_servo_error_;
         double drum_height_;
         rclcpp::Time servoing_msg_time= rclcpp::Time(0,0,RCL_ROS_TIME);
+        bool visual_servo_switch_ = false;
 
         const double DRUM_DUMP_SPEED = 0.8;
         const double DRUM_DUMP_TIME_S = 16;
@@ -42,7 +66,7 @@ class AutoDumpHandler: public rclcpp::Node
         
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
-        rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr switch_client_;
+        rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr visual_servo_client_;
         
         // Action server
         rclcpp_action::Server<AutoDump>::SharedPtr autodump_action_server_;
@@ -50,7 +74,6 @@ class AutoDumpHandler: public rclcpp::Node
         // Subscribers
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
         rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr visual_servo_error_sub_;
-        // rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr odom_sub_;
 
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_cmd_pub_;
@@ -72,10 +95,15 @@ class AutoDumpHandler: public rclcpp::Node
         * */
         void setupCommunications();
 
+        /*
+        * 
+        * */
         void drumHeightCB(const std_msgs::msg::Float64::SharedPtr);
-        void visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg);
 
-        // void odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr);
+        /*
+        * 
+        * */
+        void visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg);
 
         /*
         * Set up tracking of global parameters
@@ -124,6 +152,16 @@ class AutoDumpHandler: public rclcpp::Node
         * Execute requested action
         * */
         void executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> );
+
+        /*
+        * 
+        * */
+        bool callVisualServoSwitch(bool );
+
+        /*
+        * 
+        * */
+        void visualServoSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture );
 
     public:
         // Functions

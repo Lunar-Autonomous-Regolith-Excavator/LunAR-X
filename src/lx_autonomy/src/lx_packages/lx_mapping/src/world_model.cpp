@@ -36,6 +36,8 @@ WorldModel::WorldModel() : Node("world_model_node")
     for(int i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
         this->global_map_.data[i] = 0;
     }
+
+    RCLCPP_INFO(this->get_logger(), "World Model initialized");
 }
 
 void WorldModel::setupCommunications(){

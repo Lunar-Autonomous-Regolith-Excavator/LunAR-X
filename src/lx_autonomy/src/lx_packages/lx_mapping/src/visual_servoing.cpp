@@ -34,6 +34,8 @@ VisualServoing::VisualServoing() : Node("visual_servoing_node")
     exp_filter_x_ = ExpFilter();
     exp_filter_y_ = ExpFilter();
     exp_filter_z_ = ExpFilter();
+
+    RCLCPP_INFO(this->get_logger(), "Visual Servoing initialized");
 }
 
 void VisualServoing::setupCommunications(){
@@ -42,16 +44,17 @@ void VisualServoing::setupCommunications(){
                                     std::bind(&VisualServoing::toolHeightCallback, this, std::placeholders::_1));
     // Publishers
     visual_servo_error_publisher_ = this->create_publisher<geometry_msgs::msg::Point>("mapping/visual_servo_error", 10);
-    visual_servo_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/visual_servoing_marker", 10);
+    peakline_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/peakline_marker", 10);
+    targetpoint_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/targetpoint_marker", 10);
+    if(debug_mode_){
+        peakpoints_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/peakpoints_marker", 10);
+        groundplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/groundplane_marker", 10);
+        bermplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/bermplane_marker", 10);
+    }  
+
     // Servers
     visual_servo_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/visual_servo_switch", 
                         std::bind(&VisualServoing::startStopVSCallback, this, std::placeholders::_1, std::placeholders::_2));
-
-    // Initialize marker publishers
-    groundplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/groundplane_marker", 10);
-    bermplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/bermplane_marker", 10);
-    peakline_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/peakline_marker", 10);
-    targetpoint_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/targetpoint_marker", 10);
 }
 
 void VisualServoing::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr msg){
@@ -60,13 +63,13 @@ void VisualServoing::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr 
 
 void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
                                                 std::shared_ptr<lx_msgs::srv::Switch::Response> res){
-    if(req->switch_state && node_state == false){
+    if(req->switch_state && node_state_ == false){
         this->pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
                                         std::bind(&VisualServoing::pointCloudCallback, this, std::placeholders::_1));
-        node_state = true;
+        node_state_ = true;
     }
     else{
-        node_state = false;
+        node_state_ = false;
         this->pointcloud_subscriber_.reset();
     }
     res->success = true;
@@ -79,7 +82,12 @@ void VisualServoing::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sha
 }
 
 //function to apply RANSAC to fit ground plane on a pointcloud
-pcl::PointIndices::Ptr fitBestPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int max_iterations, double distance_threshold, int round, pcl::PointIndices::Ptr inliers, pcl::ModelCoefficients::Ptr coefficients){
+pcl::PointIndices::Ptr VisualServoing::fitBestPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                                                    int max_iterations, double distance_threshold, 
+                                                    int round, pcl::PointIndices::Ptr inliers, 
+                                                    pcl::ModelCoefficients::Ptr coefficients){
+    (void)round;
+
     pcl::SACSegmentation<pcl::PointXYZ> seg;
     seg.setOptimizeCoefficients (true);
     seg.setModelType (pcl::SACMODEL_PLANE); // fit a plane
@@ -147,13 +155,17 @@ void VisualServoing::publishVector(std::vector<double> v, std::string topic_name
         // red color
         marker_msg.color.r = 1.0;
         marker_msg.color.a = 1.0;
-        groundplane_marker_publisher_->publish(marker_msg);
+        if(debug_mode_){
+            groundplane_marker_publisher_->publish(marker_msg);
+        }
     }
     else if(topic_name == "bermplane"){
         // blue color
         marker_msg.color.b = 1.0;
         marker_msg.color.a = 1.0;
-        bermplane_marker_publisher_->publish(marker_msg);
+        if(debug_mode_){
+            bermplane_marker_publisher_->publish(marker_msg);
+        }
     }
     else if(topic_name == "targetpoint"){
         // green color
@@ -166,8 +178,9 @@ void VisualServoing::publishVector(std::vector<double> v, std::string topic_name
     }
 }
 
-vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud, pcl::PointIndices::Ptr inliers, vector<double> ground_plane_equation)
-{
+vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud, 
+                                            pcl::PointIndices::Ptr inliers, 
+                                            vector<double> ground_plane_equation){
     // make new pointcloud with only inliers
     // extract indices
     pcl::PointCloud<pcl::PointXYZ>::Ptr inlier_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -180,7 +193,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     std::vector<std::vector<std::vector<double>>> bin_values(NUM_BINS, std::vector<std::vector<double>>(NUM_BINS, std::vector<double>())); // 2D vector of bin values
 
     // bin the points
-    for(int i = 0; i < inlier_cloud->points.size(); i++){
+    for(long unsigned int i = 0; i < inlier_cloud->points.size(); i++){
         int row_idx = int((inlier_cloud->points[i].x-PCL_X_MIN_M)/(PCL_X_MAX_M-PCL_X_MIN_M)*NUM_BINS);
         int col_idx = int((inlier_cloud->points[i].y-PCL_Y_MIN_M)/(PCL_Y_MAX_M-PCL_Y_MIN_M)*NUM_BINS);
         if(row_idx<0 || row_idx>=NUM_BINS || col_idx<0 || col_idx>=NUM_BINS){
@@ -190,7 +203,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     }
 
     std::vector<std::vector<double>> median_vec(NUM_BINS, std::vector<double>(NUM_BINS,0.0)); // 2D vector of bin values
-    for(int i=0;i<NUM_BINS;i++){
+    for(int i = 0; i < NUM_BINS; i++){
         for(int j=0;j<NUM_BINS;j++){
             // calculate median of bin using O(N) algorithm
             int bin_size = bin_values[i][j].size();
@@ -205,9 +218,9 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     // for every bin in y, find the x value with the highest z value
     std::vector<int> peak_x(NUM_BINS,0.0);
     std::vector<double> peak_z(NUM_BINS,0.0);
-    for(int j=0;j<NUM_BINS;j++){
+    for(int j = 0; j < NUM_BINS; j++){
         double max_z = 0.0;
-        for(int i=0;i<NUM_BINS;i++){
+        for(int i = 0; i < NUM_BINS; i++){
             if(median_vec[i][j]>max_z){
                 max_z = median_vec[i][j];
                 peak_x[j] = i;
@@ -230,7 +243,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     marker_array_msg.scale.y = 0.05;
     marker_array_msg.color.r = 1.0;
     marker_array_msg.color.a = 1.0;
-    for(int i=0;i<NUM_BINS;i++){
+    for(int i = 0; i < NUM_BINS; i++){
         geometry_msgs::msg::Point p;
         p.x = ((double)peak_x[i]*(PCL_X_MAX_M-PCL_X_MIN_M)/NUM_BINS) + PCL_X_MIN_M;
         p.y = (double)i*(PCL_Y_MAX_M-PCL_Y_MIN_M)/NUM_BINS + PCL_Y_MIN_M;
@@ -238,11 +251,12 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         marker_array_msg.points.push_back(p);
     }
 
-    visual_servo_marker_publisher_->publish(marker_array_msg);    
-
+    if(debug_mode_){
+        peakpoints_marker_publisher_->publish(marker_array_msg);    
+    }
     // Make a new PCL pointcloud with only the points in the bins
     pcl::PointCloud<pcl::PointXYZ>::Ptr binned_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    for(int i=0;i<NUM_BINS;i++){
+    for(int i = 0; i < NUM_BINS; i++){
         pcl::PointXYZ p;
         p.x = ((double)peak_x[i]*(PCL_X_MAX_M-PCL_X_MIN_M)/NUM_BINS) + PCL_X_MIN_M;
         if (p.x < PCL_X_MIN_M + 0.01) continue;
@@ -254,7 +268,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     // get the distance of the points in binned_cloud from the ground plane
     vector<double> distances;
     double max_distance = 0.0;
-    for(int i=0;i<binned_cloud->points.size();i++){
+    for(long unsigned int i = 0; i < binned_cloud->points.size(); i++){
         double x = binned_cloud->points[i].x;
         double y = binned_cloud->points[i].y;
         double z = binned_cloud->points[i].z;
@@ -267,7 +281,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
 
     // remove points that are not witing PEAK_LINE_DISTANCE_M of the ground plane
     pcl::PointCloud<pcl::PointXYZ>::Ptr binned_cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
-    for(int i=0;i<binned_cloud->points.size();i++){
+    for(long unsigned int i=0; i < binned_cloud->points.size(); i++){
         if(abs(distances[i]-max_distance)<PEAK_LINE_DISTANCE_M){
             binned_cloud_filtered->points.push_back(binned_cloud->points[i]);
         }

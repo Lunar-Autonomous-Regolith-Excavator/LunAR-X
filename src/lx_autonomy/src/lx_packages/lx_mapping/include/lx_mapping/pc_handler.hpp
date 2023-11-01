@@ -38,8 +38,6 @@ class PointCloudHandler : public rclcpp::Node
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr tool_height_subscriber_;
         // Publishers
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr transformed_pointcloud_publisher_;
-        // Servers
-        rclcpp::Service<lx_msgs::srv::Switch>::SharedPtr pointcloud_switch_server_;
         // --------------------------------------
 
         // Functions ----------------------------
@@ -47,19 +45,15 @@ class PointCloudHandler : public rclcpp::Node
         * Set up subscribers and publishers of the node
         * */
         void setupCommunications();
-        
-        /*
-        *
-        * */
-        void pointCloudSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> ,
-                                        std::shared_ptr<lx_msgs::srv::Switch::Response> );
 
         /*
         *
         * */
         void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr );
 
-
+        /*
+        *
+        * */
         void toolHeightCallback(const std_msgs::msg::Float64::SharedPtr );
 
         /*

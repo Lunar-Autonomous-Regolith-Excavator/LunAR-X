@@ -6,36 +6,14 @@
  * Services:
  *    - /name (type): description
  *
- * - Auto Dig Action Server
+ * - Auto Dump Action Server
  * 
  * TODO
- * - Add map update call after dumping material
+ * - Angular berm dump
  * */
 
 #include "lx_operation/auto_dump_handler.hpp"
 
-// Class for PID
-class PID{
-    public:
-        double kp, ki, kd;
-        double CLIP_MIN, CLIP_MAX;
-        double prev_error = 0, integral_error = 0;
-        PID(pid_struct gains, double CLIP_MIN, double CLIP_MAX){
-            this->kp = gains.kp;
-            this->ki = gains.ki;
-            this->kd = gains.kd;
-            this->CLIP_MIN = CLIP_MIN;
-            this->CLIP_MAX = CLIP_MAX;
-        }
-        double getCommand(double error)
-        {
-            double pid_command = kp*error + ki*integral_error + kd*(error - prev_error);
-            prev_error = error;
-            integral_error += error;
-            pid_command = std::min(std::max(pid_command, CLIP_MIN), CLIP_MAX);
-            return pid_command;
-        }
-};
 
 AutoDumpHandler::AutoDumpHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("auto_dump_handler_node"){
     (void)options;
@@ -133,9 +111,6 @@ void AutoDumpHandler::setupCommunications(){
     // Subscribers 
     drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/tool_height", 1,
                         std::bind(&AutoDumpHandler::drumHeightCB, this, std::placeholders::_1));
-    // odom_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("/odometry/ekf_global_node", 10,
-    //                     std::bind(&AutoDumpHandler::odomCB, this, std::placeholders::_1));
-
     visual_servo_error_sub_ = this->create_subscription<geometry_msgs::msg::Point>("/mapping/visual_servo_error", 1,
                         std::bind(&AutoDumpHandler::visualServoErrorCB, this, std::placeholders::_1));
 
@@ -144,7 +119,7 @@ void AutoDumpHandler::setupCommunications(){
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
-    switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/visual_servo_switch");
+    visual_servo_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/visual_servo_switch");
 
     // Action server
     using namespace std::placeholders;
@@ -153,20 +128,6 @@ void AutoDumpHandler::setupCommunications(){
                                             std::bind(&AutoDumpHandler::handle_cancel, this, _1),
                                             std::bind(&AutoDumpHandler::handle_accepted, this, _1));
 }
-
-// Callbacks
-void AutoDumpHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
-    this->drum_height_ = msg->data;
-}
-
-void AutoDumpHandler::visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg){
-    this->visual_servo_error_ = *msg;
-    this->servoing_msg_time = this->get_clock()->now();
-}
-
-// void AutoDumpHandler::odomCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg){
-//     this->rover_x_ = msg->pose.pose.position.x;
-// }
 
 void AutoDumpHandler::setupParams(){
     // Subscriber for global parameter events
@@ -270,22 +231,13 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     auto pid_x = PID(rover_x_pid_, -CLIP_VEL_CMD_VAL, CLIP_VEL_CMD_VAL);
     auto pid_yaw = PID(rover_yaw_pid_, -CLIP_YAW_CMD_VAL, CLIP_YAW_CMD_VAL);
 
-    // Start Visual Servoing
-    // auto switch_request = std::make_shared<lx_msgs::srv::Switch::Request>();
-    // switch_request->switch_state = true;
-    // while(!switch_client_->wait_for_service(std::chrono::seconds(2)))
-    // {
-    //     RCLCPP_INFO(this->get_logger(), "Could not contact visual servo switch");
-    //     result->success = false;
-    //     goal_handle->abort(result);
-    //     return;
-    // }
-    // send request and wait for response
-    // auto switch_result_ = switch_client_->async_send_request(switch_request);
-    // just stop node for 5 seconds
-    // std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    RCLCPP_INFO(this->get_logger(), "Started visual servoing");
+    // Start Visual Servoing 
+    if(!callVisualServoSwitch(true)){
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch on failure");
+        return;
+    }
 
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
@@ -299,9 +251,12 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
-            // stop visual servoing
-            // switch_request->switch_state = false;
-            // switch_result_ = switch_client_->async_send_request(switch_request);
+            // Stop visual servoing
+            if(!callVisualServoSwitch(false)){
+                result->success = false;
+                goal_handle->abort(result);
+                RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch off failure");
+            }
             return;
         }
 
@@ -346,8 +301,12 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     this->rover_auto_cmd_pub_->publish(rover_cmd);
 
     // Stop Visual Servoing
-    // switch_request->switch_state = false;
-    // switch_result_ = switch_client_->async_send_request(switch_request);
+    if(!callVisualServoSwitch(false)){
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch off failure");
+        return;
+    }
 
     RCLCPP_INFO(this->get_logger(), "Finished visual servoing");
 
@@ -379,7 +338,6 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
         double drum_height_error = drum_height_ - END_TOOL_HEIGHT;
-        // double drum_pid_command = pid_height.getCommand(drum_height_error);
         double drum_pid_command = -0.8;
 
         // Publish to rover
@@ -416,5 +374,51 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         result->success = false;
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Autodump failed");
+    }
+}
+
+void AutoDumpHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
+    this->drum_height_ = msg->data;
+}
+
+void AutoDumpHandler::visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg){
+    this->visual_servo_error_ = *msg;
+    this->servoing_msg_time = this->get_clock()->now();
+}
+
+bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state){
+    auto switch_request = std::make_shared<lx_msgs::srv::Switch::Request>();
+    switch_request->switch_state = request_switch_state;
+    while(!visual_servo_client_->wait_for_service(std::chrono::seconds(2))){
+        RCLCPP_INFO(this->get_logger(), "Could not contact visual servo switch");
+        return false;
+    }
+    visual_servo_switch_ = false;
+    
+    // Send request and wait for response
+    auto visual_servo_result = visual_servo_client_->async_send_request(switch_request, std::bind(&AutoDumpHandler::visualServoSwitchCB, 
+                                                                                                    this, std::placeholders::_1));
+    
+    // Wait for visual servoing to start, wait for 3 seconds
+    auto start_time = this->get_clock()->now();
+    while(!visual_servo_switch_){
+        RCLCPP_WARN(this->get_logger(), "Waiting for visual servoing to start");
+        rclcpp::sleep_for(std::chrono::milliseconds(100));
+        if((this->get_clock()->now() - start_time).seconds() > 3){
+            RCLCPP_ERROR(this->get_logger(), "Visual servoing failed to start");
+            return false;
+        }
+    }
+    return true;
+}
+
+void AutoDumpHandler::visualServoSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    if (status == std::future_status::ready && future.get()->success){
+        RCLCPP_INFO(this->get_logger(), "Visual servoing started");
+        visual_servo_switch_ = true;
+    } 
+    else {
+        RCLCPP_INFO(this->get_logger(), "Visual servoing failed to start");
     }
 }

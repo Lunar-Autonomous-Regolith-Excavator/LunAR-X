@@ -38,7 +38,7 @@ from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseArray, Pose
-from ros2_aruco_interfaces.msg import ArucoMarkers, ToolHeight, DrumPosition
+from ros2_aruco_interfaces.msg import ArucoMarkers, ToolHeight
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 

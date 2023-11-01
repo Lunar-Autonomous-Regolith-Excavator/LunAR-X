@@ -16,11 +16,9 @@
 #include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
-#include <pcl/filters/statistical_outlier_removal.h>
-#include <pcl/filters/passthrough.h>
 #include <geometry_msgs/msg/point.hpp>
 #include "rclcpp/logger.hpp"
-#include<vector>
+#include <vector>
 
 using namespace std;
 
@@ -40,6 +38,7 @@ class ExpFilter{
             return this->prev_output;
         }
 };
+
 class VisualServoing : public rclcpp::Node
 {
     private:
@@ -54,7 +53,7 @@ class VisualServoing : public rclcpp::Node
         const double DRUM_X_BASELINK_M = 0.89; // higher value -> rover stops more behind the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
         const double DRUM_Z_BASELINK_M = -0.3; // more negative-> higher drum
-        bool node_state = false; // state of the node
+        bool node_state_ = false; // state of the node
 
         // Exp filters for error values
         ExpFilter exp_filter_x_, exp_filter_y_, exp_filter_z_;
@@ -64,7 +63,7 @@ class VisualServoing : public rclcpp::Node
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_subscriber_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr tool_height_subscriber_;
         // Publishers
-        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr visual_servo_marker_publisher_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr peakpoints_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr groundplane_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bermplane_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr peakline_marker_publisher_;
@@ -89,23 +88,30 @@ class VisualServoing : public rclcpp::Node
         /*
         *
         * */
+        void publishVector(std::vector<double> , std::string);
 
-        void publishVector(std::vector<double> v, std::string);
+        /*
+        *
+        * */
         vector<double> calculateNormalVector(pcl::ModelCoefficients::Ptr);
-        vector<double> binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud, pcl::PointIndices::Ptr inliers, vector<double> ground_plane_equation);
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr  processPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr );
 
         /*
         *
-        */
+        * */
+        vector<double> binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr , pcl::PointIndices::Ptr , vector<double> );
 
-        void bestPlaneFit(pcl::PointCloud<pcl::PointXYZ>::Ptr , int , double , int , pcl::PointIndices::Ptr , pcl::ModelCoefficients::Ptr );
         /*
         *
-        */
-        // define crossProduct function
+        * */
+        pcl::PointIndices::Ptr fitBestPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr , 
+                                                            int ,double ,int , pcl::PointIndices::Ptr , 
+                                                            pcl::ModelCoefficients::Ptr );
+
+        /*
+        *
+        * */
         vector<double> crossProduct(std::vector<double>, std::vector<double>);
+
         /*
         *
         */

@@ -25,38 +25,22 @@ PointCloudHandler::PointCloudHandler() : Node("pc_handler_node")
     setupCommunications();
 
     this->tool_height_wrt_base_link_ = 1000.0;
+
+    RCLCPP_INFO(this->get_logger(), "Point Cloud Handler initialized");
 }
 
 
 void PointCloudHandler::setupCommunications(){
+    // Subscribers
+    tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>("tool_height", 10, 
+                                                                                        std::bind(&PointCloudHandler::toolHeightCallback, this, std::placeholders::_1));
+    pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("camera/depth/color/points", 10, 
+                                                                                        std::bind(&PointCloudHandler::processPointCloud, this, std::placeholders::_1));
     // Publishers
     transformed_pointcloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10);
-    // Servers
-    pointcloud_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/pointcloud_switch", 
-                        std::bind(&PointCloudHandler::pointCloudSwitchCallback, this, std::placeholders::_1, std::placeholders::_2));
     // Transform Listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-}
-
-
-void PointCloudHandler::pointCloudSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
-                                                    std::shared_ptr<lx_msgs::srv::Switch::Response> res){
-
-    this->tool_height_wrt_base_link_ = 1000.0;
-
-    if(req->switch_state){
-        tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>(
-                    "tool_height", 10, std::bind(&PointCloudHandler::toolHeightCallback, this, std::placeholders::_1));
-        pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-                    "camera/depth/color/points", 10, std::bind(&PointCloudHandler::processPointCloud, this, std::placeholders::_1));
-
-    }
-    else{
-        this->pointcloud_subscriber_.reset();
-    }
-
-    res->success = true;
 }
 
 
