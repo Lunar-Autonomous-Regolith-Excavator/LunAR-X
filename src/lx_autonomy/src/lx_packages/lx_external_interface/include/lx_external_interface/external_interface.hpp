@@ -9,8 +9,7 @@
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
-#include "lx_msgs/msg/berm_metrics.hpp"
-#include "lx_msgs/srv/berm_metrics.hpp"
+#include "lx_msgs/srv/switch.hpp"
 #include "lx_msgs/msg/node_diagnostics.hpp"
 
 
@@ -25,6 +24,7 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Time guide_debounce_timer_;
         rclcpp::Time start_debounce_timer_;
         rclcpp::Time back_debounce_timer_;
+        rclcpp::Time a_debounce_timer_;
         rclcpp::Time b_debounce_timer_;
         // Track joystick states
         sensor_msgs::msg::Joy joy_last_state_ = sensor_msgs::msg::Joy();
@@ -33,12 +33,11 @@ class ExternalInterface: public rclcpp::Node
         std::thread rover_control_pub_thread_;
         // Clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
-        rclcpp::Client<lx_msgs::srv::BermMetrics>::SharedPtr evaluate_berm_client_;
 		rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
+        rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr map_switch_client_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_publisher_;
-        rclcpp::Publisher<lx_msgs::msg::BermMetrics>::SharedPtr last_berm_eval_publisher_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -152,14 +151,14 @@ class ExternalInterface: public rclcpp::Node
         double remapTrig(float );
         
         /*
-        * Call service to evaluate berm metrics
+        * Call service to switch on or off mapping
         * */
-        void callBermEvaluation();
+        void callStartMappingSwitch(bool );
 
         /*
-        * Publish the evaluated berm
+        * Callback function for map switch service
         * */
-        void bermEvalCB(rclcpp::Client<lx_msgs::srv::BermMetrics>::SharedFuture );
+        void mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture );
 
         /*
         * Diagnostic heartbeat published at a fixed rate
