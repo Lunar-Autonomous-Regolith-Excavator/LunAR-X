@@ -64,38 +64,6 @@ def generate_launch_description():
         AnyLaunchDescriptionSource([foxglove_dir, '/foxglove_bridge_launch.xml']),
     )
 
-    tf_node = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='camera_link_to_base_link',
-      output='screen',
-      arguments=['0.27', '0.21' ,'0.7' ,'0.0' ,'0.65' ,'-0.06', 'base_link', 'camera_link'],
-    ) # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
-
-    tf_camera_link = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='camera_link_to_camera_depth_frame',
-      output='screen',
-      arguments=['0.0', '0' ,'0' ,'0.0' ,'0' ,'0', '1', 'camera_link', 'camera_depth_frame'],
-    ) 
-
-    tf_camera_depth_link = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='camera_link_to_camera_depth_optical_frame',
-      output='screen',
-      arguments=['0.0', '0' ,'0' ,'-0.5' ,'0.5' ,'-0.5', '0.5', 'camera_depth_frame', 'camera_depth_optical_frame'],
-    ) 
-
-    tf_moonyard_link = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='map_to_moonyard',
-      output='screen',
-      arguments=['9', '5' ,'0' ,'0' ,'0' ,'0', '0', 'map', 'moonyard'],
-    )
-
     pcl_relay = Node(
       package='lx_mapping',
       executable='pcl_relay_node',
@@ -105,17 +73,13 @@ def generate_launch_description():
     
     ld.add_action(param_server_launch)
     ld.add_action(description_launch)
-    ld.add_action(diagnostics_launch)
+    # ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
     ld.add_action(operation_launch)
-    ld.add_action(tf_node)
-    ld.add_action(tf_camera_link)
-    ld.add_action(tf_camera_depth_link)
-    ld.add_ction(tf_moonyard_link)
     ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
-    ld.add_action(mapping_launch)
-    ld.add_action(localization_launch)
+    # ld.add_action(mapping_launch)
+    # ld.add_action(localization_launch)
     
     return ld

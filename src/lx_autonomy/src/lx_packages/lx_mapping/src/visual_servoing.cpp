@@ -19,7 +19,6 @@
 
 #include "lx_mapping/visual_servoing.hpp"
 
-
 VisualServoing::VisualServoing() : Node("visual_servoing_node")
 {   
     // Set false for dry runs, set true for commands and to publish debug data
@@ -30,6 +29,11 @@ VisualServoing::VisualServoing() : Node("visual_servoing_node")
 
     // When tool height not defined
     tool_height_wrt_base_link_ = 1000;
+
+    // Initialize exp filters
+    exp_filter_x_ = ExpFilter();
+    exp_filter_y_ = ExpFilter();
+    exp_filter_z_ = ExpFilter();
 }
 
 void VisualServoing::setupCommunications(){
@@ -56,11 +60,13 @@ void VisualServoing::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr 
 
 void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
                                                 std::shared_ptr<lx_msgs::srv::Switch::Response> res){
-    if(req->switch_state){
+    if(req->switch_state && node_state == false){
         this->pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
                                         std::bind(&VisualServoing::pointCloudCallback, this, std::placeholders::_1));
+        node_state = true;
     }
     else{
+        node_state = false;
         this->pointcloud_subscriber_.reset();
     }
     res->success = true;
@@ -153,7 +159,9 @@ void VisualServoing::publishVector(std::vector<double> v, std::string topic_name
         // green color
         marker_msg.color.g = 1.0;
         marker_msg.color.a = 1.0;
-        marker_msg.points[0].z = std::min(0.45, tool_height_wrt_base_link_);
+        marker_msg.points[0].x = DRUM_X_BASELINK_M;
+        marker_msg.points[0].y = DRUM_Y_BASELINK_M;
+        marker_msg.points[0].z = std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
         targetpoint_marker_publisher_->publish(marker_msg);
     }
 }
@@ -264,6 +272,10 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
             binned_cloud_filtered->points.push_back(binned_cloud->points[i]);
         }
     }
+    if (binned_cloud_filtered->points.size() < 2){
+        RCLCPP_INFO(this->get_logger(), "No berm, as could not find peak line");
+        return {};
+    }
 
     // fit a line to the binned cloud
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
@@ -322,7 +334,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_minus_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
-    fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
+    fitBestPlane(input_cloud, 100, 0.02, 1, inliers_1, coefficients_1);
     // delete inliers from cloud
     pcl::ExtractIndices<pcl::PointXYZ> extract;
     extract.setInputCloud(input_cloud);
@@ -330,9 +342,14 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     extract.setNegative(true);
     extract.filter(*cloud_minus_plane1);
 
+    // if no points in cloud_minus_plane1, then no berm
+    if(cloud_minus_plane1->points.size() < 30){
+        RCLCPP_INFO(this->get_logger(), "No berm, as could not find second plane");
+        return;
+    }
     pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
-    fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
+    fitBestPlane(cloud_minus_plane1, 100, 0.02, 2, inliers_2, coefficients_2);
 
     std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
     std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
@@ -350,6 +367,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         // no berm
         ground_plane_vec = &normal_1;
         berm_plane_vec = &normal_1;
+        RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small");
     }
     else if(cross_product[1]<0){
         ground_plane_vec = &normal_1;
@@ -376,10 +394,23 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         target_point[2] = line_coefficients[2] + line_coefficients[5]*t;
         publishVector(target_point, "targetpoint");
 
-        error_msg.x = target_point[0] - DRUM_X_BASELINK_M;
-        error_msg.y = target_point[1] - DRUM_Y_BASELINK_M;
-        error_msg.z = target_point[2] - std::min(0.45, tool_height_wrt_base_link_);
+        error_msg.x = exp_filter_x_.getValue(target_point[0] - DRUM_X_BASELINK_M);
+        // calculate yaw error by projecting the direction vector into the x-y plane
+        double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
+        // shift yaw error to -pi/2 to pi/2
+        if(yaw_error > M_PI/2){
+            yaw_error = yaw_error - M_PI;
+        }
+        else if(yaw_error < -M_PI/2){
+            yaw_error = yaw_error + M_PI;
+        }
+        error_msg.y = exp_filter_y_.getValue(yaw_error);
+        error_msg.z = exp_filter_z_.getValue(target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M);
         visual_servo_error_publisher_->publish(error_msg);
+    }
+    else
+    {
+        RCLCPP_INFO(this->get_logger(), "No line coefficients");
     }
 
 

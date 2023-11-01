@@ -24,7 +24,22 @@
 
 using namespace std;
 
-
+// Exponential filter class
+class ExpFilter{
+    public:
+        double DECAY_RATE;
+        double prev_output;
+        ExpFilter(double decay_rate = 0.9)
+        {
+            this->DECAY_RATE = decay_rate;
+            this->prev_output = 0.0;
+        }
+        double getValue(double input)
+        {
+            this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
+            return this->prev_output;
+        }
+};
 class VisualServoing : public rclcpp::Node
 {
     private:
@@ -33,11 +48,16 @@ class VisualServoing : public rclcpp::Node
         double tool_height_wrt_base_link_;
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
-        const int NUM_BINS = 50; // number of bins in each dim the ROI
+        const int NUM_BINS = 100; // number of bins in each dim the ROI
         const double MIN_PLANE_ANGLE_DEG = 15.0; // minimum angle of the plane wrt the ground plane
         const double PEAK_LINE_DISTANCE_M = 0.05; // max dist between two points in the peak line
-        const double DRUM_X_BASELINK_M = 0.5; // x coordinate of the drum wrt base_link
+        const double DRUM_X_BASELINK_M = 0.89; // higher value -> rover stops more behind the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
+        const double DRUM_Z_BASELINK_M = -0.3; // more negative-> higher drum
+        bool node_state = false; // state of the node
+
+        // Exp filters for error values
+        ExpFilter exp_filter_x_, exp_filter_y_, exp_filter_z_;
         
         std::thread pointcloud_thread_;
         // Subscribers
