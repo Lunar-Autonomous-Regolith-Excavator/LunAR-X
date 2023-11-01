@@ -58,7 +58,7 @@ private:
                 // Get transform matrix from total_station_prism to base_link
                 tf2_ros::Buffer tf_buffer(this->get_clock());
                 tf2_ros::TransformListener tf_listener(tf_buffer);
-                this->eigen_transform_prism_baselink = tf_buffer.lookupTransform("base_link", "total_station_prism", tf2::TimePointZero, tf2::durationFromSec(0.5)); //primm to base link
+                this->eigen_transform_prism_baselink = tf_buffer.lookupTransform("base_link", "total_station_prism", tf2::TimePointZero, tf2::durationFromSec(0.5)); //prism to base link
                 this->got_transform = true;
             } 
             catch (tf2::TransformException& ex) 
