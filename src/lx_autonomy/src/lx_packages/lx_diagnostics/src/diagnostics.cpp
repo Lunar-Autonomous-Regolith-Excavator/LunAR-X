@@ -22,6 +22,11 @@ Diagnostics::Diagnostics(): Node("diagnostics_node"){
     // Set up parameters from the global parameter server
     setupParams();
 
+    // Set up nodes time tracking
+    for(long unsigned int i = 0; i < nodes_list_.size(); i++){
+        last_diagnostics_time_.push_back(this->get_clock()->now());
+    }
+
     // Timer
     for(long unsigned int i = 0; i < nodes_list_.size(); i++){
         diagnostics_timers_[i] = this->create_wall_timer(std::chrono::seconds(timeout_period_sec_), std::bind(&Diagnostics::setRoverLock, this));
@@ -97,10 +102,21 @@ void Diagnostics::diagnosticsCallBack(const lx_msgs::msg::NodeDiagnostics::Share
     
     // Respective timer reset
     diagnostics_timers_[node_index]->reset();
+
+    // Update time of last diagnostics message
+    last_diagnostics_time_[node_index] = this->get_clock()->now();
 }
 
 void Diagnostics::setRoverLock(){
-    RCLCPP_ERROR(this->get_logger(), "DIAGNOSTICS TIMEOUT: A node has died");
+    RCLCPP_ERROR(this->get_logger(), "DIAGNOSTICS TIMEOUT, Dead node(s):");
+
+    // Find and display dead node(s)
+    for(long unsigned int i = 0; i < nodes_list_.size(); i++){
+        if((this->get_clock()->now() - last_diagnostics_time_[i]).seconds() > timeout_period_sec_){
+            RCLCPP_ERROR(this->get_logger(), "%s ", nodes_list_[i].c_str());
+        }
+    }
+    
     if(!rover_soft_lock_.mobility_lock || !rover_soft_lock_.actuation_lock){
         // Lock rover if some diagnostics message not received for timeout period
         while(!set_params_client_->wait_for_service(std::chrono::seconds(1))){

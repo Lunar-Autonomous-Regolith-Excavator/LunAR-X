@@ -19,6 +19,7 @@ class Diagnostics: public rclcpp::Node
                                               "command_mux_node",
                                               "auto_dig_handler_node"};
         // Time
+        std::vector<rclcpp::Time> last_diagnostics_time_;
         unsigned int timeout_period_sec_ = 3;
         rclcpp::TimerBase::SharedPtr diagnostics_timers_[5];
         // Subscribers
