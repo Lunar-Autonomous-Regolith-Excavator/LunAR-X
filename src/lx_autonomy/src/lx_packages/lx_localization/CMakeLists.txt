@@ -23,6 +23,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(lx_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -41,7 +42,7 @@ endif()
 
 #remap node for husky odom
 add_executable(remap_msgs_localization src/remap_msgs_localization.cpp)
-ament_target_dependencies(remap_msgs_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs)
+ament_target_dependencies(remap_msgs_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs lx_msgs)
 
 install(TARGETS
   remap_msgs_localization
