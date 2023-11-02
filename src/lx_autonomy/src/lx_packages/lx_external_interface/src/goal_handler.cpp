@@ -176,7 +176,7 @@ void GoalHandler::checkBermFeasibility(){
         for (int i=0; i<user_requested_berm_points_.size()-1; i++) {
             processed_berm_points_.push_back(first_point);
             std::vector<geometry_msgs::msg::PointStamped> points = getPointsAtFixedDistance(first_point, user_requested_berm_points_[i+1], d);
-            processed_berm_points_.insert(result.end(),points.begin(),points.end());
+            processed_berm_points_.insert(processed_berm_points_.end(),points.begin(),points.end());
             if (i == user_requested_berm_points_.size()-2) break;
             geometry_msgs::msg::PointStamped line_end = points.back();
             if (line_end.point.x == user_requested_berm_points_[i+1].point.x && line_end.point.y == user_requested_berm_points_[i+1].point.y) {
