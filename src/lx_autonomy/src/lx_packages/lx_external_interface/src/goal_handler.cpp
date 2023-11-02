@@ -122,7 +122,7 @@ bool isBetween(double val, double a, double b) {
     return (val >= std::min(a, b)) && (val <= std::max(a, b));
 }
 
-Point findIntersectionPoints(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, const geometry_msgs::msg::PointStamped& p3, double d) {
+geometry_msgs::msg::PointStamped findIntersectionPoints(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, const geometry_msgs::msg::PointStamped& p3, double d) {
     Point result;
 
     // Calculate the equation of the line in the form Ax + By + C = 0
