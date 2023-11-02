@@ -12,9 +12,7 @@
  * - If no joystick data received for 3 seconds, will set the rover to lock for safety.
  * 
  * TODO
- * - Add berm inputs
- * - Add initial getting of parameters (To be tested)
- * - Test lock flipping check
+ * - Check start and stop mapping service with joystick and lx_mapping
  * */
 
 #include "lx_external_interface/external_interface.hpp"
@@ -35,6 +33,7 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     guide_debounce_timer_ = this->get_clock()->now();
     start_debounce_timer_ = this->get_clock()->now();
     back_debounce_timer_ = this->get_clock()->now();
+    a_debounce_timer_ = this->get_clock()->now();
     b_debounce_timer_ = this->get_clock()->now();
     
     // Set up subscriptions & publishers
@@ -65,12 +64,11 @@ void ExternalInterface::setupCommunications(){
 
     // Publishers
     rover_teleop_publisher_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_teleop_cmd", 10);
-    last_berm_eval_publisher_ = this->create_publisher<lx_msgs::msg::BermMetrics>("last_berm_config", 10);
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
-    evaluate_berm_client_ = this->create_client<lx_msgs::srv::BermMetrics>("/evaluate_berm");
+    map_switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/map_switch");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
 }
 
@@ -310,13 +308,20 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
         }
     }
 
-    // B-button rising-edge calls service to evaluate the berm
+    // A-button rising-edge calls service to start mapping
+    if(joy_msg->buttons[int(JoyButtons::A)] && !joy_last_state_.buttons[int(JoyButtons::A)]){
+        // Check debounce time
+        if((this->get_clock()->now() - a_debounce_timer_).seconds() > 1.0 && current_rover_op_mode_ == OpModeEnum::TELEOP){
+            callStartMappingSwitch(true);
+        }
+        a_debounce_timer_ = this->get_clock()->now();
+    }
+
+    // B-button rising-edge calls service to stop mapping
     if(joy_msg->buttons[int(JoyButtons::B)] && !joy_last_state_.buttons[int(JoyButtons::B)]){
         // Check debounce time
-        if((this->get_clock()->now() - b_debounce_timer_).seconds() > 1.0){
-            if(current_rover_op_mode_ == OpModeEnum::TELEOP){
-                callBermEvaluation();
-            }
+        if((this->get_clock()->now() - b_debounce_timer_).seconds() > 1.0 && current_rover_op_mode_ == OpModeEnum::TELEOP){
+            callStartMappingSwitch(false);
         }
         b_debounce_timer_ = this->get_clock()->now();
     }
@@ -439,38 +444,29 @@ double ExternalInterface::remapTrig(float trig_val){
     return (trig_val - original_range_start) / (original_range_end - original_range_start) * (remapped_range_end - remapped_range_start) + remapped_range_start;
 }
 
-void ExternalInterface::callBermEvaluation(){
-    // Call berm evaluation service
-    while(!evaluate_berm_client_->wait_for_service(std::chrono::seconds(1))){
+void ExternalInterface::callStartMappingSwitch(bool map_switch){
+    // Call start mapping switch service
+    while(!map_switch_client_->wait_for_service(std::chrono::seconds(1))){
         RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
     }
 
-    auto set_request = std::make_shared<lx_msgs::srv::BermMetrics::Request>();
+    auto set_request = std::make_shared<lx_msgs::srv::Switch::Request>();
 
-    set_request->need_metrics = true;
+    set_request->switch_state = map_switch;
 
-    RCLCPP_INFO(this->get_logger(), "Calling berm evaluation service");
+    RCLCPP_INFO(this->get_logger(), "Calling start mapping service");
 
-    auto future_result = evaluate_berm_client_->async_send_request(set_request, std::bind(&ExternalInterface::bermEvalCB, this, std::placeholders::_1));
+    auto future_result = map_switch_client_->async_send_request(set_request, std::bind(&ExternalInterface::mapSwitchCB, this, std::placeholders::_1));
 }
 
-void ExternalInterface::bermEvalCB(rclcpp::Client<lx_msgs::srv::BermMetrics>::SharedFuture future){
+void ExternalInterface::mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
     auto status = future.wait_for(std::chrono::milliseconds(100));
     if(status == std::future_status::ready){ 
-        // Make berm metric message
-        auto received_berm_msg = lx_msgs::msg::BermMetrics();
         if(future.get()->success){
-            received_berm_msg.height = future.get()->height;
-            received_berm_msg.width = future.get()->width;
-            received_berm_msg.length = future.get()->length;
-
-            RCLCPP_INFO(this->get_logger(), "Berm evaluated: L: %.2f, H: %.2f", future.get()->length, future.get()->height);
-
-            // Publish last berm evaluation
-            last_berm_eval_publisher_->publish(received_berm_msg);
+            RCLCPP_INFO(this->get_logger(), "Map status switched");
         }
         else{
-            RCLCPP_WARN(this->get_logger(), "Berm evaluation returned 'unsuccesful'");
+            RCLCPP_WARN(this->get_logger(), "Map switch server returned 'unsuccesful'");
         }
     } 
     else{
