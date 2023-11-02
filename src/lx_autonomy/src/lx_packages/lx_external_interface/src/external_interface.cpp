@@ -35,6 +35,7 @@ ExternalInterface::ExternalInterface(): Node("external_interface_node"){
     back_debounce_timer_ = this->get_clock()->now();
     a_debounce_timer_ = this->get_clock()->now();
     b_debounce_timer_ = this->get_clock()->now();
+    y_debounce_timer_ = this->get_clock()->now();
     
     // Set up subscriptions & publishers
     setupCommunications();
@@ -70,6 +71,7 @@ void ExternalInterface::setupCommunications(){
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
     map_switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/map_switch");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    calibrate_imu_action_client_ = rclcpp_action::create_client<CalibrateImu>(this, "/lx_localization/calibrate_imu");
 }
 
 void ExternalInterface::lockCheck(){
@@ -326,6 +328,21 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
         b_debounce_timer_ = this->get_clock()->now();
     }
 
+    // Y-button rising-edge calls action to calibrate IMU
+    if(joy_msg->buttons[int(JoyButtons::Y)] && !joy_last_state_.buttons[int(JoyButtons::Y)]){
+        // Check debounce time
+        if((this->get_clock()->now() - y_debounce_timer_).seconds() > 1.0){
+            // Check if rover in autonomous mode
+            if(current_rover_op_mode_ == OpModeEnum::AUTONOMOUS){
+                // Call action to calibrate IMU
+                callLocalizationCalibration();
+            }
+            else{
+                RCLCPP_WARN(this->get_logger(), "Rover not in autonomous mode, cannot calibrate IMU");
+            }
+        }
+    }
+
     // Pass through rover teleop commands
     passRoverTeleopCmd(joy_msg);
 
@@ -472,6 +489,19 @@ void ExternalInterface::mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::Shared
     else{
         RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
     }
+}
+
+void ExternalInterface::callLocalizationCalibration(){
+    // Call localization calibration action
+    while(!calibrate_imu_action_client_->wait_for_action_server(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for action server to be up...");
+    }
+
+    auto goal_msg = CalibrateImu::Goal();
+
+    RCLCPP_INFO(this->get_logger(), "Calling localization calibration action");
+
+    auto future_goal_handle = calibrate_imu_action_client_->async_send_goal(goal_msg);
 }
 
 void ExternalInterface::diagnosticPublish(){
