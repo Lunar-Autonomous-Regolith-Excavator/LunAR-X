@@ -43,12 +43,15 @@ private:
 
     // Variables
     geometry_msgs::msg::Quaternion imu_orientation;
-    geometry_msgs::msg::Point rover_pose;
+    geometry_msgs::msg::Point ts_point;
     bool got_imu = false;
     bool got_transforms = false;
     bool printed_all_working = false;
     bool calibration_complete = false;
     double yaw_offset = 0.0; // Add this value to IMU yaw to get total station yaw
+    // time to store IMU and TS data
+    rclcpp::Time last_imu_msg_time = rclcpp::Time(0,0, RCL_ROS_TIME);
+    rclcpp::Time last_ts_msg_time = rclcpp::Time(0,0, RCL_ROS_TIME);
 
     // Subscribers and publishers
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -98,11 +101,22 @@ private:
             this->get_transforms();
         }
 
+        // If latest IMU msg and TS msg are more than 1 second away from current time, return error
+        auto current_time = this->get_clock()->now();
+        if((current_time - this->last_imu_msg_time).seconds() > 1.0 || (current_time - this->last_ts_msg_time).seconds() > 1.0)
+        {
+            RCLCPP_INFO(this->get_logger(), "No IMU or TS data found, please check if IMU and TS are publishing");
+            // Set result
+            result->success = false;
+            goal_handle->canceled(result);
+            return;
+        }
+
         // Get latest IMU yaw in base_link frame and rover pose
         geometry_msgs::msg::Quaternion imu_orientation = this->imu_orientation;
         tf2::doTransform(imu_orientation, imu_orientation, this->eigen_transform_imu_baselink);
         auto yaw_initial = tf2::getYaw(imu_orientation);
-        geometry_msgs::msg::Point rover_pose = this->rover_pose;
+        geometry_msgs::msg::Point init_ts_point = this->ts_point;
 
         // Move the rover ahead for 5 seconds
         auto start_time = this->get_clock()->now();
@@ -123,9 +137,20 @@ private:
             rover_command_pub_->publish(rover_command);
         }
 
-        if (goal_handle->is_canceling())
+        if (goal_handle->is_canceling() || !rclcpp::ok())
         {
             RCLCPP_INFO(this->get_logger(), "Calibrate imu action cancelled");
+            // Set result
+            result->success = false;
+            goal_handle->canceled(result);
+            return;
+        }
+
+        // If latest IMU msg and TS msg are more than 1 second away from current time, return error
+        current_time = this->get_clock()->now();
+        if((current_time - this->last_imu_msg_time).seconds() > 1.0 || (current_time - this->last_ts_msg_time).seconds() > 1.0)
+        {
+            RCLCPP_INFO(this->get_logger(), "No IMU or TS data found, please check if IMU and TS are publishing");
             // Set result
             result->success = false;
             goal_handle->canceled(result);
@@ -136,11 +161,11 @@ private:
         geometry_msgs::msg::Quaternion new_imu_orientation = this->imu_orientation;
         tf2::doTransform(new_imu_orientation, new_imu_orientation, this->eigen_transform_imu_baselink);
         auto yaw_final = tf2::getYaw(new_imu_orientation);
-        geometry_msgs::msg::Point new_rover_pose = this->rover_pose;
+        geometry_msgs::msg::Point final_ts_point = this->ts_point;
 
         // Calculate yaw offset
         auto avg_imu_yaw = (yaw_initial + yaw_final) / 2.0;
-        auto yaw_total_station = atan2(new_rover_pose.y - rover_pose.y, new_rover_pose.x - rover_pose.x);
+        auto yaw_total_station = atan2(final_ts_point.y - init_ts_point.y, final_ts_point.x - init_ts_point.x);
         this->yaw_offset = yaw_total_station - avg_imu_yaw;
 
         RCLCPP_INFO(this->get_logger(), "Calibration complete");
@@ -153,7 +178,6 @@ private:
 
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
-        this->rover_pose = msg->pose.pose.position;
         // Update the frame_id field in the message
         msg->header.frame_id = "base_link";
         // reset covariance
@@ -170,6 +194,7 @@ private:
     {
         got_imu = true;
         this->imu_orientation = msg->orientation;
+        this->last_imu_msg_time = this->get_clock()->now();
     }
 
     bool get_transforms()
@@ -197,6 +222,12 @@ private:
     {
         if(this->got_transforms == false){this->get_transforms();}
 
+        // Store latest pose
+        geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
+        tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink);
+        this->ts_point = pose_map_msg.pose.pose.position;
+        this->last_ts_msg_time = this->get_clock()->now();
+
         // Flags to check before publishing
         if(this->got_transforms == false){return;}
         if(this->got_imu == false)
@@ -217,19 +248,15 @@ private:
             RCLCPP_INFO(this->get_logger(), "----------------------All Transforms found, publishing---------------------");
         }
 
-        // Publish pose message
-        geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
-        sensor_msgs::msg::Imu imu_transformed;
-        tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink);
-        tf2::doTransform(this->imu_orientation, imu_transformed.orientation, this->eigen_transform_imu_baselink);
-        
         // Add yaw offset to imu orientation
+        sensor_msgs::msg::Imu imu_transformed;
+        tf2::doTransform(this->imu_orientation, imu_transformed.orientation, this->eigen_transform_imu_baselink);
         tf2::Quaternion q;
         tf2::fromMsg(imu_transformed.orientation, q);
         q.setRPY(0, 0, tf2::getYaw(q) + this->yaw_offset);
         imu_transformed.orientation = tf2::toMsg(q);
 
-        // Make pose message with IMU orientation
+        // Publish pose message of TS with added IMU orientation to get a global pose source
         pose_map_msg.header.frame_id = "map";
         pose_map_msg.header.stamp = msg->header.stamp;
         pose_map_msg.pose.pose.orientation.x = imu_transformed.orientation.x;
