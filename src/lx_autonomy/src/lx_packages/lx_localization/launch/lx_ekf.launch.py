@@ -58,7 +58,7 @@ def generate_launch_description():
       executable='static_transform_publisher',
       name='base_link_to_total_station',
       output='screen',
-      arguments=['0.27', '0.19', '0.8', '5.41052', '0', '0', 'base_link', 'total_station_prism'],
+      arguments=['0.27', '0.19', '0.8', '0', '0', '0', 'base_link', 'total_station_prism'],
       parameters=[{'use_sim_time': use_sim_time_param}]
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
 
