@@ -128,37 +128,56 @@ geometry_msgs::msg::PointStamped GoalHandler::findIntersectionPoints(const geome
     geometry_msgs::msg::PointStamped result;
 
     // Calculate the equation of the line in the form Ax + By + C = 0
-    double A = p2.point.y - p1.point.y;
-    double B = p1.point.x - p2.point.x;
-    double C = p2.point.x * p1.point.y - p1.point.x * p2.point.y;
+    double A = p2.y - p1.y;
+    double B = p1.x - p2.x;
+    double C = p2.x * p1.y - p1.x * p2.y;
 
-    // Calculate the coefficients for the quadratic equation
-    double a = A * A + B * B;
-    double b = 2 * A * C + 2 * A * B * p3.point.y - 2 * B * B * p3.point.x;
-    double c = C * C + 2 * B * C * p3.point.y + B * B * p3.point.y * p3.point.y - B * B * d * d + B * B * p3.point.x * p3.point.x;
+    // Calculate the coefficients for the quadratic equation for y
+    double ay = B * B + A * A;
+    double by = 2 * B * C + 2 * A * B * p3.x - 2 * A * A * p3.y;
+    double cy = C * C + 2 * A * C * p3.x + A * A * p3.x * p3.x - A * A * d * d + A * A * p3.y * p3.y;
+
+    double ax = A * A + B * B;
+    double bx = 2 * A * C + 2 * A * B * p3.y - 2 * B * B * p3.x;
+    double cx = C * C + 2 * B * C * p3.y + B * B * p3.y * p3.y - B * B * d * d + B * B * p3.x * p3.x;
 
     // Calculate the discriminant
-    double discriminant = b * b - 4 * a * c;
+    double discriminanty = by * by - 4 * ay * cy;
+    double discriminantx = bx * bx - 4 * ax * cx;
+    double a, b, c, discriminant, x1, x2, y1, y2;
+    if ((discriminantx == 0 && bx == 0) || discriminanty > 0) {
+        a = ay, b = by, c = cy, discriminant = discriminanty;
+        
+        // Calculate the y-coordinates of the intersection points
+        y1 = (-b + sqrt(discriminant)) / (2 * a);
+        y2 = (-b - sqrt(discriminant)) / (2 * a);
 
-    if (discriminant >= 0) {
         // Calculate the x-coordinates of the intersection points
-        double x1 = (-b + sqrt(discriminant)) / (2 * a);
-        double x2 = (-b - sqrt(discriminant)) / (2 * a);
+        x1 = (-C - B * y1) / A;
+        x2 = (-C - B * y2) / A;
+    }
+
+    if ((discriminanty == 0 && by == 0) || discriminantx > 0) {
+        a = ax, b = bx, c = cx, discriminant = discriminantx;
+
+        // Calculate the x-coordinates of the intersection points
+        x1 = (-b + sqrt(discriminant)) / (2 * a);
+        x2 = (-b - sqrt(discriminant)) / (2 * a);
 
         // Calculate the y-coordinates of the intersection points
-        double y1 = (-C - A * x1) / B;
-        double y2 = (-C - A * x2) / B;
-
-        // Check if the intersection points lie on the line segment joining p1 and p2
-        if (isBetween(x1, p1.point.x, p2.point.x) && isBetween(y1, p1.point.y, p2.point.y)) {
-            result.point.x = x1;
-            result.point.y = y1;
-        }
-        if (isBetween(x2, p1.point.x, p2.point.x) && isBetween(y2, p1.point.y, p2.point.y)) {
-            result.point.x = x2;
-            result.point.y = y2;
-        }
+        y1 = (-C - A * x1) / B;
+        y2 = (-C - A * x2) / B;
+    } 
+    // Check if the intersection points lie on the line segment joining p1 and p2
+    if (isBetween(x1, p1.point.x, p2.point.x) && isBetween(y1, p1.point.y, p2.point.y)) {
+        result.point.x = x1;
+        result.point.y = y1;
     }
+    if (isBetween(x2, p1.point.x, p2.point.x) && isBetween(y2, p1.point.y, p2.point.y)) {
+        result.point.x = x2;
+        result.point.y = y2;
+    }
+    
 
     return result;
 }
@@ -177,6 +196,7 @@ void GoalHandler::checkBermFeasibility(){
         geometry_msgs::msg::PointStamped first_point{user_requested_berm_points_[0]};
         for (int i=0; i<user_requested_berm_points_.size()-1; i++) {
             processed_berm_points_.push_back(first_point);
+            // 0.4 is the interpolation distance
             std::vector<geometry_msgs::msg::PointStamped> points = getPointsAtFixedDistance(first_point, user_requested_berm_points_[i+1], 0.4);
             processed_berm_points_.insert(processed_berm_points_.end(),points.begin(),points.end());
             if (i == user_requested_berm_points_.size()-2) break;
