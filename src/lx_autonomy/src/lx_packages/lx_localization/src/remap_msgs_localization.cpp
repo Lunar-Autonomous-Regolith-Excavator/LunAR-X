@@ -28,6 +28,14 @@ public:
 
         odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("/husky_odom", qos);
         pose_pub_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/total_station_pose_map", qos);
+        rover_command_pub_ = create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
+
+        calibrate_imu_action_server_ = rclcpp_action::create_server<CalibrateImu>(
+            this,
+            "lx_localization/calibrate_imu",
+            std::bind(&RemapNode::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&RemapNode::handle_cancel, this, std::placeholders::_1),
+            std::bind(&RemapNode::handle_accepted, this, std::placeholders::_1));
     }
 
 private:
@@ -46,7 +54,7 @@ private:
     geometry_msgs::msg::Point ts_point;
     bool got_imu = false;
     bool got_transforms = false;
-    bool printed_all_working = false;
+    bool printed_all_working = false, printed_calibration_complete = false, printed_calibration_not_complete = false;
     bool calibration_complete = false;
     double yaw_offset = 0.0; // Add this value to IMU yaw to get total station yaw
     // time to store IMU and TS data
@@ -120,6 +128,7 @@ private:
 
         // Move the rover ahead for 5 seconds
         auto start_time = this->get_clock()->now();
+        RCLCPP_INFO(this->get_logger(), "Starting calibration movement");
         while(rclcpp::ok() && !goal_handle->is_canceling())
         {
             // Check if 5 seconds have passed
@@ -136,7 +145,6 @@ private:
             rover_command.mobility_twist.linear.x = 0.1;
             rover_command_pub_->publish(rover_command);
         }
-
         if (goal_handle->is_canceling() || !rclcpp::ok())
         {
             RCLCPP_INFO(this->get_logger(), "Calibrate imu action cancelled");
@@ -168,7 +176,7 @@ private:
         auto yaw_total_station = atan2(final_ts_point.y - init_ts_point.y, final_ts_point.x - init_ts_point.x);
         this->yaw_offset = yaw_total_station - avg_imu_yaw;
 
-        RCLCPP_INFO(this->get_logger(), "Calibration complete");
+        RCLCPP_INFO(this->get_logger(), "Calibration complete, with yaw offset: %f", this->yaw_offset);
         this->calibration_complete = true;
 
         // Set result
@@ -237,7 +245,11 @@ private:
         }
         if(this->calibration_complete == false)
         {
-            std::cout<<"Calibration not complete, please calibrate IMU"<<std::endl;
+            if(printed_calibration_not_complete)
+            {
+                std::cout<<"Calibration not complete, please calibrate IMU"<<std::endl;
+                printed_calibration_not_complete = true;
+            }
             return;
         }
 

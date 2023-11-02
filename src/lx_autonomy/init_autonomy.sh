@@ -27,7 +27,7 @@ else
     # Run commands in each pane
     tmux send-keys -t 0 "source /opt/ros/humble/setup.bash; cd /home/lx_autonomy/lx_autonomy_ws && colcon build && source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_bringup_autonomy bringup_autonomy.launch.py" C-m
     sleep 20;
-    tmux send-keys -t 1 "source /opt/ros/humble/setup.bash; colcon build --packages-select lx_localization && \
+    tmux send-keys -t 1 "source /opt/ros/humble/setup.bash; colcon build --packages-up-to lx_localization && \
         source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_localization lx_ekf.launch.py" C-m
     
     # tmux send-keys -t 2 "source /opt/ros/humble/setup.bash; \
