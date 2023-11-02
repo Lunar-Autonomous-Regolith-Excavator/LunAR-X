@@ -123,7 +123,7 @@ bool isBetween(double val, double a, double b) {
 }
 
 geometry_msgs::msg::PointStamped findIntersectionPoints(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, const geometry_msgs::msg::PointStamped& p3, double d) {
-    Point result;
+    geometry_msgs::msg::PointStamped result;
 
     // Calculate the equation of the line in the form Ax + By + C = 0
     double A = p2.point.y - p1.point.y;
@@ -149,10 +149,12 @@ geometry_msgs::msg::PointStamped findIntersectionPoints(const geometry_msgs::msg
 
         // Check if the intersection points lie on the line segment joining p1 and p2
         if (isBetween(x1, p1.point.x, p2.point.x) && isBetween(y1, p1.point.y, p2.point.y)) {
-            result = {x1, y1};
+            result.point.x = x1;
+            result.point.y = y1;
         }
         if (isBetween(x2, p1.point.x, p2.point.x) && isBetween(y2, p1.point.y, p2.point.y)) {
-            result = {x2, y2};
+            result.point.x = x2;
+            result.point.y = y2;
         }
     }
 
