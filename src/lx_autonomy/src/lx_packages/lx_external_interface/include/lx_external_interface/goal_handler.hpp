@@ -5,6 +5,7 @@
 #include "lx_library/lx_utils.hpp"
 #include "lx_msgs/srv/berm_service.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
+#include <cmath>
 
 
 class GoalHandler: public rclcpp::Node
@@ -12,6 +13,8 @@ class GoalHandler: public rclcpp::Node
     private:
         // Variables & pointers -----------------
         std::vector<geometry_msgs::msg::PointStamped> user_requested_berm_points_;
+
+        std::vector<geometry_msgs::msg::PointStamped> processed_berm_points_;
 
         // Time
 
