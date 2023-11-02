@@ -41,6 +41,18 @@ class GoalHandler: public rclcpp::Node
         void userBermRequestCB(const std::shared_ptr<lx_msgs::srv::BermService::Request> ,
                                       const std::shared_ptr<lx_msgs::srv::BermService::Response>);
 
+        double calculateAngle(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2);
+
+        bool areAnglesWithinRange(const std::vector<geometry_msgs::msg::PointStamped>& points, double fixedAngle);
+
+        double distance(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2);
+
+        std::vector<geometry_msgs::msg::PointStamped> getPointsAtFixedDistance(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, double d);
+
+        bool isBetween(double val, double a, double b);
+
+        geometry_msgs::msg::PointStamped findIntersectionPoints(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, const geometry_msgs::msg::PointStamped& p3, double d);
+
         /*
         * Check if berm is feasible
         * */
