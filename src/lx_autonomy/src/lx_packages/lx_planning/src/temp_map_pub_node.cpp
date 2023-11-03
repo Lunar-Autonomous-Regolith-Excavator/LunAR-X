@@ -6,6 +6,8 @@
 
 class MapPublisherNode : public rclcpp::Node {
 public:
+  int count;
+
   MapPublisherNode() : Node("map_publisher") {
     rclcpp::QoS qos(10);  // initialize to default
     qos.transient_local();
@@ -16,7 +18,9 @@ public:
     map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("map", qos);
 
     // Set up a timer to periodically publish map data
-    timer_ = this->create_wall_timer(std::chrono::seconds(10), std::bind(&MapPublisherNode::publishMap, this));
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&MapPublisherNode::publishMap, this));
+
+    count = 0;
   }
 
 private:
@@ -42,29 +46,32 @@ private:
     map_msg.info.origin.orientation.w = 1.0;
 
     std::vector<int8_t> map_data(map_msg.info.width * map_msg.info.height, 0);
-    // // Add obstacle in x = 0 and y from [-2, 2]
-    // for (int j = 55; j < 85; j++) {
-    //   for (int i = 80; i < 90; i++) {
-    //     map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
-    //   }
-    // }
-
-    // // Add obstacle in circles around (75, 55)
-    // for (int j = 50; j < 55; j++) {
-    //   int width = std::ceil(sqrt(25 - (j - 55) * (j - 55)));
-    //   for (int i = 85 - width; i < 85 + width; i++) {
-    //     map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
-    //   }
-    // }
-
-    // // Add obstacle in circles around (75, 85)
-    // for (int j = 85; j < 90; j++) {
-    //   int width = std::ceil(sqrt(25 - (j - 85) * (j - 85)));
-    //   for (int i = 85 - width; i < 85 + width; i++) {
-    //     map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
-    //   }
-    // }
     
+    if (count++ > 100) {
+      RCLCPP_INFO(this->get_logger(), "Publishing map with obstacles: %d", count);
+      // Add obstacle in x = 0 and y from [-2, 2]
+      for (int j = 55; j < 85; j++) {
+        for (int i = 80; i < 90; i++) {
+          map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
+        }
+      }
+
+      // Add obstacle in circles around (75, 55)
+      for (int j = 50; j < 55; j++) {
+        int width = std::ceil(sqrt(25 - (j - 55) * (j - 55)));
+        for (int i = 85 - width; i < 85 + width; i++) {
+          map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
+        }
+      }
+
+      // Add obstacle in circles around (75, 85)
+      for (int j = 85; j < 90; j++) {
+        int width = std::ceil(sqrt(25 - (j - 85) * (j - 85)));
+        for (int i = 85 - width; i < 85 + width; i++) {
+          map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
+        }
+      }
+    }
 
     map_msg.data = map_data;
 
