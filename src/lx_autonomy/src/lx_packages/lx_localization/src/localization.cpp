@@ -203,15 +203,15 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     if(this->got_imu_ == false)
     {
         std::cout<<"No IMU data found, please check if IMU is publishing"<<std::endl;
-        return;
+    return;
     }
     if(this->calibration_complete_ == false)
     {
         if(printed_calibration_not_complete_)
-        {
+    {
             std::cout<<"Calibration not complete, please calibrate IMU"<<std::endl;
-            printed_calibration_not_complete_ = true;
-        }
+    printed_calibration_not_complete_ = true;
+    }
         return;
     }
 
@@ -219,23 +219,24 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     if(printed_all_working_ == false)
     {
         printed_all_working_ = true;
-        RCLCPP_INFO(this->get_logger(), "----------------------All Transforms found, publishing---------------------");
+    RCLCPP_INFO(this->get_logger(), "----------------------All Transforms found, publishing---------------------");
     }
 
     // Add yaw offset to imu orientation
     sensor_msgs::msg::Imu imu_transformed;
     tf2::doTransform(this->imu_orientation_, imu_transformed.orientation, this->eigen_transform_imu_baselink_);
+    double yaw, pitch, roll;
+    tf2::getEulerYPR(imu_transformed.orientation, yaw, pitch, roll);
+
     tf2::Quaternion q;
-    tf2::fromMsg(imu_transformed.orientation, q);
-    q.setRPY(0, 0, tf2::getYaw(q) + this->yaw_offset_);
-    imu_transformed.orientation = tf2::toMsg(q);
+    q.setRPY(roll, pitch, yaw+this->yaw_offset_);
 
     // Publish pose message of TS with added IMU orientation to get a global pose source
     pose_map_msg.header.frame_id = "map";
     pose_map_msg.header.stamp = msg->header.stamp;
-    pose_map_msg.pose.pose.orientation.x = imu_transformed.orientation.x;
-    pose_map_msg.pose.pose.orientation.y = imu_transformed.orientation.y;
-    pose_map_msg.pose.pose.orientation.z = imu_transformed.orientation.z;
-    pose_map_msg.pose.pose.orientation.w = imu_transformed.orientation.w;
+    pose_map_msg.pose.pose.orientation.x = q.x();
+    pose_map_msg.pose.pose.orientation.y = q.y();
+    pose_map_msg.pose.pose.orientation.z = q.z();
+    pose_map_msg.pose.pose.orientation.w = q.w();
     pose_pub_->publish(pose_map_msg);
 }
