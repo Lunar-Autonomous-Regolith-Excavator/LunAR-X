@@ -1,11 +1,13 @@
 #ifndef GOAL_HANDLER_H
 #define GOAL_HANDLER_H
 
+#include <cmath>
 #include "rclcpp/rclcpp.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "lx_msgs/srv/berm_service.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
-#include <cmath>
+#include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 
 class GoalHandler: public rclcpp::Node
@@ -13,8 +15,9 @@ class GoalHandler: public rclcpp::Node
     private:
         // Variables & pointers -----------------
         std::vector<geometry_msgs::msg::PointStamped> user_requested_berm_points_;
-
         std::vector<geometry_msgs::msg::PointStamped> processed_berm_points_;
+        const double ANGLE_LIMIT = 50.0;
+        const double INTERPOLATION_DIST = 0.4;
 
         // Time
 
@@ -27,6 +30,7 @@ class GoalHandler: public rclcpp::Node
         // Clients
 
         // Publishers
+        rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr processed_berm_viz_publisher_;
         // --------------------------------------
 
         // Functions ----------------------------
@@ -62,6 +66,11 @@ class GoalHandler: public rclcpp::Node
         * Visualize feasible berm
         * */
         void visualizeFeasibleBerm();
+
+        /*
+        * Clean up the rviz markers
+        * */
+        void vizCleanup();
 
         // --------------------------------------
 
