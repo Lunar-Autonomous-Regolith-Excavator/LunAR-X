@@ -18,34 +18,24 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(lx_msgs REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+
 INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIRS})
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-endif()
+include_directories(include)
 
 #remap node for husky odom
-add_executable(remap_msgs_localization src/remap_msgs_localization.cpp)
-ament_target_dependencies(remap_msgs_localization rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs lx_msgs)
+add_executable(localization_node src/localization_node.cpp src/localization.cpp)
+ament_target_dependencies(localization_node rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs lx_msgs rclcpp_action)
 
 install(TARGETS
-  remap_msgs_localization
+  localization_node
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY

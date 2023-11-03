@@ -56,7 +56,7 @@ def generate_launch_description():
     localization_dir = get_package_share_directory('lx_localization')
     localization_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
-                                    localization_dir + '/launch/lx_ekf.launch.py'))
+                                    localization_dir + '/launch/localization.launch.py'))
     
     # foxglove_bridge launch
     foxglove_dir = get_package_share_directory('foxglove_bridge')
