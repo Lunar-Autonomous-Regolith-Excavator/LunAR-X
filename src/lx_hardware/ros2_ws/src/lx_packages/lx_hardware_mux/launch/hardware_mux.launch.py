@@ -9,7 +9,8 @@ def generate_launch_description():
     hardware_mux_node = Node(
         package='lx_hardware_mux',
         executable='hardware_mux_node',
-        name='hardware_mux_node'
+        name='hardware_mux_node',
+        emulate_tty=True
     )
 
     ld.add_action(hardware_mux_node)

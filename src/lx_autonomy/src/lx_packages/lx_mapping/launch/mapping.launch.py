@@ -7,18 +7,21 @@ def generate_launch_description():
             package='lx_mapping',
             executable='pc_handler_node',
             name='pc_handler_node',
+            emulate_tty=True
         )
     
     auto_dump_visual_servoing_node = Node(
             package='lx_mapping',
             executable='visual_servoing_node',
             name='auto_dump_visual_servoing_node',
+            emulate_tty=True
         )
     
     world_model_node = Node(
             package='lx_mapping',
             executable='world_model_node',
             name='world_model_node',
+            emulate_tty=True
         )
     
     tf_moonyard_link = Node(
@@ -27,6 +30,7 @@ def generate_launch_description():
       name='map_to_moonyard',
       output='screen',
       arguments=['-9', '-5' ,'0' ,'0' ,'0' ,'0', 'map', 'moonyard'],
+      emulate_tty=True
     )
 
     ld = LaunchDescription()

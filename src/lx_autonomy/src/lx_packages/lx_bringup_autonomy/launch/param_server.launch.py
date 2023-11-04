@@ -16,7 +16,8 @@ def generate_launch_description():
         package='lx_bringup_autonomy',
         executable='param_server_node',
         name='param_server_node',
-        parameters=[rover_parameters]
+        parameters=[rover_parameters],
+        emulate_tty=True
     )
 
     ld.add_action(param_server_node)

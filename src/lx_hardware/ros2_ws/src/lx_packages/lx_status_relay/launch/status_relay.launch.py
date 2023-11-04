@@ -9,7 +9,8 @@ def generate_launch_description():
     status_relay_node = Node(
         package='lx_status_relay',
         executable='status_relay_node',
-        name='status_relay_node'
+        name='status_relay_node',
+        emulate_tty=True
     )
 
     ld.add_action(status_relay_node)
