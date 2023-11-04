@@ -35,6 +35,7 @@ void GoalHandler::setupCommunications(){
     processed_berm_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("processed_berm_viz_markers", 5);
 
     // Clients
+    operation_action_client_ = rclcpp_action::create_client<Operation>(this, "operations/berm_build_action");
 
     // Servers
     user_berm_request_server_ = this->create_service<lx_msgs::srv::BermService>("request_rover/build_berm", 
@@ -210,10 +211,71 @@ void GoalHandler::checkBermFeasibility(){
     if(areAnglesWithinRange(processed_berm_points_, ANGLE_LIMIT)){
         // TODO: If feasible, send berm action request to operations handler
         RCLCPP_INFO(this->get_logger(), "Berm is feasible");
+        // Check if an operation is already running
+        if(operation_running_){
+            RCLCPP_INFO(this->get_logger(), "An operation is already running, cancelling new goal");
+            return;
+        }
+        // Send goal
+        sendOperationGoal(processed_berm_points_);
     }
     else{
         RCLCPP_ERROR(this->get_logger(), "Berm is not feasible");
     }
+}
+
+void GoalHandler::sendOperationGoal(std::vector<geometry_msgs::msg::PointStamped> operation_berm_points){
+    // Create goal
+    auto build_berm_goal = Operation::Goal();
+    build_berm_goal.requested_berm_config.berm_configuration = operation_berm_points;
+    // Goal options
+    auto send_goal_options = rclcpp_action::Client<Operation>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&GoalHandler::operationResponseCB, this, std::placeholders::_1);
+    send_goal_options.feedback_callback = std::bind(&GoalHandler::operationFeedbackCB, this, std::placeholders::_1, std::placeholders::_2);
+    send_goal_options.result_callback = std::bind(&GoalHandler::operationResultCB, this, std::placeholders::_1);
+    // Send goal
+    auto future_goal_handle = operation_action_client_->async_send_goal(build_berm_goal, send_goal_options);
+}
+
+void GoalHandler::operationResponseCB(GoalHandleOperation::SharedPtr future){
+    auto goal_handle = future.get();
+    if(!goal_handle){
+        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+        return;
+    }
+    RCLCPP_INFO(this->get_logger(), "Goal was accepted by server");
+
+    // Set operation running flag
+    operation_running_ = true;
+}
+
+void GoalHandler::operationFeedbackCB(GoalHandleOperation::SharedPtr, const std::shared_ptr<const Operation::Feedback> feedback){
+    RCLCPP_INFO(this->get_logger(), "Received progress : %d", feedback->progress);
+}
+
+void GoalHandler::operationResultCB(const GoalHandleOperation::WrappedResult &result){
+    switch(result.code){
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Goal succeeded");
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_INFO(this->get_logger(), "Goal aborted");
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_INFO(this->get_logger(), "Goal canceled");
+            break;
+        default:
+            RCLCPP_INFO(this->get_logger(), "Unknown result code");
+            break;
+    }
+    // Set operation running flag
+    operation_running_ = false;
+    // Clear berm points
+    processed_berm_points_.clear();
+    // Clear user requested points
+    user_requested_berm_points_.clear();
+    // Clean up rviz markers
+    vizCleanup();
 }
 
 void GoalHandler::visualizeFeasibleBerm(){
