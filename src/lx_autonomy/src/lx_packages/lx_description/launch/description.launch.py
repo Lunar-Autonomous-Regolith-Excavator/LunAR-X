@@ -23,13 +23,15 @@ def generate_launch_description():
         executable="robot_state_publisher",
         output="screen",
         parameters=[robot_description],
+        emulate_tty=True
     )
 
     # Joint visualization node
     joint_viz_node = Node(
         package='lx_description',
         executable='joint_viz_node',
-        name='joint_viz_node'
+        name='joint_viz_node',
+        emulate_tty=True
     )
 
     ld.add_action(robot_state_publisher_node)

@@ -9,7 +9,8 @@ def generate_launch_description():
     command_mux_node = Node(
         package='lx_rover_command',
         executable='command_mux_node',
-        name='command_mux_node'
+        name='command_mux_node',
+        emulate_tty=True
     )
 
     ld.add_action(command_mux_node)
