@@ -84,7 +84,7 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         RCLCPP_INFO(this->get_logger(), "No IMU or TS data found, please check if IMU and TS are publishing");
         // Set result
         result->success = false;
-        goal_handle->canceled(result);
+        goal_handle->abort(result);
         return;
     }
 
@@ -97,6 +97,8 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     // Move the rover ahead for 5 seconds
     auto start_time = this->get_clock()->now();
     RCLCPP_INFO(this->get_logger(), "Starting calibration movement");
+    lx_msgs::msg::RoverCommand rover_command;
+    rclcpp::Rate loop_rate(10);
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
         // Check if 5 seconds have passed
@@ -109,16 +111,20 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         }
 
         // Publish rover command
-        lx_msgs::msg::RoverCommand rover_command;
         rover_command.mobility_twist.linear.x = 0.1;
         rover_command_pub_->publish(rover_command);
+        loop_rate.sleep();
     }
+    // Stop the rover
+    rover_command.mobility_twist.linear.x = 0.0;
+    rover_command_pub_->publish(rover_command);
+
     if (goal_handle->is_canceling() || !rclcpp::ok())
     {
         RCLCPP_INFO(this->get_logger(), "Calibrate imu action cancelled");
         // Set result
         result->success = false;
-        goal_handle->canceled(result);
+        goal_handle->abort(result);
         return;
     }
 
@@ -129,7 +135,7 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         RCLCPP_INFO(this->get_logger(), "No IMU or TS data found, please check if IMU and TS are publishing");
         // Set result
         result->success = false;
-        goal_handle->canceled(result);
+        goal_handle->abort(result);
         return;
     }
 
@@ -203,7 +209,7 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     if(this->got_imu_ == false)
     {
         std::cout<<"No IMU data found, please check if IMU is publishing"<<std::endl;
-    return;
+        return;
     }
     if(this->calibration_complete_ == false)
     {
