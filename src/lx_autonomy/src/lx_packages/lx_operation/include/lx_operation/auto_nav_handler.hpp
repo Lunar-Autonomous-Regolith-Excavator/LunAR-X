@@ -16,7 +16,8 @@
 #include "nav_msgs/msg/path.hpp"
 #include "nav2_msgs/action/compute_path_to_pose.hpp"
 #include "nav2_msgs/action/follow_path.hpp"
-#include <rclcpp/executor.hpp>
+#include "geometry_msgs/msg/twist.hpp"
+#include "lx_msgs/msg/rover_command.hpp"
 
 
 class AutoNavHandler: public rclcpp::Node
@@ -40,6 +41,10 @@ class AutoNavHandler: public rclcpp::Node
         // Nav2 Controller Feedback
         double distance_to_goal_;
         double rov_speed_;
+        // Subscriber for cmd_vel_nav
+        rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_nav_sub_;
+        // Publisher for rover auto command
+        rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_cmd_pub_;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
@@ -127,6 +132,9 @@ class AutoNavHandler: public rclcpp::Node
         void followPathFeedbackCallback(GoalHandleFollowPath::SharedPtr , const std::shared_ptr<const FollowPath::Feedback> );
 
         void followPathResultCallback(const GoalHandleFollowPath::WrappedResult& );
+
+        // Function to remap cmd_vel_nav to rover_cmd
+        void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr );
 
     public:
         // Functions

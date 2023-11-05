@@ -108,6 +108,13 @@ void AutoNavHandler::setupCommunications(){
     // Action client
     this->compute_path_client_ = rclcpp_action::create_client<ComputePathToPose>(this, "compute_path_to_pose");
     this->follow_path_client_ = rclcpp_action::create_client<FollowPath>(this, "follow_path");
+
+    // Subscribers
+    this->cmd_vel_nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
+        "cmd_vel_nav", 10, std::bind(&AutoNavHandler::cmdVelNavCallback, this, _1));
+    
+    // Publishers
+    this->rover_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_auto_cmd", 10);
 }
 
 void AutoNavHandler::setupParams(){
@@ -422,4 +429,12 @@ void AutoNavHandler::followPathResultCallback(const GoalHandleFollowPath::Wrappe
             break;
     }
     action_blocking_ = false;
+}
+
+void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+    lx_msgs::msg::RoverCommand rov_cmd;
+    rov_cmd.mobility_twist = *msg;
+    
+    // Publish rover command
+    rover_cmd_pub_->publish(rov_cmd);
 }
