@@ -19,6 +19,7 @@ class Diagnostics: public rclcpp::Node
                                               "command_mux_node",
                                               "auto_dig_handler_node"};
         // Time
+        std::vector<rclcpp::Time> last_diagnostics_time_;
         unsigned int timeout_period_sec_ = 3;
         rclcpp::TimerBase::SharedPtr diagnostics_timers_[5];
         // Subscribers
@@ -28,9 +29,11 @@ class Diagnostics: public rclcpp::Node
 		rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
+        OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
         std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> mob_param_cb_handle_;
         std::shared_ptr<rclcpp::ParameterCallbackHandle> act_param_cb_handle_;
+        std::shared_ptr<rclcpp::ParameterCallbackHandle> op_mode_param_cb_handle_;
         // --------------------------------------
 
         // Functions ----------------------------

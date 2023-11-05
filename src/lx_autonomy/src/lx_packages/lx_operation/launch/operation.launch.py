@@ -9,25 +9,29 @@ def generate_launch_description():
     operations_handler_node = Node(
         package='lx_operation',
         executable='operations_handler_node',
-        name='operations_handler_node'
+        name='operations_handler_node',
+        emulate_tty=True
     )
 
     auto_dig_handler_node = Node(
         package='lx_operation',
         executable='auto_dig_handler_node',
-        name='auto_dig_handler_node'
+        name='auto_dig_handler_node',
+        emulate_tty=True
     )
 
     auto_dump_handler_node = Node(
         package='lx_operation',
         executable='auto_dump_handler_node',
-        name='auto_dump_handler_node'
+        name='auto_dump_handler_node',
+        emulate_tty=True
     )
 
     auto_nav_handler_node = Node(
         package='lx_operation',
         executable='auto_nav_handler_node',
-        name='auto_nav_handler_node'
+        name='auto_nav_handler_node',
+        emulate_tty=True
     )
 
     ld.add_action(operations_handler_node)

@@ -56,7 +56,7 @@ def generate_launch_description():
     localization_dir = get_package_share_directory('lx_localization')
     localization_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
-                                    localization_dir + '/launch/lx_ekf.launch.py'))
+                                    localization_dir + '/launch/localization.launch.py'))
     
     # foxglove_bridge launch
     foxglove_dir = get_package_share_directory('foxglove_bridge')
@@ -69,6 +69,7 @@ def generate_launch_description():
       executable='pcl_relay_node',
       name='pcl_relay_node',
       output='screen',
+      emulate_tty=True
     )
     
     ld.add_action(param_server_launch)

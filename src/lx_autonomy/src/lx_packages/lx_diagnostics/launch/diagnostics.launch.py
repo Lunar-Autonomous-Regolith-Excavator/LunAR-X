@@ -9,7 +9,8 @@ def generate_launch_description():
     diagnostics_node = Node(
         package='lx_diagnostics',
         executable='diagnostics_node',
-        name='diagnostics_node'
+        name='diagnostics_node',
+        emulate_tty=True
     )
 
     ld.add_action(diagnostics_node)

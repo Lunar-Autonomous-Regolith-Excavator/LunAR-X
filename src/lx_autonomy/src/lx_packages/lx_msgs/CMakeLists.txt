@@ -20,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PlannedTask.msg"
   "msg/NodeDiagnostics.msg"
   "srv/BermMetrics.srv"
+  "srv/Switch.srv"
   "srv/Plan.srv"
   "srv/UserInputRecord.srv"
   "srv/BermService.srv"
@@ -28,6 +29,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/AutoDig.action"
   "action/AutoDump.action"
   "action/AutoNav.action"
+  "action/CalibrateImu.action"
   DEPENDENCIES std_msgs geometry_msgs action_msgs builtin_interfaces
 )
 

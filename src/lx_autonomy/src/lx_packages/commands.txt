@@ -11,3 +11,18 @@ Change Autodig PID values:
 ros2 service call /param_server_node/set_parameters rcl_interfaces/srv/SetParameters\
     "{parameters: [{name: \"autodig.pid_outer\", value: {type: 8, double_array_value: [0.015, 0.000001, 0.02]}},\
     {name: \"autodig.pid_inner\", value: {type: 8, double_array_value: [20, 0.0001, 0.5]}}]}"
+
+
+
+Test Auto Dump:
+- Start lx operation
+colcon build --packages-select lx_operation && ros2 launch lx_operation operation.launch.py 
+
+- Start mapping
+colcon build --packages-select lx_mapping && ros2 launch lx_mapping mapping.launch.py
+
+- Start services
+bash start_vs.sh
+
+- Call AutoDump action
+ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{}"
