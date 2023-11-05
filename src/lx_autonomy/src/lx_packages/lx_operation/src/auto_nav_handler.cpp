@@ -96,7 +96,7 @@ void AutoNavHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>:
 
 void AutoNavHandler::setupCommunications(){
     // Service clients
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
     
     // Action server
     using namespace std::placeholders;
@@ -168,7 +168,7 @@ void AutoNavHandler::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
@@ -216,6 +216,12 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Clear nav2 variables
     this->path_ = nav_msgs::msg::Path();
     this->planning_time_ = builtin_interfaces::msg::Duration();
+
+    // tf2_ros::Buffer tf_buffer(this->get_clock());
+    // tf2_ros::TransformListener tf_listener(tf_buffer);
+    // auto eigen_transform_prism_baselink_ = tf_buffer.lookupTransform("base_link", "map", tf2::TimePointZero, tf2::durationFromSec(0.5)); //prism to base link
+    // // print eigen transform
+    // RCLCPP_INFO(this->get_logger(), "Map to base link: %f %f %f", eigen_transform_prism_baselink_.transform.translation.x, eigen_transform_prism_baselink_.transform.translation.y, eigen_transform_prism_baselink_.transform.translation.z);
     
     if (!this->computePath(goal->goal)) {
         result->success = false;
@@ -431,7 +437,7 @@ void AutoNavHandler::followPathResultCallback(const GoalHandleFollowPath::Wrappe
     action_blocking_ = false;
 }
 
-void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+void AutoNavHandler::cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
     lx_msgs::msg::RoverCommand rov_cmd;
     rov_cmd.mobility_twist = *msg;
     

@@ -48,7 +48,7 @@ void CommandMux::setupCommunications(){
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
 }
 
 void CommandMux::getParams(){
@@ -195,7 +195,7 @@ void CommandMux::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");

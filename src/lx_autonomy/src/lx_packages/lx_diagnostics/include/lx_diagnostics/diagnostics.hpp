@@ -13,7 +13,7 @@ class Diagnostics: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        std::vector<std::string> nodes_list_ {"param_server_node", 
+        std::vector<std::string> nodes_list_ {"lx_param_server_node", 
                                               "external_interface_node",
                                               "operations_handler_node", 
                                               "command_mux_node",

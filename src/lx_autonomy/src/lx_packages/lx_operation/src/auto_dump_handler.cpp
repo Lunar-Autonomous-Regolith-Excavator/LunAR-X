@@ -118,7 +118,7 @@ void AutoDumpHandler::setupCommunications(){
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 1);
 
     // Service clients
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
     visual_servo_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/visual_servo_switch");
 
     // Action server
@@ -180,7 +180,7 @@ void AutoDumpHandler::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");

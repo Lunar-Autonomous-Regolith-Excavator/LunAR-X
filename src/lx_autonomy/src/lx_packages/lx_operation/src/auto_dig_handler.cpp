@@ -6,7 +6,7 @@
  *    - /rover_auto_cmd: [lx_msgs::msg::RoverCommand] The autonomy command to the rover
  *    - /lx_diagnostics: [lx_msgs::msg::NodeDiagnostics] The diagnostic heartbeat
  * Services:
- *    - /param_server_node/get_parameters: [rcl_interfaces::srv::GetParameters] Get parameters from the global parameter server
+ *    - /lx_param_server_node/get_parameters: [rcl_interfaces::srv::GetParameters] Get parameters from the global parameter server
  * Actions:
  *    - /operations/autodig_action: [lx_msgs::action::AutoDig] The action server for autodig
  *
@@ -132,7 +132,7 @@ void AutoDigHandler::setupCommunications(){
     }
 
     // Service clients
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
 
     // Action server
     using namespace std::placeholders;
@@ -193,7 +193,7 @@ void AutoDigHandler::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");

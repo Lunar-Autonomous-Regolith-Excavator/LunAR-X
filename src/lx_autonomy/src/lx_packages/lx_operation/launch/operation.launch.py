@@ -41,6 +41,11 @@ def generate_launch_description():
 
     # Nav2 Planner Server and Controller Server
     configured_params = os.path.join(get_package_share_directory('lx_operation'), 'config', 'params.yaml')
+    tf_remappings = [('/tf', 'tf'),
+                  ('/tf_static', 'tf_static')]
+    tf_and_cmdvel_remappings = [('/tf', 'tf'),
+                    ('/tf_static', 'tf_static'),
+                     ('cmd_vel', 'cmd_vel_nav')]
 
     lifecycle_nodes = [
                        'controller_server',
@@ -57,7 +62,7 @@ def generate_launch_description():
         respawn=True,
         respawn_delay=2.0,
         parameters=[configured_params],
-        remappings=[('cmd_vel', 'cmd_vel_nav')]
+        remappings=tf_and_cmdvel_remappings
     )
 
     nav2_smoother = Node(
@@ -66,7 +71,8 @@ def generate_launch_description():
         output='screen',
         respawn=True,
         respawn_delay=2.0,
-        parameters=[configured_params]
+        parameters=[configured_params],
+        remappings=tf_remappings
     )
     
     nav2_planner_server = Node(
@@ -76,7 +82,8 @@ def generate_launch_description():
         output='screen',
         respawn=True,
         respawn_delay=2.0,
-        parameters=[configured_params]
+        parameters=[configured_params],
+        remappings=tf_remappings
     )
 
     nav2_behaviors = Node(
@@ -85,7 +92,8 @@ def generate_launch_description():
         output='screen',
         respawn=True,
         respawn_delay=2.0,
-        parameters=[configured_params]
+        parameters=[configured_params],
+        remappings=tf_remappings
     )
 
     nav2_bt_navigator_node = Node(
@@ -95,7 +103,8 @@ def generate_launch_description():
         output='screen',
         respawn=True,
         respawn_delay=2.0,
-        parameters=[configured_params]
+        parameters=[configured_params],
+        remappings=tf_remappings
     )
 
     nav2_lifecycle_manager = Node(
@@ -105,7 +114,8 @@ def generate_launch_description():
         output='screen',
         respawn=True,
         respawn_delay=2.0,
-        parameters=[{'use_sim_time': False}, {'autostart': True}, {'node_names': lifecycle_nodes}]
+        parameters=[{'use_sim_time': False}, {'autostart': True}, {'node_names': lifecycle_nodes}],
+        remappings=tf_remappings
     )
 
     # RViz
@@ -124,6 +134,6 @@ def generate_launch_description():
     ld.add_action(nav2_behaviors)
     ld.add_action(nav2_bt_navigator_node)
     ld.add_action(nav2_lifecycle_manager)
-    ld.add_action(rviz_node)
+    # ld.add_action(rviz_node)
 
     return ld
