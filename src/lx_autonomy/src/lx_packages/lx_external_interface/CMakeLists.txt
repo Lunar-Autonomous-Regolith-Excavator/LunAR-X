@@ -19,7 +19,7 @@ include_directories(include)
 
 # External interface node
 add_executable(external_interface_node src/external_interface_node.cpp src/external_interface.cpp)
-ament_target_dependencies(external_interface_node rclcpp sensor_msgs lx_msgs lx_library)
+ament_target_dependencies(external_interface_node rclcpp sensor_msgs lx_msgs lx_library rclcpp_action)
 
 # Goal handler node
 add_executable(goal_handler_node src/goal_handler_node.cpp src/goal_handler.cpp)

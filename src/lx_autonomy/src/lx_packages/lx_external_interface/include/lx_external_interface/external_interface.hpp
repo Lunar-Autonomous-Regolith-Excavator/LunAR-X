@@ -11,6 +11,8 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "lx_msgs/srv/switch.hpp"
 #include "lx_msgs/msg/node_diagnostics.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
+#include "lx_msgs/action/calibrate_imu.hpp"
 
 
 class ExternalInterface: public rclcpp::Node
@@ -18,6 +20,7 @@ class ExternalInterface: public rclcpp::Node
     private:
         // Variables & pointers -----------------
         unsigned int diagnostic_pub_period_ = 1;
+        using CalibrateImu = lx_msgs::action::CalibrateImu;
         // Time
         rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
         rclcpp::TimerBase::SharedPtr rover_lock_timer_;
@@ -26,6 +29,7 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Time back_debounce_timer_;
         rclcpp::Time a_debounce_timer_;
         rclcpp::Time b_debounce_timer_;
+        rclcpp::Time y_debounce_timer_;
         // Track joystick states
         sensor_msgs::msg::Joy joy_last_state_ = sensor_msgs::msg::Joy();
         // Subscribers
@@ -35,6 +39,7 @@ class ExternalInterface: public rclcpp::Node
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
 		rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr map_switch_client_;
+        rclcpp_action::Client<CalibrateImu>::SharedPtr calibrate_imu_action_client_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_teleop_publisher_;
@@ -159,6 +164,11 @@ class ExternalInterface: public rclcpp::Node
         * Callback function for map switch service
         * */
         void mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture );
+
+        /*
+        * Call localization calibration action
+        * */
+        void callLocalizationCalibration();
 
         /*
         * Diagnostic heartbeat published at a fixed rate

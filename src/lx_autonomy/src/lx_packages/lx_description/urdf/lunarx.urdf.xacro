@@ -194,7 +194,7 @@
     <!-- IMU -->
     <link name="vectornav"/>
     <joint name="vectornav_joint" type="fixed">
-        <origin xyz="0.17 0 0.52" rpy="1.5707 0 0" />
+        <origin xyz="0.17 0 0.52" rpy="0 0 1.5707" />
         <parent link="base_footprint" />
         <child link="vectornav" />
     </joint>
@@ -202,7 +202,7 @@
     <!-- Total Station Prism -->
     <link name="total_station_prism"/>
     <joint name="total_station_prism_joint" type="fixed">
-        <origin xyz="0.27 0.19 0.8" rpy="1.5707 0 0" />
+        <origin xyz="0.27 0.19 0.8" rpy="0 0 0" />
         <parent link="base_footprint" />
         <child link="total_station_prism" />
     </joint>
