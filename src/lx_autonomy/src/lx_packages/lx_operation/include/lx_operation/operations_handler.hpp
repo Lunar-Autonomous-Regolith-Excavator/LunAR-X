@@ -157,28 +157,100 @@ class OperationsHandler: public rclcpp::Node
         * */
         bool executeTaskQueue();
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         bool callAutoNav(Task );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         bool callAutoDig(Task );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         bool callAutoDump(Task );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoNavResponseCB(GoalHandleAutoNav::SharedPtr );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoNavFeedbackCB(GoalHandleAutoNav::SharedPtr, const std::shared_ptr<const AutoNav::Feedback> );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoNavResultCB(const GoalHandleAutoNav::WrappedResult& );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoDigResponseCB(GoalHandleAutoDig::SharedPtr );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoDigFeedbackCB(GoalHandleAutoDig::SharedPtr, const std::shared_ptr<const AutoDig::Feedback> );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoDigResultCB(const GoalHandleAutoDig::WrappedResult& );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoDumpResponseCB(GoalHandleAutoDump::SharedPtr );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoDumpFeedbackCB(GoalHandleAutoDump::SharedPtr, const std::shared_ptr<const AutoDump::Feedback> );
 
+        /*
+        * Argument(s):
+        *   - 
+        * 
+        * TODO
+        * */
         void autoDumpResultCB(const GoalHandleAutoDump::WrappedResult& );
 
         /*

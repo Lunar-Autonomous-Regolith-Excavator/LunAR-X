@@ -69,6 +69,7 @@ def generate_launch_description():
       executable='pcl_relay_node',
       name='pcl_relay_node',
       output='screen',
+      emulate_tty=True
     )
     
     ld.add_action(param_server_launch)

@@ -14,6 +14,7 @@
  * - Write checkBermBuilt
  * - Finish executeOperation
  * - Add documentation
+ * - Add start and stop mapping service
  * */
 
 #include "lx_operation/operations_handler.hpp"
@@ -208,6 +209,15 @@ void OperationsHandler::switchRoverTaskMode(TaskModeEnum mode_to_set){
 }
 
 rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Operation::Goal> goal){
+    // Clear executed task queue
+    executed_task_ids_.clear();
+    // Clear task queue
+    while(!task_queue_.empty()){
+        task_queue_.pop();
+    }
+    // Clear berm configuration
+    berm_config_.berm_configuration.clear();
+    
     // Get requested berm configuration
     berm_config_.berm_configuration = goal->requested_berm_config.berm_configuration;
     
