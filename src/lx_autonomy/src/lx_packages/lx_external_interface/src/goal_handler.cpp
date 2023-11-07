@@ -32,7 +32,7 @@ void GoalHandler::setupCommunications(){
     // Subscribers
 
     // Publishers
-    processed_berm_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("processed_berm_viz_markers", 5);
+    processed_berm_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/processed_berm", 5);
 
     // Clients
     operation_action_client_ = rclcpp_action::create_client<Operation>(this, "operations/berm_build_action");
