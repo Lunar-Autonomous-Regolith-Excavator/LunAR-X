@@ -72,7 +72,7 @@ def generate_launch_description():
       emulate_tty=True
     )
     
-    ld.add_action(param_server_launch)
+    # ld.add_action(param_server_launch)
     ld.add_action(description_launch)
     # ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
