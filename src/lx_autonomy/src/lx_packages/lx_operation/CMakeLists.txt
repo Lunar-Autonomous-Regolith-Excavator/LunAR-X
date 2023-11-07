@@ -19,13 +19,14 @@ find_package(nav_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav2_controller REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 
 include_directories(include)
 
 # Operations handler node
 add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
-ament_target_dependencies(operations_handler_node rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
+ament_target_dependencies(operations_handler_node rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library visualization_msgs)
 
 # Auto Dig Handler node
 add_executable(auto_dig_handler_node src/auto_dig_handler_node.cpp src/auto_dig_handler.cpp)
