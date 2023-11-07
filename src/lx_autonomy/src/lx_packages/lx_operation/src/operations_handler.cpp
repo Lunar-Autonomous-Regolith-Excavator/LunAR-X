@@ -447,9 +447,11 @@ bool OperationsHandler::callAutoNav(Task current_task){
     auto_action_accepted_ = false;
     auto_action_success_ = false;
 
+    // Create Autonav Request from the Task
     auto autonav_request_msg = AutoNav::Goal();
-    // TODO Create Autonav Request from the Task
-    (void)current_task;
+    autonav_request_msg.goal.header.frame_id = "map";
+    autonav_request_msg.goal.header.stamp = this->get_clock()->now();
+    autonav_request_msg.goal.pose = current_task.getPoseArray().poses[0];
     
     RCLCPP_INFO(this->get_logger(), "Sending Auto Nav goal");
     
