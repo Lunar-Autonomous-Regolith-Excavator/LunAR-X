@@ -9,7 +9,7 @@ class TestPlannerNode : public rclcpp::Node
 public:
     TestPlannerNode() : Node("testPlanner")
     {
-        client_ = create_client<lx_msgs::srv::Plan>("task_planner");
+        client_ = create_client<lx_msgs::srv::Plan>("plan_operation");
 
         // Wait for the service to be available
         while (!client_->wait_for_service(std::chrono::seconds(11))) {

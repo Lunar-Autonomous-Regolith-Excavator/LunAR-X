@@ -9,12 +9,11 @@
  * - Summary
  * 
  * TODO
- * - getPlan
- * - Write executeTaskQueue
  * - Write checkBermBuilt
  * - Finish executeOperation
  * - Add documentation
  * - Add start and stop mapping service
+ * - Add visualization for Nav and Dig tasks
  * */
 
 #include "lx_operation/operations_handler.hpp"
@@ -22,7 +21,7 @@
 OperationsHandler::OperationsHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("operations_handler_node"){
     (void)options;
     // Clear executed task queue
-    executed_task_ids_.clear();
+    executed_tasks_.clear();
 
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
@@ -110,6 +109,7 @@ void OperationsHandler::setupCommunications(){
 
     // Publishers
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
+    plan_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/plan_viz", 10);
     // Service servers
 
     // Service clients
@@ -210,7 +210,9 @@ void OperationsHandler::switchRoverTaskMode(TaskModeEnum mode_to_set){
 
 rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Operation::Goal> goal){
     // Clear executed task queue
-    executed_task_ids_.clear();
+    executed_tasks_.clear();
+    // Set current_task_id_ to -1
+    current_task_id_ = -1;
     // Clear task queue
     while(!task_queue_.empty()){
         task_queue_.pop();
@@ -262,6 +264,12 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
         // Get task queue from planner
         task_queue_ = getPlan();
 
+        // Copy for visualization
+        task_queue_copy_ = task_queue_;
+
+        // Visualize dump sequence
+        visualizationUpdate();
+
         // TODO Only keep first N tasks in queue
 
         // Execute task queue
@@ -287,25 +295,74 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
 }
 
 std::queue<Task, std::list<Task>> OperationsHandler::getPlan(){
-    // TODO
-
     // Call planning service
+    auto request = std::make_shared<lx_msgs::srv::Plan::Request>();
+    // Fill in your request data here
+    std::vector<geometry_msgs::msg::Point> berm_pts;
+    geometry_msgs::msg::Point pt;
+    for(auto &berm_node: berm_config_.berm_configuration){
+        pt.x = berm_node.point.x; pt.y = berm_node.point.y; berm_pts.push_back(pt);
+    }
+
+    request->berm_input = berm_pts;
+    request->berm_height = BERM_HEIGHT;
+    request->section_length = BERM_SECTION_LENGTH;
 
     // Block till planner returns plan
+    planner_blocking_ = true;
 
-    // Return task ids. Check already executed tasks by accessing executed_task_ids_
+    // Clear received plan
+    received_plan_.clear();
+
+    // Call the service
+    auto result_future = planner_client_->async_send_request(request, std::bind(&OperationsHandler::plannerClientCB, this, std::placeholders::_1));
+
+    // Block till planner returns plan
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(planner_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
+    // If planner does not respond in time, return empty task queue
+    if(planner_blocking_){
+        RCLCPP_ERROR(this->get_logger(), "Planner did not respond in time");
+        // Free planner block flag
+        planner_blocking_ = false;
+        return std::queue<Task, std::list<Task>>();
+    }
 
     std::queue<Task, std::list<Task>> build_task_queue {};
 
     // Add tasks to task queue
+    for(long unsigned int i = 0; i < received_plan_.size(); i++){
+        // Increment task id
+        current_task_id_++;
+        // Make task pose array
+        auto task_pose_array = geometry_msgs::msg::PoseArray();
+        task_pose_array.poses.push_back(received_plan_[i].pose);
+        build_task_queue.push(Task(current_task_id_, TaskTypeEnum(received_plan_[i].task_type), task_pose_array, received_plan_[i].point));
+    }
 
-    // TEST TASKS - TO BE REMOVED
-    auto test_pose = geometry_msgs::msg::PoseArray();
-    build_task_queue.push(Task(0, TaskTypeEnum::AUTONAV, test_pose));
-    build_task_queue.push(Task(1, TaskTypeEnum::AUTODIG, test_pose));
-    build_task_queue.push(Task(2, TaskTypeEnum::AUTODUMP, test_pose));
+    // Clear receiving vector
+    received_plan_.clear();
 
     return build_task_queue;
+}
+
+void OperationsHandler::plannerClientCB(rclcpp::Client<lx_msgs::srv::Plan>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+
+    planner_blocking_ = false;
+
+    if(status == std::future_status::ready){ 
+        RCLCPP_INFO(this->get_logger(), "Received plan from planner");
+        auto result = future.get();
+        // Receive plan
+        received_plan_ = result->plan;
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
 }
 
 bool OperationsHandler::executeTaskQueue(){
@@ -319,7 +376,18 @@ bool OperationsHandler::executeTaskQueue(){
         else{
             // Execute task
             Task current_task = task_queue_.front();
+            // Store current task id for future dynamic plans
+            current_task_id_ = current_task.getID();
+            // Pop task queue
             task_queue_.pop();
+            // Copy task queue for visualization
+            task_queue_copy_ = task_queue_;
+            // Visualize current task to be executed
+            visualizeCurrentTask(current_task);
+            // Log Task ID being executed
+            RCLCPP_INFO(this->get_logger(), "Executing task %d", current_task.getID());
+            
+            // Execute task based on type
             switch(current_task.getType()){
                 case TaskTypeEnum::AUTONAV:
                     if(!callAutoNav(current_task)){
@@ -340,8 +408,11 @@ bool OperationsHandler::executeTaskQueue(){
                     RCLCPP_ERROR(this->get_logger(), "Invalid task type");
                     return false;
             }
-            // Append executed task id to executed_task_ids_
-            executed_task_ids_.push_back(current_task.getID());
+            // Append executed task to executed_tasks_
+            executed_tasks_.emplace_back(current_task);
+
+            // Visualize task as completed
+            visualizationUpdate();
         }
     }
 
@@ -644,4 +715,191 @@ void OperationsHandler::diagnosticPublish(){
     msg.node_name = this->get_name();
     msg.stamp = this->get_clock()->now();
     diagnostic_publisher_->publish(msg);
+}
+
+std::vector<geometry_msgs::msg::Point> OperationsHandler::createVizRectangle(float x, float y, float theta){
+    std::vector<geometry_msgs::msg::Point> polygon;
+
+    // width of the rectangle is 0.2 m
+    // length of the rectangle is 0.4 m
+
+    // Add the four corners to the points
+    geometry_msgs::msg::Point point;
+    point.z = 0.0;
+    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    // Repeat first point to close the rectangle
+    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+
+    return polygon;
+}
+
+void OperationsHandler::visualizeCurrentTask(Task current_task){
+    RCLCPP_INFO(this->get_logger(), "Visualizing current task");
+
+    // Make Marker array
+    auto operations_marker_array = visualization_msgs::msg::MarkerArray();
+    auto marker = visualization_msgs::msg::Marker();
+    marker.header.frame_id = "map";
+    marker.header.stamp = this->get_clock()->now();
+    marker.ns = "current_task";
+    marker.id = 0;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.lifetime = rclcpp::Duration(0, 0);
+    marker.scale.x = 0.05;
+    marker.color.r = 0.0;
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+    marker.color.a = 1.0;
+
+    // Depending on task type, create marker
+    if(current_task.getType() == TaskTypeEnum::AUTODUMP){
+        // Create marker
+        marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+
+        // get points from createVizRectangle
+        auto dump_polygon = createVizRectangle(current_task.getTaskPoint().x, 
+                                                current_task.getTaskPoint().y, 
+                                                current_task.getTaskPoint().z);
+        // add points to line strip
+        for(auto &dump_point: dump_polygon){
+            geometry_msgs::msg::Point point;
+            point.x = dump_point.x;
+            point.y = dump_point.y;
+            point.z = 0.02;
+            marker.points.push_back(point);
+        }
+        // Add marker to marker array
+        operations_marker_array.markers.push_back(marker);
+    }
+    else if(current_task.getType() == TaskTypeEnum::AUTODIG){
+        // TODO
+    }
+    else{
+        // TODO
+    }
+
+    // Publish marker array
+    plan_viz_publisher_->publish(operations_marker_array);
+}
+
+void OperationsHandler::visualizationUpdate(){
+    vizCleanup();
+
+    // Make Marker array
+    auto operations_marker_array = visualization_msgs::msg::MarkerArray();
+    // Create line strip marker for planned dump pose in received task queue
+    
+    RCLCPP_INFO(this->get_logger(), "Visualizing plan and executed tasks");
+
+    // Loop through executed_tasks_
+    if(!executed_tasks_.empty()){
+        for(long unsigned int i = 0; i < executed_tasks_.size(); i++){
+            // If executed task is autodump
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP){
+                // Create marker
+                auto marker = visualization_msgs::msg::Marker();
+                marker.header.frame_id = "map";
+                marker.header.stamp = this->get_clock()->now();
+                marker.ns = "executed_tasks";
+                marker.id = i;
+                marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+                marker.action = visualization_msgs::msg::Marker::ADD;
+                marker.scale.x = 0.05;
+                marker.color.r = 0.5;
+                marker.color.g = 0.5;
+                marker.color.b = 0.5;
+                marker.color.a = 0.8;
+                marker.lifetime = rclcpp::Duration(0, 0);
+                
+                // get points from createVizRectangle
+                auto executed_task_polygon = createVizRectangle(executed_tasks_[i].getTaskPoint().x, 
+                                                            executed_tasks_[i].getTaskPoint().y, 
+                                                            executed_tasks_[i].getTaskPoint().z);
+                // add points to line strip
+                for(auto &executed_task_point: executed_task_polygon){
+                    geometry_msgs::msg::Point point;
+                    point.x = executed_task_point.x;
+                    point.y = executed_task_point.y;
+                    point.z = 0.0;
+                    marker.points.push_back(point);
+                }
+                // Add marker to marker array
+                operations_marker_array.markers.push_back(marker);
+            }
+        }
+    }
+    
+
+    // Loop through task_queue_copy_
+    while(!task_queue_copy_.empty()){
+        int i = task_queue_copy_.front().getID();
+
+        // If task is autodump
+        if(task_queue_copy_.front().getType() == TaskTypeEnum::AUTODUMP){
+        
+            // Create marker
+            auto marker = visualization_msgs::msg::Marker();
+            marker.header.frame_id = "map";
+            marker.header.stamp = this->get_clock()->now();
+            marker.ns = "dump_segments";
+            marker.id = i;
+            marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+            marker.scale.x = 0.05;
+            marker.color.r = 1.0;
+            marker.color.g = 0.0;
+            marker.color.b = 0.0;
+            marker.color.a = 0.8;
+            marker.lifetime = rclcpp::Duration(0, 0);
+            
+            // get points from createVizRectangle
+            auto dump_polygon = createVizRectangle(task_queue_copy_.front().getTaskPoint().x, 
+                                                task_queue_copy_.front().getTaskPoint().y, 
+                                                task_queue_copy_.front().getTaskPoint().z);
+            // add points to line strip
+            for(auto &dump_point: dump_polygon){
+                geometry_msgs::msg::Point point;
+                point.x = dump_point.x;
+                point.y = dump_point.y;
+                point.z = 0.01;
+                marker.points.push_back(point);
+            }
+            // Add marker to marker array
+            operations_marker_array.markers.push_back(marker);
+
+        
+        }
+        task_queue_copy_.pop();
+    }
+
+    // Publish marker array
+    plan_viz_publisher_->publish(operations_marker_array);
+}
+
+void OperationsHandler::vizCleanup(){
+    // Cleaning up visualization
+    RCLCPP_INFO(this->get_logger(), "Cleaning visualization");
+
+    // Make Marker array
+    auto operations_marker_array = visualization_msgs::msg::MarkerArray();
+
+    // Clear all markers marker
+    auto marker = visualization_msgs::msg::Marker();
+    marker.header.frame_id = "map";
+    marker.header.stamp = this->get_clock()->now();
+    marker.ns = "dump_segments";
+    marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    operations_marker_array.markers.push_back(marker);
+
+    marker.ns = "executed_tasks";
+    operations_marker_array.markers.push_back(marker);
+
+    marker.ns = "current_task";
+    operations_marker_array.markers.push_back(marker);
+    
+    // Publish marker array
+    plan_viz_publisher_->publish(operations_marker_array);
 }

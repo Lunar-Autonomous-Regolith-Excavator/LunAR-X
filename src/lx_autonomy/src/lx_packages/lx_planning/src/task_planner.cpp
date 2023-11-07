@@ -48,7 +48,7 @@ void TaskPlanner::setupCommunications(){
     // Servers
 
     // Service servers
-    this->plan_service_server_ = this->create_service<lx_msgs::srv::Plan>("task_planner",
+    this->plan_service_server_ = this->create_service<lx_msgs::srv::Plan>("plan_operation",
                                         std::bind(&TaskPlanner::taskPlannerCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     
@@ -77,7 +77,7 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     // Assuming that the corner near the router is the origin
     // Temporary start pose for excavation at (3,1) with orientation of zero degrees throughout
     lx_msgs::msg::PlannedTask excavation_task;
-    excavation_task.task_type = lx_msgs::msg::PlannedTask::EXCAVATION;
+    excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
 
     geometry_msgs::msg::Pose start_pose;
     start_pose.position.x = 3.5;
@@ -105,7 +105,7 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         for (int j = 0; j < num_iterations; j++){
             // Add navigation task to the plan
             lx_msgs::msg::PlannedTask navigation_task;
-            navigation_task.task_type = lx_msgs::msg::PlannedTask::NAVIGATION;
+            navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
             navigation_task.pose = start_pose;
             res->plan.push_back(navigation_task);
 
@@ -118,8 +118,12 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
 
             // Add dump task to the plan
             lx_msgs::msg::PlannedTask dump_task;
-            dump_task.task_type = lx_msgs::msg::PlannedTask::DUMP;
+            dump_task.task_type = int(TaskTypeEnum::AUTODUMP);
             dump_task.pose = dump_pose;
+            // Add dump berm location to response
+            dump_task.point.x = berm_section.center.x;
+            dump_task.point.y = berm_section.center.y;
+            dump_task.point.z = berm_section.angle;
             res->plan.push_back(dump_task);
         }
     }
