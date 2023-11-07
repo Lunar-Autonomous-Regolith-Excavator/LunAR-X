@@ -108,7 +108,7 @@ void OperationsHandler::setupCommunications(){
 
     // Publishers
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
-    plan_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/plan_viz", 10);
+    plan_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/operations", 10);
     // Service servers
 
     // Service clients
