@@ -67,8 +67,10 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     section_length_ = req->section_length;
 
     // Find berm sequence if not already found
-    if (berm_sequence_.size() == 0 && !findBermSequence(berm_points)) {
-        return;
+    if (req->new_plan || berm_sequence_.size() == 0) {
+        if (!findBermSequence(berm_points)) {
+            return;
+        }
     }
 
     // For each berm section, there will be an excavation task and a dump task

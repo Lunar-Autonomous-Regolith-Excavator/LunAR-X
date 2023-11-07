@@ -33,6 +33,9 @@ class OperationsHandler: public rclcpp::Node
         // Variables & pointers -----------------
         const float BERM_HEIGHT = 0.15;
         const float BERM_SECTION_LENGTH = 0.4;
+        const float AUTODIG_SPEED = 0.025;
+        const float AUTODIG_TIME = 45;
+        const int MAX_PLAN_ITERS = 200;
         using Operation = lx_msgs::action::Operation;
         using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
         using AutoNav = lx_msgs::action::AutoNav;
@@ -156,14 +159,6 @@ class OperationsHandler: public rclcpp::Node
         * 
         * */
         void plannerClientCB(rclcpp::Client<lx_msgs::srv::Plan>::SharedFuture );
-
-        /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO Call berm evaluation
-        * */
-        bool checkBermBuilt();
 
         /*
         * Argument(s):

@@ -9,7 +9,6 @@
  * - Summary
  * 
  * TODO
- * - Write checkBermBuilt
  * - Finish executeOperation
  * - Add documentation
  * - Add start and stop mapping service
@@ -256,13 +255,19 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     auto feedback = std::make_shared<Operation::Feedback>();
     auto result = std::make_shared<Operation::Result>();
 
-    do{
-        // Set task mode as IDLE
-        switchRoverTaskMode(TaskModeEnum::IDLE);
+    // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
 
+    for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
         // Call planner to plan full path
         // Get task queue from planner
         task_queue_ = getPlan();
+
+        if(task_queue_.empty()){
+            RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
+            // If planner returns empty plan, either berm is built, or planner failed
+            break;
+        }
 
         // Copy for visualization
         task_queue_copy_ = task_queue_;
@@ -282,7 +287,6 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
         }
         // If all tasks successful, continue next loop iteration
     } 
-    while(!checkBermBuilt());
 
     switchRoverTaskMode(TaskModeEnum::IDLE);
     
@@ -290,7 +294,7 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Operations goal succeeded, berm built");
+      RCLCPP_INFO(this->get_logger(), "Operations goal succeeded");
     }
 }
 
@@ -307,6 +311,12 @@ std::queue<Task, std::list<Task>> OperationsHandler::getPlan(){
     request->berm_input = berm_pts;
     request->berm_height = BERM_HEIGHT;
     request->section_length = BERM_SECTION_LENGTH;
+    if(current_task_id_ == -1){
+        request->new_plan = true;
+    }
+    else{
+        request->new_plan = false;
+    }
 
     // Block till planner returns plan
     planner_blocking_ = true;
@@ -696,17 +706,6 @@ void OperationsHandler::autoDumpResultCB(const GoalHandleAutoDump::WrappedResult
             break;
     }
     auto_action_blocking_ = false;
-}
-
-bool OperationsHandler::checkBermBuilt(){
-    // TODO
-
-    // Call berm evaluation service
-
-    // Send action feedback on progress
-
-    // Return true if berm is built
-    return true;
 }
 
 void OperationsHandler::diagnosticPublish(){
