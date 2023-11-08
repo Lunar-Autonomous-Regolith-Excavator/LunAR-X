@@ -115,6 +115,7 @@ void AutoNavHandler::setupCommunications(){
     
     // Publishers
     this->rover_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_auto_cmd", 10);
+    this->path_pub_ = this->create_publisher<nav_msgs::msg::Path>("path", 10);
 }
 
 void AutoNavHandler::setupParams(){
@@ -216,8 +217,10 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Clear nav2 variables
     this->path_ = nav_msgs::msg::Path();
     this->planning_time_ = builtin_interfaces::msg::Duration();
+
+    this->goal_pose_ = goal->goal;
     
-    if (!this->computePath(goal->goal)) {
+    if (!this->computePath()) {
         result->success = false;
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Autonav failed");
@@ -227,13 +230,16 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Print planning time in ms
     RCLCPP_INFO(this->get_logger(), "Planning time: %f ms", this->planning_time_.sec * 1000 + this->planning_time_.nanosec / 1000000.0);
 
-    // Follow path
-    if (!this->followPath()) {
-        result->success = false;
-        goal_handle->abort(result);
-        RCLCPP_ERROR(this->get_logger(), "Autonav failed");
-        return;
-    }
+    // Publish path
+    this->path_pub_->publish(this->path_);
+
+    // // Follow path
+    // if (!this->followPath()) {
+    //     result->success = false;
+    //     goal_handle->abort(result);
+    //     RCLCPP_ERROR(this->get_logger(), "Autonav failed");
+    //     return;
+    // }
     
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {
@@ -243,13 +249,13 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     }
 }
 
-bool AutoNavHandler::computePath(const geometry_msgs::msg::PoseStamped& goal_pose){
+bool AutoNavHandler::computePath() {
     using namespace std::placeholders;
     if (!this->compute_path_client_->wait_for_action_server(std::chrono::seconds(10))) {
         RCLCPP_ERROR(this->get_logger(), "Compute path action server not available after waiting");
         return false;
     }
-    
+
     // Block action until path is computed
     this->planner_action_blocking_ = true;
     this->planner_action_server_responded_ = false;
@@ -258,7 +264,7 @@ bool AutoNavHandler::computePath(const geometry_msgs::msg::PoseStamped& goal_pos
     
     // Create goal message
     auto goal_msg = ComputePathToPose::Goal();
-    goal_msg.goal = goal_pose;
+    goal_msg.goal = this->goal_pose_;
     goal_msg.planner_id = "GridBased";
     goal_msg.use_start = false; // No need to provide start pose -- it will use the current robot pose
 
@@ -310,7 +316,7 @@ bool AutoNavHandler::followPath(){
     
     // Create goal message
     auto goal_msg = FollowPath::Goal();
-    goal_msg.path = path_;
+    goal_msg.path = this->path_;
     goal_msg.controller_id = "FollowPath";
     goal_msg.goal_checker_id = "goal_checker";
 
@@ -326,7 +332,7 @@ bool AutoNavHandler::followPath(){
     rclcpp::Rate loop_rate(10);
     while(this->controller_action_blocking_ && rclcpp::ok()) {
         // Print feedback
-        RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f, Speed: %f", this->distance_to_goal_, this->rov_speed_);
+        // RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f, Speed: %f", this->distance_to_goal_, this->rov_speed_);
         loop_rate.sleep();
     }
 
@@ -380,8 +386,8 @@ void AutoNavHandler::computePathResultCallback(const GoalHandleComputePathToPose
             this->planner_action_success_ = false;
             break;
     }
-    action_blocking_ = false;
-    if (action_success_) {
+    this->planner_action_blocking_ = false;
+    if (this->planner_action_success_) {
         this->path_ = result.result->path;
         this->planning_time_ = result.result->planning_time;
     }
@@ -426,7 +432,7 @@ void AutoNavHandler::followPathResultCallback(const GoalHandleFollowPath::Wrappe
             this->controller_action_success_ = false;
             break;
     }
-    action_blocking_ = false;
+    this->controller_action_blocking_ = false;
 }
 
 void AutoNavHandler::cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {

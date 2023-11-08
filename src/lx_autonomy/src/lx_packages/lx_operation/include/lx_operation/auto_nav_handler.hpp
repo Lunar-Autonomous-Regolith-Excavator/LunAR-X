@@ -44,6 +44,8 @@ class AutoNavHandler: public rclcpp::Node
         bool controller_action_server_responded_ = false;
         bool controller_action_accepted_ = false;
         bool controller_action_success_ = false;
+        // Goal Pose
+        geometry_msgs::msg::PoseStamped goal_pose_;
         // Nav2 ComputePath Results
         nav_msgs::msg::Path path_;
         builtin_interfaces::msg::Duration planning_time_;
@@ -54,6 +56,8 @@ class AutoNavHandler: public rclcpp::Node
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_nav_sub_;
         // Publisher for rover auto command
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_cmd_pub_;
+        // Publisher for path
+        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
@@ -127,7 +131,7 @@ class AutoNavHandler: public rclcpp::Node
         void executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> );
 
         // Functions to handle Nav2 Planner action
-        bool computePath(const geometry_msgs::msg::PoseStamped&, const bool );
+        bool computePath(const bool);
         
         void computePathResponseCallback(GoalHandleComputePathToPose::SharedPtr );
         
