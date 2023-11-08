@@ -162,12 +162,12 @@ void Localization::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
     // Update the frame_id field in the message
     msg->header.frame_id = "base_link";
     // reset covariance
-    msg->twist.covariance[0] = 0.1; // X
-    msg->twist.covariance[7] = 0.01; // y
-    msg->twist.covariance[14] = 0.01; // z
+    msg->twist.covariance[0] = 0.01; // vX
+    msg->twist.covariance[7] = 0.05; // vy
+    msg->twist.covariance[14] = 0.01; // vz
     msg->twist.covariance[21] = 0.01; // roll
     msg->twist.covariance[28] = 0.01; // pitch
-    msg->twist.covariance[35] = 0.5; // yaw
+    msg->twist.covariance[35] = 0.1; // yaw
     odom_pub_->publish(*msg);
 }
 
