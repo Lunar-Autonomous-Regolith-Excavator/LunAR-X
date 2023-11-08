@@ -33,8 +33,10 @@ WorldModel::WorldModel() : Node("world_model_node")
 
     // Initializing occupancy grid
     this->global_map_.data.resize(global_map_.info.width*global_map_.info.height);
-    for(int i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
+    this->filtered_global_map_.data.resize(global_map_.info.width*global_map_.info.height);
+    for(long int i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
         this->global_map_.data[i] = 0;
+        this->filtered_global_map_.data[i] = 0;
     }
 
     RCLCPP_INFO(this->get_logger(), "World Model initialized");
@@ -45,11 +47,14 @@ void WorldModel::setupCommunications(){
     // Publishers
     global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map", 10);
     world_model_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/world_model", 10);
+    filtered_global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/filtered_global_map", 10);
 
     // Servers
     map_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/map_switch", 
                                                             std::bind(&WorldModel::mapSwitchCallback, 
                                                             this, std::placeholders::_1, std::placeholders::_2));
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
 void WorldModel::configureMaps(){
@@ -61,6 +66,9 @@ void WorldModel::configureMaps(){
     this->global_map_.info.height = MAP_DIMENSION/MAP_RESOLUTION;
     this->global_map_.info.origin.position.x = -MAP_DIMENSION/2.0;
     this->global_map_.info.origin.position.y = -MAP_DIMENSION/2.0;
+
+    filtered_global_map_.header.frame_id = "moonyard";
+    filtered_global_map_.info = global_map_.info;
 
     elevation_costmap_.header.frame_id = "moonyard";
     elevation_costmap_.info = global_map_.info;
@@ -76,12 +84,19 @@ void WorldModel::configureMaps(){
 
     world_model_.header.frame_id = "moonyard";
     world_model_.info = global_map_.info;
+
+    // Initialize bayes filter
+    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+        BayesFilter bf;
+        bayes_filter_.push_back(bf);
+    }
 }
+
 
 void WorldModel::mapSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
                                                 std::shared_ptr<lx_msgs::srv::Switch::Response> res){
     if(req->switch_state){
-        // Subscribe to the point cloud topic
+        // Subscribe to the Point cloud topic
         transformed_pcl_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
                                                                                     std::bind(&WorldModel::transformedPCLCallback, this, std::placeholders::_1));
     }
@@ -100,25 +115,22 @@ void WorldModel::transformedPCLCallback(const sensor_msgs::msg::PointCloud2::Sha
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr WorldModel::transformMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     
-    RCLCPP_INFO(this->get_logger(), "A2");
     geometry_msgs::msg::TransformStamped base2moonyard_transform;
-    RCLCPP_INFO(this->get_logger(), "B2");
     try
     {
       base2moonyard_transform = tf_buffer_->lookupTransform("moonyard","base_link",tf2::TimePointZero, tf2::durationFromSec(10));
-      RCLCPP_INFO(this->get_logger(), "Transform found");
     }
     catch (tf2::TransformException& ex)
     {
-      RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+        RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
 
-      return nullptr;
+        return nullptr;
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *cloud);
 
-    RCLCPP_INFO(this->get_logger(), "cloud size: %d", cloud->points.size());
+    // RCLCPP_INFO(this->get_logger(), "cloud size: %d", cloud->points.size());
 
     // convert x,y,z,w to roll, pitch, yaw
     tf2::Quaternion q(base2moonyard_transform.transform.rotation.x, base2moonyard_transform.transform.rotation.y, base2moonyard_transform.transform.rotation.z, base2moonyard_transform.transform.rotation.w);
@@ -126,7 +138,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr WorldModel::transformMap(const sensor_msgs::
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
-    RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
+    // RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
 
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
     transform_2.translation() << base2moonyard_transform.transform.translation.x, base2moonyard_transform.transform.translation.y, base2moonyard_transform.transform.translation.z;
@@ -134,12 +146,17 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr WorldModel::transformMap(const sensor_msgs::
     transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
     transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
 
-    RCLCPP_INFO(this->get_logger(), "C");
+    pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud_1 (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::transformPointCloud(*cloud, *transformed_cloud_1, transform_2);
+
+    Eigen::Affine3f transform_3 = Eigen::Affine3f::Identity();
+    // transform_2.translation() << base2moonyard_transform.transform.translation.x, base2moonyard_transform.transform.translation.y, base2moonyard_transform.transform.translation.z;
+    // transform_3.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
+    // transform_3.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
+    // transform_3.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    RCLCPP_INFO(this->get_logger(), "D");
-    pcl::transformPointCloud(*cloud, *transformed_cloud, transform_2);
-    RCLCPP_INFO(this->get_logger(), "E");
+    pcl::transformPointCloud(*transformed_cloud_1, *transformed_cloud, transform_3);
 
     return transformed_cloud;
 }
@@ -147,11 +164,9 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr WorldModel::transformMap(const sensor_msgs::
 void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud_local_map(new pcl::PointCloud<pcl::PointXYZ>);
-    RCLCPP_INFO(this->get_logger(), "A");
     try
     {
         cropped_cloud_local_map = transformMap(msg);
-        RCLCPP_INFO(this->get_logger(), "C3");
     }
     catch(const std::exception& e)
     {
@@ -162,49 +177,53 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     }
     
 
-    RCLCPP_INFO(this->get_logger(), "B");
-
     // calculate average y-values of inliers in the square patch with corners (x=0.05,z=0.45) and (x=0.1, z = 0.5)
     double sum_y = 0;
-    int count = 0;
+    long int count = 0;
 
 
     // array with double to store elevation vlaues
     double elevation_values[global_map_.info.width*global_map_.info.height];
     double density_values[global_map_.info.width*global_map_.info.height];
-    for(int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         elevation_values[i] = 0.0;
         density_values[i] = 0.0;
     }
 
-    for(int i = 0; i < cropped_cloud_local_map->points.size(); i++){
-        int col_x = int(cropped_cloud_local_map->points[i].x / global_map_.info.resolution ) + global_map_.info.width/2;
-        int row_y = int(cropped_cloud_local_map->points[i].y / global_map_.info.resolution ) + global_map_.info.height/2;
+    for(long int i = 0; i < cropped_cloud_local_map->points.size(); i++){
+        int col_x =  int(cropped_cloud_local_map->points[i].x / global_map_.info.resolution ) + global_map_.info.width/2;
+        int row_y =  int(cropped_cloud_local_map->points[i].y / global_map_.info.resolution ) + global_map_.info.height/2;
 
         col_x = std::min(std::max(col_x, 0), int(global_map_.info.width-1));
         row_y = std::min(std::max(row_y, 0), int(global_map_.info.height-1));
 
-        int global_idx = col_x + row_y*global_map_.info.width;
+        long int global_idx = col_x + row_y*global_map_.info.width;
         double elev = cropped_cloud_local_map->points[i].z;
         elevation_values[global_idx] += 200.0*(elev-1.4);
         density_values[global_idx] += 1.0;
     }
 
-    for(int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         if(density_values[i] > 1.0){
             global_map_.data[i] = int(elevation_values[i]/density_values[i]);
+            filtered_global_map_.data[i] = int(elevation_values[i]/density_values[i]);
         }
     }
     
-    global_map_publisher_->publish(global_map_);
 
-    buildWorldModel();
+    RCLCPP_INFO(this->get_logger(), "Map fused");
+    // buildWorldModel();
+    // RCLCPP_INFO(this->get_logger(), "World Model built");
+    filterMap();
+    RCLCPP_INFO(this->get_logger(), "Map filtered");
+
+    global_map_publisher_->publish(global_map_);
 }
 
 
 void WorldModel::buildWorldModel(){
 
-    for(int i = 0; i < elevation_costmap_.data.size(); i++){
+    for(long int i = 0; i < elevation_costmap_.data.size(); i++){
         if (global_map_.data[i] != 0 && global_map_.data[i] < 20){
             elevation_costmap_.data[i] = 100 - global_map_.data[i];
         }        
@@ -212,13 +231,13 @@ void WorldModel::buildWorldModel(){
             elevation_costmap_.data[i] = 0;
         }
     }
-    // int neighbour_deltas[8] = [-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1];
-    int neighbour_deltas[8] = {-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1};
+    // long int neighbour_deltas[8] = [-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1];
+    long int neighbour_deltas[8] = {-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1};
 
-    for(int i=0; i<slope_costmap_.data.size(); i++){
+    for(long int i=0; i<slope_costmap_.data.size(); i++){
         double max_neighbour = -100, min_neighbour = 100;
-        for(int j=0;j<8;j++){
-            int neighbour_idx = i+neighbour_deltas[j];
+        for(long int j=0;j<8;j++){
+            long int neighbour_idx = i+neighbour_deltas[j];
             if(neighbour_idx < 0 || neighbour_idx > slope_costmap_.data.size()){
                 continue;
             }
@@ -237,12 +256,57 @@ void WorldModel::buildWorldModel(){
         }
         else{
             slope_costmap_.data[i] = max_neighbour - min_neighbour;
-            RCLCPP_INFO(this->get_logger(), "max: %f, min: %f, slope: %f", max_neighbour, min_neighbour, 10*(max_neighbour - min_neighbour));
+            // RCLCPP_INFO(this->get_logger(), "max: %f, min: %f, slope: %f", max_neighbour, min_neighbour, 10*(max_neighbour - min_neighbour));
         }
     }
     
-    for(int i=0;i<world_model_.data.size();i++){
+    for(long int i=0;i<world_model_.data.size();i++){
         world_model_.data[i] = std::max(elevation_costmap_.data[i], slope_costmap_.data[i]);
     }
     world_model_publisher_->publish(world_model_);
+
+}
+
+
+void WorldModel::filterMap(){
+    // use globalmap to update bayes filter and then update filtered global map
+    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+        if(global_map_.data[i] == 0){
+            continue;
+        }
+        // RCLCPP_INFO(this->get_logger(), "Bayes Filter initialized5");
+        bayes_filter_[i].updateCell(global_map_.data[i], 1.0);
+        // filtered_global_map_.data[i] = int(bayes_filter_[i].getCellElevation());
+
+        double gradient = 200*0.03;
+        // double 
+        // update cell of neighbours
+        long int neighbour_deltas[8] = {-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1};
+        // only 4 neighbours
+        // long int neighbour_deltas[4] = {-1, 1, -global_map_.info.width, global_map_.info.width};
+        for(long int j=0;j<4;j++){
+            long int neighbour_idx = i+neighbour_deltas[j];
+            if(neighbour_idx < 0 || neighbour_idx > global_map_.info.width*global_map_.info.height){
+                continue;
+            }
+            // else if(filtered_global_map_.data[neighbour_idx] == 0){
+            //     continue;
+            // }   
+            if(abs(filtered_global_map_.data[i] - filtered_global_map_.data[neighbour_idx]) <= gradient){
+                continue;
+            }
+            // else if(global_map_.data[i] > global_map_.data[neighbour_idx]){
+            // else if(filtered_global_map_.data[i] > filtered_global_map_.data[neighbour_idx]){
+            //     bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] - gradient, 100.0);
+            //     filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
+            // }
+            // // else if(global_map_.data[i] < global_map_.data[neighbour_idx]){
+            // else if(filtered_global_map_.data[i] < filtered_global_map_.data[neighbour_idx]){
+            //     bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] + gradient, 100.0);
+            //     filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
+            // }
+        }
+    }
+    // publish filtered global map
+    filtered_global_map_publisher_->publish(filtered_global_map_);
 }

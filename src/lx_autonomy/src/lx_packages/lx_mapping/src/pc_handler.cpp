@@ -87,13 +87,22 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
     sor.filter(*cloud_filtered);  
 
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
-    transform_2.translation() << cam2map_transform.transform.translation.x, cam2map_transform.transform.translation.y, cam2map_transform.transform.translation.z;
     transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
     transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
     transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
+    transform_2.translation() << cam2map_transform.transform.translation.x, cam2map_transform.transform.translation.y, cam2map_transform.transform.translation.z;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud_1 (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::transformPointCloud(*cloud_filtered, *transformed_cloud_1, transform_2);
+
+    Eigen::Affine3f transform_3 = Eigen::Affine3f::Identity();
+    // transform_3.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
+    // transform_3.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
+    // transform_3.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
+    // transform_3.translation() << cam2map_transform.transform.translation.x, cam2map_transform.transform.translation.y, cam2map_transform.transform.translation.z;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, transform_2);
+    pcl::transformPointCloud(*transformed_cloud_1, *transformed_cloud, transform_3);
 
     if(debug_mode_){
         // find the best fit plane
