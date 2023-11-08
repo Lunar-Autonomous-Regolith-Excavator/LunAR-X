@@ -216,12 +216,6 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Clear nav2 variables
     this->path_ = nav_msgs::msg::Path();
     this->planning_time_ = builtin_interfaces::msg::Duration();
-
-    // tf2_ros::Buffer tf_buffer(this->get_clock());
-    // tf2_ros::TransformListener tf_listener(tf_buffer);
-    // auto eigen_transform_prism_baselink_ = tf_buffer.lookupTransform("base_link", "map", tf2::TimePointZero, tf2::durationFromSec(0.5)); //prism to base link
-    // // print eigen transform
-    // RCLCPP_INFO(this->get_logger(), "Map to base link: %f %f %f", eigen_transform_prism_baselink_.transform.translation.x, eigen_transform_prism_baselink_.transform.translation.y, eigen_transform_prism_baselink_.transform.translation.z);
     
     if (!this->computePath(goal->goal)) {
         result->success = false;
@@ -257,16 +251,16 @@ bool AutoNavHandler::computePath(const geometry_msgs::msg::PoseStamped& goal_pos
     }
     
     // Block action until path is computed
-    action_blocking_ = true;
-    action_server_responded_ = false;
-    action_accepted_ = false;
-    action_success_ = false;
+    this->planner_action_blocking_ = true;
+    this->planner_action_server_responded_ = false;
+    this->planner_action_accepted_ = false;
+    this->planner_action_success_ = false;
     
     // Create goal message
     auto goal_msg = ComputePathToPose::Goal();
     goal_msg.goal = goal_pose;
     goal_msg.planner_id = "GridBased";
-    goal_msg.use_start = false; // No need to provide start pose --  it will use the current robot pose
+    goal_msg.use_start = false; // No need to provide start pose -- it will use the current robot pose
 
     RCLCPP_INFO(this->get_logger(), "Sending goal to compute path action server");
     
@@ -277,18 +271,17 @@ bool AutoNavHandler::computePath(const geometry_msgs::msg::PoseStamped& goal_pos
     auto goal_handle_future = this->compute_path_client_->async_send_goal(goal_msg, send_goal_options);
 
     // Block till action complete
-    rclcpp::Rate loop_rate(10);
-    rclcpp::Time action_start_time = this->get_clock()->now();
-    while(action_blocking_ && rclcpp::ok() && this->distance_to_goal_ < 0.01) { // Within 1 cm of goal
-        RCLCPP_INFO(this->get_logger(), "In progress...");
+    rclcpp::Rate loop_rate(20);
+    while(this->planner_action_blocking_ && rclcpp::ok()) {
+        RCLCPP_INFO(this->get_logger(), "Computing path...");
         loop_rate.sleep();
     }
 
-    if (!action_accepted_) {
+    if (!this->planner_action_accepted_) {
         RCLCPP_ERROR(this->get_logger(), "Compute path action was rejected");
         return false;
     }
-    else if (!action_success_) {
+    else if (!this->planner_action_success_) {
         RCLCPP_ERROR(this->get_logger(), "Compute path action failed");
         return false;
     }
@@ -310,10 +303,10 @@ bool AutoNavHandler::followPath(){
     RCLCPP_INFO(this->get_logger(), "Inside follow path");
     
     // Block action until path is followed
-    action_blocking_ = true;
-    action_server_responded_ = false;
-    action_accepted_ = false;
-    action_success_ = false;
+    this->controller_action_blocking_ = true;
+    this->controller_action_server_responded_ = false;
+    this->controller_action_accepted_ = false;
+    this->controller_action_success_ = false;
     
     // Create goal message
     auto goal_msg = FollowPath::Goal();
@@ -331,18 +324,17 @@ bool AutoNavHandler::followPath(){
 
     // Block till action complete
     rclcpp::Rate loop_rate(10);
-    rclcpp::Time action_start_time = this->get_clock()->now();
-    while(action_blocking_ && rclcpp::ok()) {
+    while(this->controller_action_blocking_ && rclcpp::ok()) {
         // Print feedback
         RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f, Speed: %f", this->distance_to_goal_, this->rov_speed_);
         loop_rate.sleep();
     }
 
-    if (!action_accepted_) {
+    if (!this->controller_action_accepted_) {
         RCLCPP_ERROR(this->get_logger(), "Follow path action was rejected");
         return false;
     }
-    else if (!action_success_) {
+    else if (!this->controller_action_success_) {
         RCLCPP_ERROR(this->get_logger(), "Follow path action failed");
         return false;
     }
@@ -358,14 +350,14 @@ void AutoNavHandler::computePathResponseCallback(GoalHandleComputePathToPose::Sh
     auto goal_handle = future.get();
     if (!goal_handle) {
         RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
-        action_blocking_ = false;
-        action_server_responded_ = true;
-        action_accepted_ = false;
-        action_success_ = false;
+        this->planner_action_blocking_ = false;
+        this->planner_action_server_responded_ = true;
+        this->planner_action_accepted_ = false;
+        this->planner_action_success_ = false;
     } else {
         RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
-        action_server_responded_ = true;
-        action_accepted_ = true;
+        this->planner_action_server_responded_ = true;
+        this->planner_action_accepted_ = true;
     }
 }
 
@@ -373,19 +365,19 @@ void AutoNavHandler::computePathResultCallback(const GoalHandleComputePathToPose
     switch (result.code) {
         case rclcpp_action::ResultCode::SUCCEEDED:
             RCLCPP_INFO(this->get_logger(), "Path computed successfully");
-            action_success_ = true;
+            this->planner_action_success_ = true;
             break;
         case rclcpp_action::ResultCode::ABORTED:
             RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
-            action_success_ = false;
+            this->planner_action_success_ = false;
             break;
         case rclcpp_action::ResultCode::CANCELED:
             RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
-            action_success_ = false;
+            this->planner_action_success_ = false;
             break;
         default:
             RCLCPP_ERROR(this->get_logger(), "Unknown result code");
-            action_success_ = false;
+            this->planner_action_success_ = false;
             break;
     }
     action_blocking_ = false;
@@ -399,14 +391,14 @@ void AutoNavHandler::followPathResponseCallback(GoalHandleFollowPath::SharedPtr 
     auto goal_handle = future.get();
     if (!goal_handle) {
         RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
-        action_blocking_ = false;
-        action_server_responded_ = true;
-        action_accepted_ = false;
-        action_success_ = false;
+        this->controller_action_blocking_ = false;
+        this->controller_action_server_responded_ = true;
+        this->controller_action_accepted_ = false;
+        this->controller_action_success_ = false;
     } else {
         RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
-        action_server_responded_ = true;
-        action_accepted_ = true;
+        this->controller_action_server_responded_ = true;
+        this->controller_action_accepted_ = true;
     }
 }
 
@@ -419,19 +411,19 @@ void AutoNavHandler::followPathResultCallback(const GoalHandleFollowPath::Wrappe
     switch (result.code) {
         case rclcpp_action::ResultCode::SUCCEEDED:
             RCLCPP_INFO(this->get_logger(), "Path followed successfully");
-            action_success_ = true;
+            this->controller_action_success_ = true;
             break;
         case rclcpp_action::ResultCode::ABORTED:
             RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
-            action_success_ = false;
+            this->controller_action_success_ = false;
             break;
         case rclcpp_action::ResultCode::CANCELED:
             RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
-            action_success_ = false;
+            this->controller_action_success_ = false;
             break;
         default:
             RCLCPP_ERROR(this->get_logger(), "Unknown result code");
-            action_success_ = false;
+            this->controller_action_success_ = false;
             break;
     }
     action_blocking_ = false;

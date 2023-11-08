@@ -34,11 +34,16 @@ class AutoNavHandler: public rclcpp::Node
         using GoalHandleComputePathToPose = rclcpp_action::ClientGoalHandle<ComputePathToPose>;
         using FollowPath = nav2_msgs::action::FollowPath;
         using GoalHandleFollowPath = rclcpp_action::ClientGoalHandle<FollowPath>;
-        // Action blocking
-        bool action_blocking_ = false;
-        bool action_server_responded_ = false;
-        bool action_accepted_ = false;
-        bool action_success_ = false;
+        // Planner action blocking
+        bool planner_action_blocking_ = false;
+        bool planner_action_server_responded_ = false;
+        bool planner_action_accepted_ = false;
+        bool planner_action_success_ = false;
+        // Controller action blocking
+        bool controller_action_blocking_ = false;
+        bool controller_action_server_responded_ = false;
+        bool controller_action_accepted_ = false;
+        bool controller_action_success_ = false;
         // Nav2 ComputePath Results
         nav_msgs::msg::Path path_;
         builtin_interfaces::msg::Duration planning_time_;
@@ -122,7 +127,7 @@ class AutoNavHandler: public rclcpp::Node
         void executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> );
 
         // Functions to handle Nav2 Planner action
-        bool computePath(const geometry_msgs::msg::PoseStamped& );
+        bool computePath(const geometry_msgs::msg::PoseStamped&, const bool );
         
         void computePathResponseCallback(GoalHandleComputePathToPose::SharedPtr );
         
