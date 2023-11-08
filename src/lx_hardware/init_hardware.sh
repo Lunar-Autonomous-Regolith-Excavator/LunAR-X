@@ -28,7 +28,6 @@ else
     tmux split-window -h
 
     # Run commands in each pane (add sleeps to wait for roscore to start)
-    sleep 30;
     tmux send-keys -t 1 "sr2; cd /home/lx_hardware/ros2_ws && colcon build && sr2 && ros2 launch lx_bringup_hardware bringup_hardware.launch.py" C-m
     tmux send-keys -t 4 "sr1; roscore" C-m
     tmux send-keys -t 5 "bash" C-m

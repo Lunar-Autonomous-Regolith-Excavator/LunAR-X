@@ -36,12 +36,28 @@ private:
     // Fill in the goal_msg with your desired pose information
     goal_msg.goal.header.frame_id = "map";
     goal_msg.goal.header.stamp = now();
-    goal_msg.goal.pose.position.x = 5;
-    goal_msg.goal.pose.position.y = 2;
-    // goal_msg.goal.pose.orientation.x = 5;
-    // goal_msg.goal.pose.orientation.y = 2;
-    // goal_msg.goal.pose.orientation.z = 0.707;
-    // goal_msg.goal.pose.orientation.w = 0.707;
+    goal_msg.goal.pose.position.x = 3;
+    goal_msg.goal.pose.position.y = 5;
+
+    //     x: 5.915783645379575
+    //   y: 1.87090889990329
+    //   z: 0.33134786609766387
+    // orientation:
+    //   x: 0.007638247913776921
+    //   y: -0.012599615553454575
+    //   z: -0.4658512491429855
+    //   w: 0.8847403689945614
+
+    // set goal as the above pose
+    goal_msg.goal.pose.position.x = 5.915783645379575;
+    goal_msg.goal.pose.position.y = 1.87090889990329;
+    goal_msg.goal.pose.position.z = 0.33134786609766387;
+    goal_msg.goal.pose.orientation.x = 0.007638247913776921;
+    goal_msg.goal.pose.orientation.y = -0.012599615553454575;
+    goal_msg.goal.pose.orientation.z = -0.4658512491429855;
+    goal_msg.goal.pose.orientation.w = 0.8847403689945614;
+
+
 
     auto send_goal_options = rclcpp_action::Client<AutoNav>::SendGoalOptions();
     send_goal_options.goal_response_callback =
