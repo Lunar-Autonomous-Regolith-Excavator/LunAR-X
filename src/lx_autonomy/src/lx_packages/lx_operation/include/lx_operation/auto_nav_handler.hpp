@@ -131,7 +131,7 @@ class AutoNavHandler: public rclcpp::Node
         void executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> );
 
         // Functions to handle Nav2 Planner action
-        bool computePath(const bool);
+        bool computePath();
         
         void computePathResponseCallback(GoalHandleComputePathToPose::SharedPtr );
         
