@@ -217,10 +217,10 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     if(this->calibration_complete_ == false)
     {
         if(printed_calibration_not_complete_)
-    {
+        {
             std::cout<<"Calibration not complete, please calibrate IMU"<<std::endl;
-    printed_calibration_not_complete_ = true;
-    }
+            printed_calibration_not_complete_ = true;
+        }
         return;
     }
 

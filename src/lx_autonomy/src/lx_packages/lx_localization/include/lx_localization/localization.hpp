@@ -23,7 +23,7 @@
 class Localization : public rclcpp::Node
 {
     private:
-        bool DEBUG_ = true;
+        bool DEBUG_ = false;
         // Variables & pointers -----------------
         using CalibrateImu = lx_msgs::action::CalibrateImu;
         using GoalHandleCalibrateImu = rclcpp_action::ServerGoalHandle<CalibrateImu>;
