@@ -36,6 +36,11 @@ void Localization::setupCommunications(){
     pose_pub_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/total_station_pose_map", qos);
     rover_command_pub_ = create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
 
+    if(DEBUG_)
+    {
+        this->marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("localization/marker", 10);
+    }
+
     // Actions
     calibrate_imu_action_server_ = rclcpp_action::create_server<CalibrateImu>(this, "lx_localization/calibrate_imu",
                                     std::bind(&Localization::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
@@ -199,9 +204,7 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     if(this->got_transforms_ == false){this->get_transforms();}
 
     // Store latest pose
-    geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
-    tf2::doTransform(*msg, pose_map_msg, this->eigen_transform_prism_baselink_);
-    this->ts_point_ = pose_map_msg.pose.pose.position;
+    this->ts_point_ = msg->pose.pose.position;
     this->last_ts_msg_time_ = this->get_clock()->now();
 
     // Flags to check before publishing
@@ -214,10 +217,10 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     if(this->calibration_complete_ == false)
     {
         if(printed_calibration_not_complete_)
-    {
+        {
             std::cout<<"Calibration not complete, please calibrate IMU"<<std::endl;
-    printed_calibration_not_complete_ = true;
-    }
+            printed_calibration_not_complete_ = true;
+        }
         return;
     }
 
@@ -225,7 +228,7 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     if(printed_all_working_ == false)
     {
         printed_all_working_ = true;
-    RCLCPP_INFO(this->get_logger(), "----------------------All Transforms found, publishing---------------------");
+        RCLCPP_INFO(this->get_logger(), "----------------------All Transforms found, publishing---------------------");
     }
 
     // Add yaw offset to imu orientation
@@ -233,16 +236,57 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     tf2::doTransform(this->imu_orientation_, imu_transformed.orientation, this->eigen_transform_imu_baselink_);
     double yaw, pitch, roll;
     tf2::getEulerYPR(imu_transformed.orientation, yaw, pitch, roll);
+    tf2::Quaternion q_map_to_baselink;
+    q_map_to_baselink.setRPY(roll, pitch, yaw+this->yaw_offset_);
 
-    tf2::Quaternion q;
-    q.setRPY(roll, pitch, yaw+this->yaw_offset_);
+    // Get position of baselink in map frame 
+    // NOTE: 
+    //   - TS raw position is the position of the total_station_prism in the map frame
+    //   - This needs to be transformed to the position of the base_link in the map frame for fusion with the robot_localization package
+    //   - The prism to baselink translation is transformed to the map frame and added to raw TS position to get the baselink position in map frame
+    Eigen::Quaternion<double> R_map_to_baselink(q_map_to_baselink.w(), q_map_to_baselink.x(), q_map_to_baselink.y(), q_map_to_baselink.z());
+    Eigen::Vector3d ts_to_baselink_vec(
+        eigen_transform_prism_baselink_.transform.translation.x,
+        eigen_transform_prism_baselink_.transform.translation.y,
+        eigen_transform_prism_baselink_.transform.translation.z
+    );
+    Eigen::Vector3d rotated_ts_to_baselink_vec = R_map_to_baselink * ts_to_baselink_vec;
+    Eigen::Vector3d map_to_ts_vec(msg->pose.pose.position.x,msg->pose.pose.position.y,msg->pose.pose.position.z);
+    Eigen::Vector3d map_to_baselink_vec = map_to_ts_vec - rotated_ts_to_baselink_vec;
 
-    // Publish pose message of TS with added IMU orientation to get a global pose source
+    // Publish pose of TS in map frame
+    geometry_msgs::msg::PoseWithCovarianceStamped pose_map_msg;
     pose_map_msg.header.frame_id = "map";
-    pose_map_msg.header.stamp = msg->header.stamp;
-    pose_map_msg.pose.pose.orientation.x = q.x();
-    pose_map_msg.pose.pose.orientation.y = q.y();
-    pose_map_msg.pose.pose.orientation.z = q.z();
-    pose_map_msg.pose.pose.orientation.w = q.w();
+    pose_map_msg.header.stamp = this->get_clock()->now();
+    pose_map_msg.pose.pose.position.x = map_to_baselink_vec.x();
+    pose_map_msg.pose.pose.position.y = map_to_baselink_vec.y();
+    pose_map_msg.pose.pose.position.z = map_to_baselink_vec.z();
+    pose_map_msg.pose.pose.orientation.x = q_map_to_baselink.x();
+    pose_map_msg.pose.pose.orientation.y = q_map_to_baselink.y();
+    pose_map_msg.pose.pose.orientation.z = q_map_to_baselink.z();
+    pose_map_msg.pose.pose.orientation.w = q_map_to_baselink.w();
     pose_pub_->publish(pose_map_msg);
+
+    if (DEBUG_)
+    {
+        // Publish marker at pose_map_msg.pose.pose.position
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "map";
+        marker.header.stamp = this->get_clock()->now();
+        marker.ns = "localization";
+        marker.id = 0;
+        marker.type = visualization_msgs::msg::Marker::SPHERE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose.position.x = pose_map_msg.pose.pose.position.x;
+        marker.pose.position.y = pose_map_msg.pose.pose.position.y;
+        marker.pose.position.z = pose_map_msg.pose.pose.position.z;
+        marker.scale.x = 0.2;
+        marker.scale.y = 0.2;
+        marker.scale.z = 0.2;
+        marker.color.a = 1.0; // Don't forget to set the alpha!
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;
+        this->marker_pub_->publish(marker);
+    }
 }
