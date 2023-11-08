@@ -36,8 +36,8 @@ private:
     // Fill in the goal_msg with your desired pose information
     goal_msg.goal.header.frame_id = "map";
     goal_msg.goal.header.stamp = now();
-    goal_msg.goal.pose.position.x = 3;
-    goal_msg.goal.pose.position.y = 5;
+    goal_msg.goal.pose.position.x = 5;
+    goal_msg.goal.pose.position.y = 2;
     // goal_msg.goal.pose.orientation.x = 5;
     // goal_msg.goal.pose.orientation.y = 2;
     // goal_msg.goal.pose.orientation.z = 0.707;
