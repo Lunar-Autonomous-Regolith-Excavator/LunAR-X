@@ -115,7 +115,6 @@ void AutoNavHandler::setupCommunications(){
     
     // Publishers
     this->rover_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_auto_cmd", 10);
-    this->path_pub_ = this->create_publisher<nav_msgs::msg::Path>("path", 10);
 }
 
 void AutoNavHandler::setupParams(){
@@ -230,16 +229,13 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Print planning time in ms
     RCLCPP_INFO(this->get_logger(), "Planning time: %f ms", this->planning_time_.sec * 1000 + this->planning_time_.nanosec / 1000000.0);
 
-    // Publish path
-    this->path_pub_->publish(this->path_);
-
-    // // Follow path
-    // if (!this->followPath()) {
-    //     result->success = false;
-    //     goal_handle->abort(result);
-    //     RCLCPP_ERROR(this->get_logger(), "Autonav failed");
-    //     return;
-    // }
+    // Follow path
+    if (!this->followPath()) {
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autonav failed");
+        return;
+    }
     
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {

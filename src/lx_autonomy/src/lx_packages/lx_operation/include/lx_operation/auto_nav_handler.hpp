@@ -56,8 +56,6 @@ class AutoNavHandler: public rclcpp::Node
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_nav_sub_;
         // Publisher for rover auto command
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_cmd_pub_;
-        // Publisher for path
-        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         // Action server
