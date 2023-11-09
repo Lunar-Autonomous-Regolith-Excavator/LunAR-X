@@ -33,10 +33,10 @@ private:
     // Set map properties
     map_msg.info.map_load_time = this->get_clock()->now();
     map_msg.info.resolution = 0.05;  // replace with your map resolution
-    map_msg.info.width = 160;       // replace with your map width
-    map_msg.info.height = 160;      // replace with your map height
-    map_msg.info.origin.position.x = 0;  // replace with your map origin x
-    map_msg.info.origin.position.y = 0;  // replace with your map origin y
+    map_msg.info.width = 145;       // replace with your map width
+    map_msg.info.height = 140;      // replace with your map height
+    map_msg.info.origin.position.x = 0.1;  // replace with your map origin x
+    map_msg.info.origin.position.y = 0.1;  // replace with your map origin y
     // map_msg.info.origin.position.x = -13;  // replace with your map origin x
     // map_msg.info.origin.position.y = -9;  // replace with your map origin y
     map_msg.info.origin.position.z = 0.0;
@@ -72,6 +72,13 @@ private:
     //     }
     //   }
     // }
+
+    // Make top right corner of 1 meter as obstacle
+    for (int j = map_msg.info.height - 1; j > map_msg.info.height - 1 - 20; j--) {
+      for (int i = map_msg.info.width - 1; i > map_msg.info.width - 1 - 20; i--) {
+        map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
+      }
+    }
 
     map_msg.data = map_data;
 

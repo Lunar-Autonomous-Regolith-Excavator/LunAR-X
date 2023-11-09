@@ -234,9 +234,14 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
         result->success = false;
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Autonav failed");
+        // Publish 0 rover command to stop rover
+        lx_msgs::msg::RoverCommand rov_cmd;
+        rover_cmd_pub_->publish(rov_cmd);
         return;
     }
-    
+    // Publish 0 rover command to stop rover
+    lx_msgs::msg::RoverCommand rov_cmd;
+    rover_cmd_pub_->publish(rov_cmd);
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {
       result->success = true;

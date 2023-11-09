@@ -262,15 +262,18 @@ void CommandMux::sendCmdToHardware(const lx_msgs::msg::RoverCommand::SharedPtr r
         else{
             cmd_msg.mobility_twist.linear.x = (received_msg->mobility_twist.linear.x < -max_mob_lin_vel_ ? -max_mob_lin_vel_ : received_msg->mobility_twist.linear.x);
         }
-        // Add acceleration clipping
-        if(abs(cmd_msg.mobility_twist.linear.x - last_mob_lin_vel_) > max_mob_lin_acc_){
-            if(cmd_msg.mobility_twist.linear.x > last_mob_lin_vel_){
-                cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ + max_mob_lin_acc_;
-            }
-            else{
-                cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ - max_mob_lin_acc_;
+        // Add acceleration clipping if teleop
+        if(current_rover_op_mode_ == OpModeEnum::TELEOP){
+            if(abs(cmd_msg.mobility_twist.linear.x - last_mob_lin_vel_) > max_mob_lin_acc_){
+                if(cmd_msg.mobility_twist.linear.x > last_mob_lin_vel_){
+                    cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ + max_mob_lin_acc_;
+                }
+                else{
+                    cmd_msg.mobility_twist.linear.x = last_mob_lin_vel_ - max_mob_lin_acc_;
+                }
             }
         }
+        
         last_mob_lin_vel_ = cmd_msg.mobility_twist.linear.x;
         
         // Clip mobility angular command to [-max_mob_ang_vel_  max_mob_ang_vel_]

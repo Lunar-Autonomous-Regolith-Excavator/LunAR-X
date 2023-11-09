@@ -1,10 +1,7 @@
 Build and start lx operation
 
-rosdep install -i --from-path src --rosdistro humble -y &&
-colcon build --packages-select lx_operation && ros2 launch lx_operation operation.launch.py 
-
 1.
-rosdep install -i --from-path src --rosdistro humble -y && colcon build --packages-select lx_operation && ros2 launch lx_operation operation.launch.py 
+colcon build --packages-select lx_operation && ros2 launch lx_operation operation.launch.py 
 
 2.
 colcon build --packages-select lx_planning && ros2 run lx_planning call_plan 
