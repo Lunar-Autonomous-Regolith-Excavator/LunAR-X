@@ -82,11 +82,11 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
 
     geometry_msgs::msg::Pose start_pose;
-    start_pose.position.x = 3.5;
-    start_pose.position.y = 1;
+    start_pose.position.x = 2;
+    start_pose.position.y = 3.5;
     start_pose.position.z = 0;
     tf2::Quaternion q;
-    q.setRPY(0.0, 0.0, M_PI / 2);
+    q.setRPY(0.0, 0.0, 0);
     start_pose.orientation = tf2::toMsg(q);
     excavation_task.pose = start_pose;
 

@@ -31,7 +31,7 @@ class OperationsHandler: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        const float BERM_HEIGHT = 0.15;
+        const float BERM_HEIGHT = 0.1;
         const float BERM_SECTION_LENGTH = 0.4;
         const float AUTODIG_SPEED = 0.025;
         const float AUTODIG_TIME = 45;

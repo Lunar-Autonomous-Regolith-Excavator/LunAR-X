@@ -258,16 +258,16 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     // Set task mode as IDLE
     switchRoverTaskMode(TaskModeEnum::IDLE);
 
-    for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
+    // for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
         // Call planner to plan full path
         // Get task queue from planner
         task_queue_ = getPlan();
 
-        if(task_queue_.empty()){
-            RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
-            // If planner returns empty plan, either berm is built, or planner failed
-            break;
-        }
+        // if(task_queue_.empty()){
+        //     RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
+        //     // If planner returns empty plan, either berm is built, or planner failed
+        //     break;
+        // }
 
         // Copy for visualization
         task_queue_copy_ = task_queue_;
@@ -286,7 +286,7 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
             return;
         }
         // If all tasks successful, continue next loop iteration
-    } 
+    // } 
 
     switchRoverTaskMode(TaskModeEnum::IDLE);
     
@@ -396,23 +396,26 @@ bool OperationsHandler::executeTaskQueue(){
             visualizeCurrentTask(current_task);
             // Log Task ID being executed
             RCLCPP_INFO(this->get_logger(), "Executing task %d", current_task.getID());
-            
+            rclcpp::Rate loop_rate(0.8);
             // Execute task based on type
             switch(current_task.getType()){
                 case TaskTypeEnum::AUTONAV:
                     if(!callAutoNav(current_task)){
                         return false;
                     }
+                    loop_rate.sleep();
                     break;
                 case TaskTypeEnum::AUTODIG:
                     if(!callAutoDig(current_task)){
                         return false;
                     }
+                    loop_rate.sleep();
                     break;
                 case TaskTypeEnum::AUTODUMP:
                     if(!callAutoDump(current_task)){
                         return false;
                     }
+                    loop_rate.sleep();
                     break;
                 default:
                     RCLCPP_ERROR(this->get_logger(), "Invalid task type");

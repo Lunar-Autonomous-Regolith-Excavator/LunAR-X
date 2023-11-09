@@ -247,7 +247,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         rclcpp::Time action_curr_time = this->get_clock()->now();
 
         // Abort action if no tool info message recieved in last 2 seconds
-        if((action_curr_time - servoing_msg_time).seconds() > 2){
+        if((action_curr_time - servoing_msg_time).seconds() > 2 && first_dump_done == true){
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
@@ -259,15 +259,19 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
             }
             return;
         }
-
         // Read errors from visual servoing
         double dx  = visual_servo_error_.x;
         double dy = -visual_servo_error_.y;
         double dz = -visual_servo_error_.z;
 
         // Control drum height, rover x and rover y
+        if(first_dump_done == false)
+        {
+            dx = 0;
+            dy = 0;
+            dz = drum_height_ - 0.3;
+        }
         double drum_cmd, x_vel, yaw_vel;
-
         if(abs(dx) < 0.02){x_vel = 0;}
         else{x_vel = pid_x.getCommand(dx);}
 
@@ -361,6 +365,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     
     // If autodump executed successfully, return goal success
     if (rclcpp::ok() && !goal_handle->is_canceling()) {
+      first_dump_done = true;
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autodump succeeded");
