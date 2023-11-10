@@ -264,24 +264,34 @@ bool AutoNavHandler::navigateToPose(){
 
     auto goal_handle_future = this->navigate_to_pose_client_->async_send_goal(goal_msg, send_goal_options);
 
+    auto start_time = this->now();
+
     // Block till action complete
     rclcpp::Rate loop_rate(10);
     while(this->action_blocking_ && rclcpp::ok()) {
         // Print feedback
-        // RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f m | Time remaining: %f secs", this->distance_remaining_, this->estimated_time_remaining_.sec);
+        RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f m | Time remaining: %f secs", this->distance_remaining_, this->estimated_time_remaining_.sec);
+
+        // Check timeout
+        if (this->now() - start_time > rclcpp::Duration(this->MAX_DURATION, 0)) {
+            RCLCPP_ERROR(this->get_logger(), "AutoNav timed out");
+            // Cancel goal
+            this->navigate_to_pose_client_->async_cancel_all_goals();
+        }
+
         loop_rate.sleep();
     }
 
     if (!this->action_accepted_) {
-        RCLCPP_ERROR(this->get_logger(), "Follow path action was rejected");
+        RCLCPP_ERROR(this->get_logger(), "Action was rejected");
         return false;
     }
     else if (!this->action_success_) {
-        RCLCPP_ERROR(this->get_logger(), "Follow path action failed");
+        RCLCPP_ERROR(this->get_logger(), "Action failed");
         return false;
     }
     else {
-        RCLCPP_INFO(this->get_logger(), "Follow path action succeeded");
+        RCLCPP_INFO(this->get_logger(), "Action succeeded");
         return true;
     }
 

@@ -33,29 +33,29 @@ services:
     tty: true
     stdin_open: true
 
-  # Hardware container
-  lx_hardware:
-    build:
-      context: ./
-      dockerfile: ./docker/lx_hardware.Dockerfile
+  # # Hardware container
+  # lx_hardware:
+  #   build:
+  #     context: ./
+  #     dockerfile: ./docker/lx_hardware.Dockerfile
 
-    container_name: lx_hardware
+  #   container_name: lx_hardware
 
-    privileged: true
+  #   privileged: true
 
-    # network_mode: host
+  #   # network_mode: host
     
-    environment:
-      DISPLAY: ${DISPLAY}
+  #   environment:
+  #     DISPLAY: ${DISPLAY}
 
-    volumes:
-      - ./src/lx_hardware/ros2_ws/src/lx_packages/:/home/lx_hardware/ros2_ws/src/lx_packages/
-      - ./src/lx_hardware/ros1_ws/src/lx_packages/:/home/lx_hardware/ros1_ws/src/lx_packages/
-      - ./src/lx_hardware/init_hardware.sh:/home/lx_hardware/init_hardware.sh
-      - /dev/:/dev/
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
+  #   volumes:
+  #     - ./src/lx_hardware/ros2_ws/src/lx_packages/:/home/lx_hardware/ros2_ws/src/lx_packages/
+  #     - ./src/lx_hardware/ros1_ws/src/lx_packages/:/home/lx_hardware/ros1_ws/src/lx_packages/
+  #     - ./src/lx_hardware/init_hardware.sh:/home/lx_hardware/init_hardware.sh
+  #     - /dev/:/dev/
+  #     - /tmp/.X11-unix:/tmp/.X11-unix
+  #     - /etc/timezone:/etc/timezone:ro
+  #     - /etc/localtime:/etc/localtime:ro
 
-    tty: true
-    stdin_open: true
+  #   tty: true
+  #   stdin_open: true

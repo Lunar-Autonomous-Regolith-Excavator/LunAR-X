@@ -138,6 +138,9 @@ class AutoNavHandler: public rclcpp::Node
         * Destructor
         * */
         ~AutoNavHandler(){}
+
+        // Constants
+        static constexpr double MAX_DURATION = 180.0; // seconds
 };
 
 #endif
