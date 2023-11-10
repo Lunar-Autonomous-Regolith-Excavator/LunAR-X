@@ -14,14 +14,9 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "nav_msgs/msg/path.hpp"
-#include "nav2_msgs/action/compute_path_to_pose.hpp"
-#include "nav2_msgs/action/follow_path.hpp"
+#include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "lx_msgs/msg/rover_command.hpp"
-
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2/utils.h>
 
 
 class AutoNavHandler: public rclcpp::Node
@@ -30,28 +25,21 @@ class AutoNavHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using AutoNav = lx_msgs::action::AutoNav;
         using GoalHandleAutoNav = rclcpp_action::ServerGoalHandle<AutoNav>;
-        using ComputePathToPose = nav2_msgs::action::ComputePathToPose;
-        using GoalHandleComputePathToPose = rclcpp_action::ClientGoalHandle<ComputePathToPose>;
-        using FollowPath = nav2_msgs::action::FollowPath;
-        using GoalHandleFollowPath = rclcpp_action::ClientGoalHandle<FollowPath>;
-        // Planner action blocking
-        bool planner_action_blocking_ = false;
-        bool planner_action_server_responded_ = false;
-        bool planner_action_accepted_ = false;
-        bool planner_action_success_ = false;
-        // Controller action blocking
-        bool controller_action_blocking_ = false;
-        bool controller_action_server_responded_ = false;
-        bool controller_action_accepted_ = false;
-        bool controller_action_success_ = false;
+        using NavigateToPose = nav2_msgs::action::NavigateToPose;
+        using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<NavigateToPose>;
+        // Action blocking
+        bool action_blocking_ = false;
+        bool action_server_responded_ = false;
+        bool action_accepted_ = false;
+        bool action_success_ = false;
         // Goal Pose
         geometry_msgs::msg::PoseStamped goal_pose_;
-        // Nav2 ComputePath Results
-        nav_msgs::msg::Path path_;
-        builtin_interfaces::msg::Duration planning_time_;
-        // Nav2 Controller Feedback
-        double distance_to_goal_;
-        double rov_speed_;
+        // Nav2 Action Feedback
+        geometry_msgs::msg::PoseStamped current_pose_;
+        builtin_interfaces::msg::Duration navigation_time_;
+        builtin_interfaces::msg::Duration estimated_time_remaining_;
+        int number_of_recoveries_;
+        double distance_remaining_;
         // Subscriber for cmd_vel_nav
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_nav_sub_;
         // Publisher for rover auto command
@@ -61,8 +49,7 @@ class AutoNavHandler: public rclcpp::Node
         // Action server
         rclcpp_action::Server<AutoNav>::SharedPtr autonav_action_server_;
         // Action clients
-        rclcpp_action::Client<ComputePathToPose>::SharedPtr compute_path_client_;
-        rclcpp_action::Client<FollowPath>::SharedPtr follow_path_client_;
+        rclcpp_action::Client<NavigateToPose>::SharedPtr navigate_to_pose_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -128,21 +115,14 @@ class AutoNavHandler: public rclcpp::Node
         * */
         void executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> );
 
-        // Functions to handle Nav2 Planner action
-        bool computePath();
-        
-        void computePathResponseCallback(GoalHandleComputePathToPose::SharedPtr );
-        
-        void computePathResultCallback(const GoalHandleComputePathToPose::WrappedResult& );
+        // Functions to handle Nav2 Navigate to Pose action
+        bool navigateToPose();
 
-        // Functions to handle Nav2 Controller action
-        bool followPath();
+        void navigateToPoseResponseCallback(GoalHandleNavigateToPose::SharedPtr );
 
-        void followPathResponseCallback(GoalHandleFollowPath::SharedPtr );
+        void navigateToPoseFeedbackCallback(GoalHandleNavigateToPose::SharedPtr , const std::shared_ptr<const NavigateToPose::Feedback> );
 
-        void followPathFeedbackCallback(GoalHandleFollowPath::SharedPtr , const std::shared_ptr<const FollowPath::Feedback> );
-
-        void followPathResultCallback(const GoalHandleFollowPath::WrappedResult& );
+        void navigateToPoseResultCallback(const GoalHandleNavigateToPose::WrappedResult& );
 
         // Function to remap cmd_vel_nav to rover_cmd
         void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr );
