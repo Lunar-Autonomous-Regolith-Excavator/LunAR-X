@@ -34,7 +34,7 @@ WorldModel::WorldModel() : Node("world_model_node")
     // Initializing occupancy grid
     this->global_map_.data.resize(global_map_.info.width*global_map_.info.height);
     this->filtered_global_map_.data.resize(global_map_.info.width*global_map_.info.height);
-    for(long int i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
+    for(size_t i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
         this->global_map_.data[i] = 0;
         this->filtered_global_map_.data[i] = 0;
     }
@@ -86,7 +86,7 @@ void WorldModel::configureMaps(){
     world_model_.info = global_map_.info;
 
     // Initialize bayes filter
-    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         BayesFilter bf;
         bayes_filter_.push_back(bf);
     }
@@ -175,35 +175,29 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
         RCLCPP_INFO(this->get_logger(), "F");
         return;
     }
-    
-
-    // calculate average y-values of inliers in the square patch with corners (x=0.05,z=0.45) and (x=0.1, z = 0.5)
-    double sum_y = 0;
-    long int count = 0;
-
 
     // array with double to store elevation vlaues
     double elevation_values[global_map_.info.width*global_map_.info.height];
     double density_values[global_map_.info.width*global_map_.info.height];
-    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         elevation_values[i] = 0.0;
         density_values[i] = 0.0;
     }
 
-    for(long int i = 0; i < cropped_cloud_local_map->points.size(); i++){
+    for(size_t i = 0; i < cropped_cloud_local_map->points.size(); i++){
         int col_x =  int(cropped_cloud_local_map->points[i].x / global_map_.info.resolution ) + global_map_.info.width/2;
         int row_y =  int(cropped_cloud_local_map->points[i].y / global_map_.info.resolution ) + global_map_.info.height/2;
 
         col_x = std::min(std::max(col_x, 0), int(global_map_.info.width-1));
         row_y = std::min(std::max(row_y, 0), int(global_map_.info.height-1));
 
-        long int global_idx = col_x + row_y*global_map_.info.width;
+        int global_idx = col_x + row_y*global_map_.info.width;
         double elev = cropped_cloud_local_map->points[i].z;
         elevation_values[global_idx] += 200.0*(elev-1.4);
         density_values[global_idx] += 1.0;
     }
 
-    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         if(density_values[i] > 1.0){
             global_map_.data[i] = int(elevation_values[i]/density_values[i]);
             filtered_global_map_.data[i] = int(elevation_values[i]/density_values[i]);
@@ -223,7 +217,7 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
 void WorldModel::buildWorldModel(){
 
-    for(long int i = 0; i < elevation_costmap_.data.size(); i++){
+    for(size_t i = 0; i < elevation_costmap_.data.size(); i++){
         if (global_map_.data[i] != 0 && global_map_.data[i] < 20){
             elevation_costmap_.data[i] = 100 - global_map_.data[i];
         }        
@@ -231,14 +225,14 @@ void WorldModel::buildWorldModel(){
             elevation_costmap_.data[i] = 0;
         }
     }
-    // long int neighbour_deltas[8] = [-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1];
-    long int neighbour_deltas[8] = {-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1};
+    // int neighbour_deltas[8] = [-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1];
+    int neighbour_deltas[8] = {-1, 1, -(int)global_map_.info.width, (int)global_map_.info.width, -(int)global_map_.info.width-1, -(int)global_map_.info.width+1, (int)global_map_.info.width-1, (int)global_map_.info.width+1};
 
-    for(long int i=0; i<slope_costmap_.data.size(); i++){
+    for(size_t i=0; i<slope_costmap_.data.size(); i++){
         double max_neighbour = -100, min_neighbour = 100;
-        for(long int j=0;j<8;j++){
-            long int neighbour_idx = i+neighbour_deltas[j];
-            if(neighbour_idx < 0 || neighbour_idx > slope_costmap_.data.size()){
+        for(size_t j=0;j<8;j++){
+            size_t neighbour_idx = i+neighbour_deltas[j];
+            if(neighbour_idx > slope_costmap_.data.size()){
                 continue;
             }
             else if(global_map_.data[neighbour_idx] == 0){
@@ -260,7 +254,7 @@ void WorldModel::buildWorldModel(){
         }
     }
     
-    for(long int i=0;i<world_model_.data.size();i++){
+    for(size_t i=0;i<world_model_.data.size();i++){
         world_model_.data[i] = std::max(elevation_costmap_.data[i], slope_costmap_.data[i]);
     }
     world_model_publisher_->publish(world_model_);
@@ -270,7 +264,7 @@ void WorldModel::buildWorldModel(){
 
 void WorldModel::filterMap(){
     // use globalmap to update bayes filter and then update filtered global map
-    for(long int i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         if(global_map_.data[i] == 0){
             continue;
         }
@@ -281,12 +275,12 @@ void WorldModel::filterMap(){
         double gradient = 200*0.03;
         // double 
         // update cell of neighbours
-        long int neighbour_deltas[8] = {-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1};
+        int neighbour_deltas[8] = {-1, 1, -(int)global_map_.info.width, (int)global_map_.info.width, -(int)global_map_.info.width-1, -(int)global_map_.info.width+1, (int)global_map_.info.width-1, (int)global_map_.info.width+1};
         // only 4 neighbours
-        // long int neighbour_deltas[4] = {-1, 1, -global_map_.info.width, global_map_.info.width};
-        for(long int j=0;j<4;j++){
-            long int neighbour_idx = i+neighbour_deltas[j];
-            if(neighbour_idx < 0 || neighbour_idx > global_map_.info.width*global_map_.info.height){
+        // int neighbour_deltas[4] = {-1, 1, -global_map_.info.width, global_map_.info.width};
+        for(size_t j=0;j<4;j++){
+            size_t neighbour_idx = i+neighbour_deltas[j];
+            if(neighbour_idx > global_map_.info.width*global_map_.info.height){
                 continue;
             }
             // else if(filtered_global_map_.data[neighbour_idx] == 0){

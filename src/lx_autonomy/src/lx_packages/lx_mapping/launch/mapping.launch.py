@@ -23,7 +23,7 @@ def generate_launch_description():
             name='world_model_node',
             emulate_tty=True
         )
-    
+        
     tf_moonyard_link_old = Node(
       package='tf2_ros',
       executable='static_transform_publisher',
