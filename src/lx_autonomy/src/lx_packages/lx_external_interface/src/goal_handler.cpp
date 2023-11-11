@@ -35,16 +35,19 @@ void GoalHandler::setupCommunications(){
     processed_berm_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("processed_berm_viz_markers", 5);
 
     // Clients
+    berm_eval_points_client_ = this->create_client<lx_msgs::srv::BermService>("/berm_evaluation/requested_points");
     operation_action_client_ = rclcpp_action::create_client<Operation>(this, "operations/berm_build_action");
 
     // Servers
-    user_berm_request_server_ = this->create_service<lx_msgs::srv::BermService>("request_rover/build_berm", 
-                                    std::bind(&GoalHandler::userBermRequestCB, this, std::placeholders::_1, std::placeholders::_2));
+    user_berm_request_server_ = this->create_service<lx_msgs::srv::RequestRoverService>("request_rover/build_berm", 
+                                    std::bind(&GoalHandler::userRequestCB, this, std::placeholders::_1, std::placeholders::_2));
 }
 
-void GoalHandler::userBermRequestCB(const std::shared_ptr<lx_msgs::srv::BermService::Request> req,
-                                          const std::shared_ptr<lx_msgs::srv::BermService::Response> res){
+void GoalHandler::userRequestCB(const std::shared_ptr<lx_msgs::srv::RequestRoverService::Request> req,
+                                          const std::shared_ptr<lx_msgs::srv::RequestRoverService::Response> res){
     user_requested_berm_points_.clear();
+    user_requested_excavation_points_.clear();
+    user_requested_restricted_points_.clear();
     processed_berm_points_.clear();
     vizCleanup();
     
@@ -55,6 +58,14 @@ void GoalHandler::userBermRequestCB(const std::shared_ptr<lx_msgs::srv::BermServ
         user_requested_berm_points_.push_back(point);
         // Debug print points
         RCLCPP_INFO(this->get_logger(), "Point: %.2f, %.2f", point.point.x, point.point.y);
+    }
+    // Store requested excavation zone points
+    for(auto &point : req->excavation_zone_coordinates){
+        user_requested_excavation_points_.push_back(point);
+    }
+    // Store requested restricted zone points
+    for(auto &point : req->restricted_zone_coordinates){
+        user_requested_restricted_points_.push_back(point);
     }
     
     // Start thread to check for berm feasibility
@@ -218,6 +229,9 @@ void GoalHandler::checkBermFeasibility(){
         }
         // Send goal
         sendOperationGoal(processed_berm_points_);
+
+        // Send points to berm evaluation and mapping
+        sendMapPoints(processed_berm_points_, user_requested_excavation_points_, user_requested_restricted_points_);
     }
     else{
         RCLCPP_ERROR(this->get_logger(), "Berm is not feasible");
@@ -276,6 +290,36 @@ void GoalHandler::operationResultCB(const GoalHandleOperation::WrappedResult &re
     user_requested_berm_points_.clear();
     // Clean up rviz markers
     vizCleanup();
+}
+
+void GoalHandler::sendMapPoints(std::vector<geometry_msgs::msg::PointStamped> berm_eval_points, 
+                                std::vector<geometry_msgs::msg::PointStamped> map_excavation_points,
+                                std::vector<geometry_msgs::msg::PointStamped> map_restricted_points){
+    // Send berm points to berm evaluation
+    auto berm_eval_request_points = std::make_shared<lx_msgs::srv::BermService::Request>();
+    berm_eval_request_points->berm.berm_configuration = berm_eval_points;
+
+    // TODO Send excavation and restricted points to mapping
+    (void)map_excavation_points;
+    (void)map_restricted_points;
+
+    // Send request
+    auto future_result = berm_eval_points_client_->async_send_request(berm_eval_request_points , std::bind(&GoalHandler::bermEvalPointsCB, this, std::placeholders::_1));
+}
+
+void GoalHandler::bermEvalPointsCB(rclcpp::Client<lx_msgs::srv::BermService>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    if(status == std::future_status::ready){ 
+        if(future.get()->success){
+            RCLCPP_INFO(this->get_logger(), "Berm evaluation node received points");
+        }
+        else{
+            RCLCPP_ERROR(this->get_logger(), "Berm evaluation node didnt receive points");
+        }
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
 }
 
 void GoalHandler::visualizeFeasibleBerm(){
