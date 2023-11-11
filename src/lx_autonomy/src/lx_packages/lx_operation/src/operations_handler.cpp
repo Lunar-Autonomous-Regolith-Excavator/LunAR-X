@@ -9,7 +9,6 @@
  * - Summary
  * 
  * TODO
- * - Finish executeOperation
  * - Add documentation
  * - Add start and stop mapping service
  * - Add visualization for Nav and Dig tasks
@@ -212,6 +211,8 @@ rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::
     executed_tasks_.clear();
     // Set current_task_id_ to -1
     current_task_id_ = -1;
+    // Set first operation dump to true for autodump
+    first_op_dump_ = true;
     // Clear task queue
     while(!task_queue_.empty()){
         task_queue_.pop();
@@ -350,7 +351,7 @@ std::queue<Task, std::list<Task>> OperationsHandler::getPlan(){
         // Make task pose array
         auto task_pose_array = geometry_msgs::msg::PoseArray();
         task_pose_array.poses.push_back(received_plan_[i].pose);
-        build_task_queue.push(Task(current_task_id_, TaskTypeEnum(received_plan_[i].task_type), task_pose_array, received_plan_[i].point));
+        build_task_queue.push(Task(current_task_id_, TaskTypeEnum(received_plan_[i].task_type), task_pose_array, received_plan_[i].berm_point));
     }
 
     // Clear receiving vector
@@ -505,7 +506,6 @@ bool OperationsHandler::callAutoDig(Task current_task){
     auto_action_success_ = false;
 
     auto autodig_request_msg = AutoDig::Goal();
-    // TODO Create Autodig Request from the Task
     (void)current_task;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dig goal");
@@ -557,8 +557,37 @@ bool OperationsHandler::callAutoDump(Task current_task){
     auto_action_success_ = false;
 
     auto autodump_request_msg = AutoDump::Goal();
-    // TODO Create Autodump Request from the Task
-    (void)current_task;
+    
+    // Create Autodump Request from the Task
+    autodump_request_msg.first_op_dump = first_op_dump_;
+    autodump_request_msg.current_berm_segment = current_task.getBermPoint();
+    autodump_request_msg.prev_berm_segment.x = -1000.0;
+    autodump_request_msg.prev_berm_segment.y = -1000.0;
+    autodump_request_msg.prev_berm_segment.theta = -1000.0;
+    autodump_request_msg.first_seg_dump = true;
+    // Check if any previous task was autodump
+    if(!executed_tasks_.empty()){
+        for(long unsigned int i = executed_tasks_.size(); i > 0; i--){
+            // If it was autodump and of the previous segment, set previous berm segment
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP && 
+                !checkSameBermSegment(current_task.getBermPoint(), executed_tasks_[i].getBermPoint())) {
+                autodump_request_msg.prev_berm_segment = executed_tasks_[i].getBermPoint();
+                break;
+            }
+        }
+        for(long unsigned int i = executed_tasks_.size(); i > 0; i--){
+            //if it was autodump and is of the same segment, set first_seg_dump to false
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP){
+                if(checkSameBermSegment(current_task.getBermPoint(), executed_tasks_[i].getBermPoint())){
+                    autodump_request_msg.first_seg_dump = false;
+                }
+                break;
+            } 
+        }
+    }
+
+    // Not first dump anymore
+    first_op_dump_ = false;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dump goal");
     
@@ -764,9 +793,9 @@ void OperationsHandler::visualizeCurrentTask(Task current_task){
         marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
 
         // get points from createVizRectangle
-        auto dump_polygon = createVizRectangle(current_task.getTaskPoint().x, 
-                                                current_task.getTaskPoint().y, 
-                                                current_task.getTaskPoint().z);
+        auto dump_polygon = createVizRectangle(current_task.getBermPoint().x, 
+                                                current_task.getBermPoint().y, 
+                                                current_task.getBermPoint().theta);
         // add points to line strip
         for(auto &dump_point: dump_polygon){
             geometry_msgs::msg::Point point;
@@ -819,9 +848,9 @@ void OperationsHandler::visualizationUpdate(){
                 marker.lifetime = rclcpp::Duration(0, 0);
                 
                 // get points from createVizRectangle
-                auto executed_task_polygon = createVizRectangle(executed_tasks_[i].getTaskPoint().x, 
-                                                            executed_tasks_[i].getTaskPoint().y, 
-                                                            executed_tasks_[i].getTaskPoint().z);
+                auto executed_task_polygon = createVizRectangle(executed_tasks_[i].getBermPoint().x, 
+                                                            executed_tasks_[i].getBermPoint().y, 
+                                                            executed_tasks_[i].getBermPoint().theta);
                 // add points to line strip
                 for(auto &executed_task_point: executed_task_polygon){
                     geometry_msgs::msg::Point point;
@@ -860,9 +889,9 @@ void OperationsHandler::visualizationUpdate(){
             marker.lifetime = rclcpp::Duration(0, 0);
             
             // get points from createVizRectangle
-            auto dump_polygon = createVizRectangle(task_queue_copy_.front().getTaskPoint().x, 
-                                                task_queue_copy_.front().getTaskPoint().y, 
-                                                task_queue_copy_.front().getTaskPoint().z);
+            auto dump_polygon = createVizRectangle(task_queue_copy_.front().getBermPoint().x, 
+                                                task_queue_copy_.front().getBermPoint().y, 
+                                                task_queue_copy_.front().getBermPoint().theta);
             // add points to line strip
             for(auto &dump_point: dump_polygon){
                 geometry_msgs::msg::Point point;
@@ -906,4 +935,12 @@ void OperationsHandler::vizCleanup(){
     
     // Publish marker array
     plan_viz_publisher_->publish(operations_marker_array);
+}
+
+bool OperationsHandler::checkSameBermSegment(lx_msgs::msg::BermSection berm_segment_1, lx_msgs::msg::BermSection berm_segment_2){
+    // Check if euler distance between berm points is less than 0.15m
+    if(sqrt(pow(berm_segment_1.x - berm_segment_2.x, 2) + pow(berm_segment_1.y - berm_segment_2.y, 2)) < 0.15){
+        return true;
+    }
+    return false;
 }

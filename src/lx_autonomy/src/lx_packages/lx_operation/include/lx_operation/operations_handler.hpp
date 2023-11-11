@@ -17,6 +17,7 @@
 #include "lx_msgs/action/auto_dig.hpp"
 #include "lx_msgs/action/auto_dump.hpp"
 #include "lx_msgs/action/auto_nav.hpp"
+#include "lx_msgs/msg/berm_section.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
@@ -52,6 +53,7 @@ class OperationsHandler: public rclcpp::Node
         std::vector<lx_msgs::msg::PlannedTask> received_plan_ {};
         unsigned int diagnostic_pub_period_ = 1;
         int current_task_id_ = -1;
+        bool first_op_dump_ = true;
         // Action blocking
         bool auto_action_blocking_ = false;
         bool auto_action_server_responded_ = false;
@@ -288,6 +290,11 @@ class OperationsHandler: public rclcpp::Node
         * 
         * */
         void vizCleanup();
+
+        /*
+        * 
+        * */
+        bool checkSameBermSegment(lx_msgs::msg::BermSection , lx_msgs::msg::BermSection );
         // --------------------------------------
 
     public:
