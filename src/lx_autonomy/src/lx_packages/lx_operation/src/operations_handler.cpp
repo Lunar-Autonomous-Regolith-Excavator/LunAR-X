@@ -212,6 +212,8 @@ rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::
     executed_tasks_.clear();
     // Set current_task_id_ to -1
     current_task_id_ = -1;
+    // Set first operation dump to true for autodump
+    first_op_dump_ = true;
     // Clear task queue
     while(!task_queue_.empty()){
         task_queue_.pop();
@@ -557,8 +559,37 @@ bool OperationsHandler::callAutoDump(Task current_task){
     auto_action_success_ = false;
 
     auto autodump_request_msg = AutoDump::Goal();
-    // TODO Create Autodump Request from the Task
-    (void)current_task;
+    
+    // Create Autodump Request from the Task
+    autodump_request_msg.first_op_dump = first_op_dump_;
+    autodump_request_msg.current_berm_segment = current_task.getBermPoint();
+    autodump_request_msg.prev_berm_segment.x = -1000.0;
+    autodump_request_msg.prev_berm_segment.y = -1000.0;
+    autodump_request_msg.prev_berm_segment.theta = -1000.0;
+    autodump_request_msg.first_seg_dump = true;
+    // Check if any previous task was autodump
+    if(!executed_tasks_.empty()){
+        for(long unsigned int i = executed_tasks_.size(); i > 0; i--){
+            // If it was autodump and of the previous segment, set previous berm segment
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP && 
+                !checkSameBermSegment(current_task.getBermPoint(), executed_tasks_[i].getBermPoint())) {
+                autodump_request_msg.prev_berm_segment = executed_tasks_[i].getBermPoint();
+                break;
+            }
+        }
+        for(long unsigned int i = executed_tasks_.size(); i > 0; i--){
+            //if it was autodump and is of the same segment, set first_seg_dump to false
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP){
+                if(checkSameBermSegment(current_task.getBermPoint(), executed_tasks_[i].getBermPoint())){
+                    autodump_request_msg.first_seg_dump = false;
+                }
+                break;
+            } 
+        }
+    }
+
+    // Not first dump anymore
+    first_op_dump_ = false;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dump goal");
     
@@ -906,4 +937,12 @@ void OperationsHandler::vizCleanup(){
     
     // Publish marker array
     plan_viz_publisher_->publish(operations_marker_array);
+}
+
+bool OperationsHandler::checkSameBermSegment(lx_msgs::msg::BermSection berm_segment_1, lx_msgs::msg::BermSection berm_segment_2){
+    // Check if euler distance between berm points is less than 0.15m
+    if(sqrt(pow(berm_segment_1.x - berm_segment_2.x, 2) + pow(berm_segment_1.y - berm_segment_2.y, 2)) < 0.15){
+        return true;
+    }
+    return false;
 }
