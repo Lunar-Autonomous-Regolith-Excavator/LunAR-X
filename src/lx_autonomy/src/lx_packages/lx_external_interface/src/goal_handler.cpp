@@ -35,7 +35,7 @@ void GoalHandler::setupCommunications(){
     processed_berm_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("processed_berm_viz_markers", 5);
 
     // Clients
-    berm_eval_points_client_ = this->create_client<lx_msgs::srv::BermService>("/berm_evaluation/requested_points");
+    berm_eval_points_client_ = this->create_client<lx_msgs::srv::BermService>("berm_evaluation/requested_berm_points");
     operation_action_client_ = rclcpp_action::create_client<Operation>(this, "operations/berm_build_action");
 
     // Servers

@@ -5,7 +5,7 @@
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "lx_msgs/srv/switch.hpp"
 #include "std_msgs/msg/float64.hpp"
-
+#include "lx_msgs/srv/berm_service.hpp"
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/buffer.h>
@@ -20,15 +20,16 @@ class BermEvaluation : public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        // subscribe occupancy grid
+        std::vector<geometry_msgs::msg::PointStamped> requested_berm_points_;
+        // Subscribers
         rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_subscriber_;
         // Publishers
-        // --------------------------------------
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_1_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_2_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_evaluation_array_publisher_;
-
         std::thread berm_evaluation_thread_;
+        // Servers
+        rclcpp::Service<lx_msgs::srv::BermService>::SharedPtr berm_points_server_;
 
         // markers for berm
         visualization_msgs::msg::Marker berm_marker_1_;
@@ -40,6 +41,9 @@ class BermEvaluation : public rclcpp::Node
         * */
         void setupCommunications();
 
+        void userBermPointsCB(const std::shared_ptr<lx_msgs::srv::BermService::Request> ,
+                                          const std::shared_ptr<lx_msgs::srv::BermService::Response> );
+
         /*
         *
         * */
@@ -49,7 +53,7 @@ class BermEvaluation : public rclcpp::Node
         *
         * */
 
-       visualization_msgs::msg::Marker createPillarMarker(float, float, float, int);
+        visualization_msgs::msg::Marker createPillarMarker(float, float, float, int);
 
 
         void bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr);
