@@ -118,8 +118,8 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     // loop over the the rectangle region parallel to the line joining the two berm_marker_points 1 and 2 but 0.3 to 0.4 m away from it
     double m = y_diff/x_diff;
     double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
-    for(int i = 0; i < berm_points.size(); i++){
-        for(int j = 0; j < msg->data.size(); j++){
+    for(size_t i = 0; i < berm_points.size(); i++){
+        for(size_t j = 0; j < msg->data.size(); j++){
             double x = msg->info.origin.position.x + (j%msg->info.width)*msg->info.resolution;
             double y = msg->info.origin.position.y + (j/msg->info.width)*msg->info.resolution;
             double dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
@@ -135,9 +135,9 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     // for every point in the vector, find the max value of the occupancy grid in a 0.2m radius
     std::vector <int> berm_heights;
 
-    for(int i = 0; i < berm_points.size(); i++){
+    for(size_t i = 0; i < berm_points.size(); i++){
         double max = 0;
-        for(int j = 0; j < msg->data.size(); j++){
+        for(size_t j = 0; j < msg->data.size(); j++){
             double x = msg->info.origin.position.x + (j%msg->info.width)*msg->info.resolution;
             double y = msg->info.origin.position.y + (j/msg->info.width)*msg->info.resolution;
             double dist = sqrt(pow(x - berm_points[i].x, 2) + pow(y - berm_points[i].y, 2));
@@ -151,8 +151,8 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
         berm_heights.push_back(percetage_completed);
     }
     // print the heights
-    for(int i = 0; i < berm_heights.size(); i++){
-        RCLCPP_INFO(this->get_logger(), "Percentage completion at point %d: %d", i, berm_heights[i]);
+    for(size_t i = 0; i < berm_heights.size(); i++){
+        RCLCPP_INFO(this->get_logger(), "Percentage completion at point %d: %d", (int)i, berm_heights[i]);
     }
 
     // publish the berm evaluation array. every marker is a cuboid of 0.2m x 0.2m x berms_heights[i]*0.15m
@@ -166,11 +166,11 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     marker_array_msg.scale.x = 0.4;
     marker_array_msg.scale.y = 0.4;
     marker_array_msg.scale.z = 1.5;
-    marker_array_msg.color.a = 1.0; // Don't forget to set the alpha!
+    marker_array_msg.color.a = 1.0;
     marker_array_msg.color.r = 0.0; 
     marker_array_msg.color.g = 1.0;
     marker_array_msg.color.b = 0.0;
-    for(int i = 0; i < berm_points.size(); i++){
+    for(size_t i = 0; i < berm_points.size(); i++){
         geometry_msgs::msg::Point point;
         point.x = berm_points[i].x;
         point.y = berm_points[i].y;
