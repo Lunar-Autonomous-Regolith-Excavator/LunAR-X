@@ -9,7 +9,6 @@
  * - Summary
  * 
  * TODO
- * - Finish executeOperation
  * - Add documentation
  * - Add start and stop mapping service
  * - Add visualization for Nav and Dig tasks
@@ -507,7 +506,6 @@ bool OperationsHandler::callAutoDig(Task current_task){
     auto_action_success_ = false;
 
     auto autodig_request_msg = AutoDig::Goal();
-    // TODO Create Autodig Request from the Task
     (void)current_task;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dig goal");
