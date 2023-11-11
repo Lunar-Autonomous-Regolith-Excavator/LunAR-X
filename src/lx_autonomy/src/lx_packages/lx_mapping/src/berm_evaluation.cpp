@@ -20,8 +20,10 @@
 #include "lx_mapping/berm_evaluation.hpp"
 #include <vector>
 
-BermEvaluation::BermEvaluation() : Node("berm_evaluation_node")
-{       
+BermEvaluation::BermEvaluation() : Node("berm_evaluation_node"){       
+    // Clear data storage
+    requested_berm_points_.clear();
+    
     // Setup Communications
     setupCommunications();
 
@@ -37,6 +39,25 @@ void BermEvaluation::setupCommunications(){
     berm_marker_1_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/berm_marker_1", 10);
     berm_marker_2_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/berm_marker_2", 10);
     berm_evaluation_array_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/berm_evaluation_array", 10);
+
+    // Servers
+    berm_points_server_ = this->create_service<lx_msgs::srv::BermService>("berm_evaluation/requested_berm_points", 
+                                    std::bind(&BermEvaluation::userBermPointsCB, this, std::placeholders::_1, std::placeholders::_2));
+}
+
+
+void BermEvaluation::userBermPointsCB(const std::shared_ptr<lx_msgs::srv::BermService::Request> req,
+                                          const std::shared_ptr<lx_msgs::srv::BermService::Response> res){
+    requested_berm_points_.clear();
+    
+    // Store requested berm points for evaluation
+    for(auto &point: req->berm.berm_configuration){
+        requested_berm_points_.push_back(point);
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Received berm goal points for berm evaluation");
+
+    res->success = true;
 }
 
 
