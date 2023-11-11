@@ -17,6 +17,7 @@
 #include "lx_msgs/action/auto_dig.hpp"
 #include "lx_msgs/action/auto_dump.hpp"
 #include "lx_msgs/action/auto_nav.hpp"
+#include "lx_msgs/msg/berm_section.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"

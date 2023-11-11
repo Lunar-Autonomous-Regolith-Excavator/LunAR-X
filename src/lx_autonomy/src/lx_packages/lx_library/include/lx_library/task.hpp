@@ -5,6 +5,7 @@
 #include "lx_library/lx_utils.hpp"
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/point.hpp>
+#include "lx_msgs/msg/berm_section.hpp"
 
 class Task
 {
@@ -12,7 +13,7 @@ class Task
         unsigned int task_id_;
         TaskTypeEnum task_type_;
         geometry_msgs::msg::PoseArray pose_array_ = geometry_msgs::msg::PoseArray();
-        geometry_msgs::msg::Point task_point_ = geometry_msgs::msg::Point();
+        lx_msgs::msg::BermSection berm_point_ = lx_msgs::msg::BermSection();
 
     public:
         // Functions ----------------------------
@@ -22,12 +23,12 @@ class Task
 
         geometry_msgs::msg::PoseArray getPoseArray();
 
-        geometry_msgs::msg::Point getTaskPoint();
+        lx_msgs::msg::BermSection getBermPoint();
 
         /*
         * Constructor
         * */
-        Task(unsigned int, TaskTypeEnum, geometry_msgs::msg::PoseArray, geometry_msgs::msg::Point);
+        Task(unsigned int, TaskTypeEnum, geometry_msgs::msg::PoseArray, lx_msgs::msg::BermSection);
 
         /*
         * Destructor

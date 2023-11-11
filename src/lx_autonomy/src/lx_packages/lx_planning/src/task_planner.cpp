@@ -123,9 +123,9 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             dump_task.task_type = int(TaskTypeEnum::AUTODUMP);
             dump_task.pose = dump_pose;
             // Add dump berm location to response
-            dump_task.point.x = berm_section.center.x;
-            dump_task.point.y = berm_section.center.y;
-            dump_task.point.z = berm_section.angle;
+            dump_task.berm_point.x = berm_section.center.x;
+            dump_task.berm_point.y = berm_section.center.y;
+            dump_task.berm_point.theta = berm_section.angle;
             res->plan.push_back(dump_task);
         }
     }

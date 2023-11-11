@@ -14,11 +14,11 @@
 
 #include "lx_library/task.hpp"
 
-Task::Task(unsigned int id, TaskTypeEnum type, geometry_msgs::msg::PoseArray pose_array, geometry_msgs::msg::Point task_point){
+Task::Task(unsigned int id, TaskTypeEnum type, geometry_msgs::msg::PoseArray pose_array, lx_msgs::msg::BermSection berm_point){
     this->task_id_ = id;
     this->task_type_ = type;
     this->pose_array_ = pose_array;
-    this->task_point_ = task_point;
+    this->berm_point_ = berm_point;
 }
 
 unsigned int Task::getID(){
@@ -33,6 +33,6 @@ geometry_msgs::msg::PoseArray Task::getPoseArray(){
     return pose_array_;
 }
 
-geometry_msgs::msg::Point Task::getTaskPoint(){
-    return task_point_;
+lx_msgs::msg::BermSection Task::getBermPoint(){
+    return berm_point_;
 }

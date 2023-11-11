@@ -350,7 +350,7 @@ std::queue<Task, std::list<Task>> OperationsHandler::getPlan(){
         // Make task pose array
         auto task_pose_array = geometry_msgs::msg::PoseArray();
         task_pose_array.poses.push_back(received_plan_[i].pose);
-        build_task_queue.push(Task(current_task_id_, TaskTypeEnum(received_plan_[i].task_type), task_pose_array, received_plan_[i].point));
+        build_task_queue.push(Task(current_task_id_, TaskTypeEnum(received_plan_[i].task_type), task_pose_array, received_plan_[i].berm_point));
     }
 
     // Clear receiving vector
@@ -764,9 +764,9 @@ void OperationsHandler::visualizeCurrentTask(Task current_task){
         marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
 
         // get points from createVizRectangle
-        auto dump_polygon = createVizRectangle(current_task.getTaskPoint().x, 
-                                                current_task.getTaskPoint().y, 
-                                                current_task.getTaskPoint().z);
+        auto dump_polygon = createVizRectangle(current_task.getBermPoint().x, 
+                                                current_task.getBermPoint().y, 
+                                                current_task.getBermPoint().theta);
         // add points to line strip
         for(auto &dump_point: dump_polygon){
             geometry_msgs::msg::Point point;
@@ -819,9 +819,9 @@ void OperationsHandler::visualizationUpdate(){
                 marker.lifetime = rclcpp::Duration(0, 0);
                 
                 // get points from createVizRectangle
-                auto executed_task_polygon = createVizRectangle(executed_tasks_[i].getTaskPoint().x, 
-                                                            executed_tasks_[i].getTaskPoint().y, 
-                                                            executed_tasks_[i].getTaskPoint().z);
+                auto executed_task_polygon = createVizRectangle(executed_tasks_[i].getBermPoint().x, 
+                                                            executed_tasks_[i].getBermPoint().y, 
+                                                            executed_tasks_[i].getBermPoint().theta);
                 // add points to line strip
                 for(auto &executed_task_point: executed_task_polygon){
                     geometry_msgs::msg::Point point;
@@ -860,9 +860,9 @@ void OperationsHandler::visualizationUpdate(){
             marker.lifetime = rclcpp::Duration(0, 0);
             
             // get points from createVizRectangle
-            auto dump_polygon = createVizRectangle(task_queue_copy_.front().getTaskPoint().x, 
-                                                task_queue_copy_.front().getTaskPoint().y, 
-                                                task_queue_copy_.front().getTaskPoint().z);
+            auto dump_polygon = createVizRectangle(task_queue_copy_.front().getBermPoint().x, 
+                                                task_queue_copy_.front().getBermPoint().y, 
+                                                task_queue_copy_.front().getBermPoint().theta);
             // add points to line strip
             for(auto &dump_point: dump_polygon){
                 geometry_msgs::msg::Point point;
