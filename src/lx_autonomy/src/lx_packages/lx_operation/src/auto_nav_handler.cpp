@@ -270,14 +270,14 @@ bool AutoNavHandler::navigateToPose(){
     rclcpp::Rate loop_rate(10);
     while(this->action_blocking_ && rclcpp::ok()) {
         // Print feedback
-        RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f m | Time remaining: %f secs", this->distance_remaining_, this->estimated_time_remaining_.sec);
+        // RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f m | Time remaining: %f secs", this->distance_remaining_, this->estimated_time_remaining_.sec);
 
         // Check timeout
-        if (this->now() - start_time > rclcpp::Duration(this->MAX_DURATION, 0)) {
-            RCLCPP_ERROR(this->get_logger(), "AutoNav timed out");
-            // Cancel goal
-            this->navigate_to_pose_client_->async_cancel_all_goals();
-        }
+        // if (this->now() - start_time > rclcpp::Duration(this->MAX_DURATION, 0)) {
+        //     RCLCPP_ERROR(this->get_logger(), "AutoNav timed out");
+        //     // Cancel goal
+        //     this->navigate_to_pose_client_->async_cancel_all_goals();
+        // }
 
         loop_rate.sleep();
     }
