@@ -64,6 +64,17 @@ def generate_launch_description():
         AnyLaunchDescriptionSource([foxglove_dir, '/foxglove_bridge_launch.xml']),
     )
 
+<<<<<<< Updated upstream
+=======
+    tf_moonyard_link = Node(
+      package='tf2_ros',
+      executable='static_transform_publisher',
+      name='map_to_moonyard',
+      output='screen',
+      arguments=['9', '5' ,'0' ,'0' ,'0' ,'0', '0', 'map', 'moonyard'],
+    )
+
+>>>>>>> Stashed changes
     pcl_relay = Node(
       package='lx_mapping',
       executable='pcl_relay_node',
@@ -78,6 +89,10 @@ def generate_launch_description():
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
     ld.add_action(operation_launch)
+<<<<<<< Updated upstream
+=======
+    ld.add_ction(tf_moonyard_link)
+>>>>>>> Stashed changes
     ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
     # ld.add_action(mapping_launch)

@@ -229,7 +229,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
                 peak_z[j] = max_z;
             }
         }
-            } 
+    } 
 
     // visualization_msgs/MarkerArray.msg make
     visualization_msgs::msg::Marker marker_array_msg;

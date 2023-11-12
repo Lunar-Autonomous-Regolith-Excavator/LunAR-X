@@ -130,8 +130,6 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr WorldModel::transformMap(const sensor_msgs::
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *cloud);
 
-    // RCLCPP_INFO(this->get_logger(), "cloud size: %d", cloud->points.size());
-
     // convert x,y,z,w to roll, pitch, yaw
     tf2::Quaternion q(base2moonyard_transform.transform.rotation.x, base2moonyard_transform.transform.rotation.y, base2moonyard_transform.transform.rotation.z, base2moonyard_transform.transform.rotation.w);
     tf2::Matrix3x3 m(q);
@@ -140,23 +138,14 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr WorldModel::transformMap(const sensor_msgs::
 
     // RCLCPP_INFO(this->get_logger(), "roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
 
-    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
-    transform_2.translation() << base2moonyard_transform.transform.translation.x, base2moonyard_transform.transform.translation.y, base2moonyard_transform.transform.translation.z;
-    transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
-    transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
-    transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud_1 (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud(*cloud, *transformed_cloud_1, transform_2);
-
-    Eigen::Affine3f transform_3 = Eigen::Affine3f::Identity();
-    // transform_2.translation() << base2moonyard_transform.transform.translation.x, base2moonyard_transform.transform.translation.y, base2moonyard_transform.transform.translation.z;
-    // transform_3.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
-    // transform_3.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
-    // transform_3.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
+    Eigen::Affine3f afine_transform = Eigen::Affine3f::Identity();
+    afine_transform.translation() << base2moonyard_transform.transform.translation.x, base2moonyard_transform.transform.translation.y, base2moonyard_transform.transform.translation.z;
+    afine_transform.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
+    afine_transform.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
+    afine_transform.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud(*transformed_cloud_1, *transformed_cloud, transform_3);
+    pcl::transformPointCloud(*cloud, *transformed_cloud, afine_transform);
 
     return transformed_cloud;
 }
@@ -172,7 +161,6 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     {
         RCLCPP_INFO(this->get_logger(), "F");
         std::cerr << e.what() << '\n';
-        RCLCPP_INFO(this->get_logger(), "F");
         return;
     }
 
@@ -193,7 +181,7 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
         int global_idx = col_x + row_y*global_map_.info.width;
         double elev = cropped_cloud_local_map->points[i].z;
-        elevation_values[global_idx] += 200.0*(elev-1.4);
+        elevation_values[global_idx] += 200.0*(elev-1.2);
         density_values[global_idx] += 1.0;
     }
 
@@ -263,16 +251,18 @@ void WorldModel::buildWorldModel(){
 
 
 void WorldModel::filterMap(){
+    double gradient = 200*0.01;
     // use globalmap to update bayes filter and then update filtered global map
     for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         if(global_map_.data[i] == 0){
             continue;
         }
         // RCLCPP_INFO(this->get_logger(), "Bayes Filter initialized5");
-        bayes_filter_[i].updateCell(global_map_.data[i], 1.0);
-        // filtered_global_map_.data[i] = int(bayes_filter_[i].getCellElevation());
+        if(abs(filtered_global_map_.data[i] - global_map_.data[i]) > gradient){
+            bayes_filter_[i].updateCell(global_map_.data[i], 10.0);
+            filtered_global_map_.data[i] = int(bayes_filter_[i].getCellElevation());
+        }
 
-        double gradient = 200*0.03;
         // double 
         // update cell of neighbours
         int neighbour_deltas[8] = {-1, 1, -(int)global_map_.info.width, (int)global_map_.info.width, -(int)global_map_.info.width-1, -(int)global_map_.info.width+1, (int)global_map_.info.width-1, (int)global_map_.info.width+1};
@@ -290,15 +280,15 @@ void WorldModel::filterMap(){
                 continue;
             }
             // else if(global_map_.data[i] > global_map_.data[neighbour_idx]){
-            // else if(filtered_global_map_.data[i] > filtered_global_map_.data[neighbour_idx]){
-            //     bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] - gradient, 100.0);
-            //     filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
-            // }
-            // // else if(global_map_.data[i] < global_map_.data[neighbour_idx]){
-            // else if(filtered_global_map_.data[i] < filtered_global_map_.data[neighbour_idx]){
-            //     bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] + gradient, 100.0);
-            //     filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
-            // }
+            else if(filtered_global_map_.data[i] > filtered_global_map_.data[neighbour_idx]){
+                bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] - gradient, 10000.0);
+                filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
+            }
+            // // // else if(global_map_.data[i] < global_map_.data[neighbour_idx]){
+            else if(filtered_global_map_.data[i] < filtered_global_map_.data[neighbour_idx]){
+                bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] + gradient, 10000.0);
+                filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
+            }
         }
     }
     // publish filtered global map
