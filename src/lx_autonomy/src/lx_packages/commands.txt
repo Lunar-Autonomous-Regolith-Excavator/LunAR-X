@@ -35,3 +35,11 @@ bash start_vs.sh
 
 - Call AutoDump action
 ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{}"
+
+
+ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{\
+  \"current_berm_segment\": {\"x\": 5.0, \"y\": 2.0, \"theta\": 1.57},\
+  \"prev_berm_segment\": {\"x\": 4.86, \"y\": 1.66, \"theta\": 0.785},\
+  \"first_op_dump\": false,\
+  \"first_seg_dump\": false\
+}"

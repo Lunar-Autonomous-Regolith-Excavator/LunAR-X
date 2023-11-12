@@ -231,12 +231,16 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     auto pid_x = PID(rover_x_pid_, -CLIP_VEL_CMD_VAL, CLIP_VEL_CMD_VAL);
     auto pid_yaw = PID(rover_yaw_pid_, -CLIP_YAW_CMD_VAL, CLIP_YAW_CMD_VAL);
 
-    // Start Visual Servoing 
-    if(!callVisualServoSwitch(true)){
-        result->success = false;
-        goal_handle->abort(result);
-        RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch on failure");
-        return;
+    // Start Visual Servoing if goal->first_op_dump if false
+    if (goal->first_op_dump == false)
+    {
+        // Start Visual Servoing
+        if(!callVisualServoSwitch(true)){
+            result->success = false;
+            goal_handle->abort(result);
+            RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch on failure");
+            return;
+        }
     }
 
     lx_msgs::msg::RoverCommand rover_cmd;
@@ -247,7 +251,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         rclcpp::Time action_curr_time = this->get_clock()->now();
 
         // Abort action if no tool info message recieved in last 2 seconds
-        if((action_curr_time - servoing_msg_time).seconds() > 2 && first_dump_done == true){
+        if((action_curr_time - servoing_msg_time).seconds() > 2 && goal->first_op_dump == false){
             result->success = false;
             goal_handle->abort(result);
             RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
@@ -264,8 +268,8 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         double dy = -visual_servo_error_.y;
         double dz = -visual_servo_error_.z;
 
-        // Control drum height, rover x and rover y
-        if(first_dump_done == false)
+        // Skip x and y control if first op dump
+        if(goal->first_op_dump == false)
         {
             dx = 0;
             dy = 0;
@@ -365,7 +369,6 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     
     // If autodump executed successfully, return goal success
     if (rclcpp::ok() && !goal_handle->is_canceling()) {
-      first_dump_done = true;
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autodump succeeded");

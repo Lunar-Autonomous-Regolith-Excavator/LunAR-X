@@ -19,6 +19,12 @@
 #include <geometry_msgs/msg/point.hpp>
 #include "rclcpp/logger.hpp"
 #include <vector>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <lx_msgs/msg/berm_section.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 using namespace std;
 
@@ -54,6 +60,7 @@ class VisualServoing : public rclcpp::Node
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
         const double DRUM_Z_BASELINK_M = -0.3; // more negative-> higher drum
         bool node_state_ = false; // state of the node
+        lx_msgs::msg::BermSection current_berm_segment, prev_berm_segment;
 
         // Exp filters for error values
         ExpFilter exp_filter_x_, exp_filter_y_, exp_filter_z_;
@@ -68,6 +75,7 @@ class VisualServoing : public rclcpp::Node
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr bermplane_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr peakline_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr targetpoint_marker_publisher_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr projected_point_marker_publisher_;
         rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr visual_servo_error_publisher_;
 
         // Servers
@@ -128,6 +136,9 @@ class VisualServoing : public rclcpp::Node
         *
         * */
         void toolHeightCallback(const std_msgs::msg::Float64::SharedPtr );
+
+        vector<geometry_msgs::msg::PoseStamped> getTransformedBermSegments();
+
 
     public:
         // Functions
