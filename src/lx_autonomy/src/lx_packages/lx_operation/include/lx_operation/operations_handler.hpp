@@ -17,17 +17,26 @@
 #include "lx_msgs/action/auto_dig.hpp"
 #include "lx_msgs/action/auto_dump.hpp"
 #include "lx_msgs/action/auto_nav.hpp"
+#include "lx_msgs/msg/berm_section.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "lx_msgs/msg/node_diagnostics.hpp"
-
+#include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
+#include "geometry_msgs/msg/pose_array.hpp"
+#include "geometry_msgs/msg/pose.hpp"
 
 class OperationsHandler: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
+        const float BERM_HEIGHT = 0.15;
+        const float BERM_SECTION_LENGTH = 0.4;
+        const float AUTODIG_SPEED = 0.025;
+        const float AUTODIG_TIME = 45;
+        const int MAX_PLAN_ITERS = 200;
         using Operation = lx_msgs::action::Operation;
         using GoalHandleOperation = rclcpp_action::ServerGoalHandle<Operation>;
         using AutoNav = lx_msgs::action::AutoNav;
@@ -36,20 +45,27 @@ class OperationsHandler: public rclcpp::Node
         using GoalHandleAutoDig = rclcpp_action::ClientGoalHandle<AutoDig>;
         using AutoDump = lx_msgs::action::AutoDump;
         using GoalHandleAutoDump = rclcpp_action::ClientGoalHandle<AutoDump>;
+        using GeometryPoint = geometry_msgs::msg::Point;
         std::queue<Task, std::list<Task>> task_queue_ {};
+        std::queue<Task, std::list<Task>> task_queue_copy_ {};
         lx_msgs::msg::BermConfig berm_config_;
-        std::vector<unsigned int> executed_task_ids_ {};
+        std::vector<Task> executed_tasks_ {};
+        std::vector<lx_msgs::msg::PlannedTask> received_plan_ {};
         unsigned int diagnostic_pub_period_ = 1;
+        int current_task_id_ = -1;
+        bool first_op_dump_ = true;
         // Action blocking
         bool auto_action_blocking_ = false;
         bool auto_action_server_responded_ = false;
         bool auto_action_accepted_ = false;
         bool auto_action_success_ = false;
+        bool planner_blocking_ = false;
         // Time
         float blocking_time_limit_ = 600.0;
         rclcpp::TimerBase::SharedPtr diagnostic_pub_timer_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
+        rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr plan_viz_publisher_;
         // Service clients
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
@@ -142,12 +158,9 @@ class OperationsHandler: public rclcpp::Node
         std::queue<Task, std::list<Task>> getPlan();
 
         /*
-        * Argument(s):
-        *   - 
         * 
-        * TODO Call berm evaluation
         * */
-        bool checkBermBuilt();
+        void plannerClientCB(rclcpp::Client<lx_msgs::srv::Plan>::SharedFuture );
 
         /*
         * Argument(s):
@@ -257,6 +270,31 @@ class OperationsHandler: public rclcpp::Node
         * Diagnostic heartbeat published at a fixed rate
         * */
         void diagnosticPublish();
+
+        /*
+        * 
+        * */
+        std::vector<geometry_msgs::msg::Point> createVizRectangle(float , float , float );
+
+        /*
+        * 
+        * */
+        void visualizeCurrentTask(Task );
+
+        /*
+        * 
+        * */
+        void visualizationUpdate();
+
+        /*
+        * 
+        * */
+        void vizCleanup();
+
+        /*
+        * 
+        * */
+        bool checkSameBermSegment(lx_msgs::msg::BermSection , lx_msgs::msg::BermSection );
         // --------------------------------------
 
     public:

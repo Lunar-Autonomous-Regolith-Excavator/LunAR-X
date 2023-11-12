@@ -45,6 +45,12 @@ def generate_launch_description():
     operation_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     operation_dir + '/launch/operation.launch.py'))
+    
+    # task planner launch
+    planning_dir = get_package_share_directory('lx_planning')
+    planning_launch = IncludeLaunchDescription(
+                                PythonLaunchDescriptionSource(
+                                    planning_dir + '/launch/planning.launch.py'))
 
     # mapping launch                                
     mapping_dir = get_package_share_directory('lx_mapping')
@@ -64,17 +70,6 @@ def generate_launch_description():
         AnyLaunchDescriptionSource([foxglove_dir, '/foxglove_bridge_launch.xml']),
     )
 
-<<<<<<< Updated upstream
-=======
-    tf_moonyard_link = Node(
-      package='tf2_ros',
-      executable='static_transform_publisher',
-      name='map_to_moonyard',
-      output='screen',
-      arguments=['9', '5' ,'0' ,'0' ,'0' ,'0', '0', 'map', 'moonyard'],
-    )
-
->>>>>>> Stashed changes
     pcl_relay = Node(
       package='lx_mapping',
       executable='pcl_relay_node',
@@ -83,19 +78,17 @@ def generate_launch_description():
       emulate_tty=True
     )
     
-    ld.add_action(param_server_launch)
+    # ld.add_action(param_server_launch)
     ld.add_action(description_launch)
-    ld.add_action(diagnostics_launch)
+    # ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
     ld.add_action(operation_launch)
-<<<<<<< Updated upstream
-=======
-    ld.add_ction(tf_moonyard_link)
->>>>>>> Stashed changes
     ld.add_action(pcl_relay)
+    ld.add_action(planning_launch)
+    # ld.add_action(pcl_relay)  
     # ld.add_action(foxglove_bridge_launch)
-    # ld.add_action(mapping_launch)
+    ld.add_action(mapping_launch)
     # ld.add_action(localization_launch)
     
     return ld

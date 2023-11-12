@@ -1,4 +1,4 @@
-param_server_node:
+lx_param_server_node:
   ros__parameters:
     rover:
       mobility_lock: true
