@@ -40,10 +40,10 @@ lx_msgs::msg::RoverCommand <br>
 Teleop command passthrough to command_mux_node
 
 ### Services
-- /param_server_node/set_parameters <br>
+- /lx_param_server_node/set_parameters <br>
 Client <br>
 rcl_interfaces::srv::SetParameters <br>
-Client to set or change global params on param_server_node
+Client to set or change global params on lx_param_server_node
 
 ### Summary
 - Based on user inputs, guides the robot operation

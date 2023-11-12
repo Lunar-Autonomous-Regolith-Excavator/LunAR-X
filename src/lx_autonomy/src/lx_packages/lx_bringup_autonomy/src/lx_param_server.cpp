@@ -3,9 +3,9 @@
  * - Refer to lx_bringup_autonomy/config/params.yaml for all global params
  * */
 
-#include "lx_bringup_autonomy/param_server.hpp"
+#include "lx_bringup_autonomy/lx_param_server.hpp"
 
-ParamServer::ParamServer(): Node("param_server_node"){
+ParamServer::ParamServer(): Node("lx_param_server_node"){
     setupCommunications();
 
     diagnostic_pub_timer_ = this->create_wall_timer(std::chrono::seconds(diagnostic_pub_period_), std::bind(&ParamServer::diagnosticPublish, this));

@@ -1,2 +1,3 @@
 uint32 task_type
-geometry_msgs/PoseArray pose_array
+geometry_msgs/Pose pose
+BermSection berm_point

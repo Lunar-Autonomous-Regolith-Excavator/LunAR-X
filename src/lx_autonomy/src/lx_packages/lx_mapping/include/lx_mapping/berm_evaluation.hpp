@@ -21,6 +21,7 @@ class BermEvaluation : public rclcpp::Node
     private:
         // Variables & pointers -----------------
         std::vector<geometry_msgs::msg::PointStamped> requested_berm_points_;
+        nav_msgs::msg::OccupancyGrid::SharedPtr map_;
         // Subscribers
         rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_subscriber_;
         // Publishers
@@ -55,8 +56,9 @@ class BermEvaluation : public rclcpp::Node
 
         visualization_msgs::msg::Marker createPillarMarker(float, float, float, int);
 
+        void saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr);
 
-        void bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr);
+        void bermEval();
 
 
     public:

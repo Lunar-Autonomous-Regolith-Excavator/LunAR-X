@@ -58,17 +58,30 @@ void BermEvaluation::userBermPointsCB(const std::shared_ptr<lx_msgs::srv::BermSe
     RCLCPP_INFO(this->get_logger(), "Received berm goal points for berm evaluation");
 
     res->success = true;
+
+    //TODO: call in a thread
+    bermEval();
 }
 
 
 void BermEvaluation::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
-    berm_evaluation_thread_ = std::thread(std::bind(&BermEvaluation::bermEval, this, msg));
+    berm_evaluation_thread_ = std::thread(std::bind(&BermEvaluation::saveUpdatedMap, this, msg));
 
     berm_evaluation_thread_.detach();
 }
 
+// TODO: make it a service
+void BermEvaluation::saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
+    this->map_ = msg;
+}
 
-void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
+
+void BermEvaluation::bermEval(){
+
+    // print the requested berm points
+    for(size_t i = 0; i < requested_berm_points_.size(); i++){
+        RCLCPP_INFO(this->get_logger(), "Requested berm point %d: %f, %f", (int)i, requested_berm_points_[i].point.x, requested_berm_points_[i].point.y);
+    }
 
     // TODO: create berm_markers_1 and 2 for end points of berm and publish them
     berm_marker_1_.header.frame_id = "moonyard";
@@ -77,8 +90,8 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     berm_marker_1_.id = 0;
     berm_marker_1_.type = visualization_msgs::msg::Marker::SPHERE;
     berm_marker_1_.action = visualization_msgs::msg::Marker::ADD;
-    berm_marker_1_.pose.position.x = -2.5;
-    berm_marker_1_.pose.position.y = 3;
+    berm_marker_1_.pose.position.x = requested_berm_points_[0].point.x;
+    berm_marker_1_.pose.position.y = requested_berm_points_[0].point.y;
     berm_marker_1_.pose.position.z = 0;
     berm_marker_1_.scale.x = 0.5;
     berm_marker_1_.scale.y = 0.5;
@@ -94,8 +107,8 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     berm_marker_2_.id = 0;
     berm_marker_2_.type = visualization_msgs::msg::Marker::SPHERE;
     berm_marker_2_.action = visualization_msgs::msg::Marker::ADD;
-    berm_marker_2_.pose.position.x = -1.8;
-    berm_marker_2_.pose.position.y = 4;
+    berm_marker_2_.pose.position.x = requested_berm_points_[1].point.x;
+    berm_marker_2_.pose.position.y = requested_berm_points_[1].point.y;
     berm_marker_2_.pose.position.z = 0;
     berm_marker_2_.scale.x = 0.5;
     berm_marker_2_.scale.y = 0.5;
@@ -109,12 +122,15 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     berm_marker_2_publisher_->publish(berm_marker_2_);
 
     geometry_msgs::msg::Point berm_marker_1_point , berm_marker_2_point;
-    berm_marker_1_point.x = -2.5;
-    berm_marker_1_point.y = 3;
+    berm_marker_1_point.x = requested_berm_points_[0].point.x;
+    berm_marker_1_point.y = requested_berm_points_[0].point.y;
     berm_marker_1_point.z = 0;
-    berm_marker_2_point.x = -1.8;
-    berm_marker_2_point.y = 4;
+    berm_marker_2_point.x = requested_berm_points_[1].point.x;
+    berm_marker_2_point.y = requested_berm_points_[1].point.y;
     berm_marker_2_point.z = 0;
+
+    // make points 1 and 2 the two points of the berm
+
 
     // break the line segment joining the two points into parts of length 0.4
     std::vector <geometry_msgs::msg::Point> berm_points;
@@ -140,12 +156,12 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
     double m = y_diff/x_diff;
     double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
     for(size_t i = 0; i < berm_points.size(); i++){
-        for(size_t j = 0; j < msg->data.size(); j++){
-            double x = msg->info.origin.position.x + (j%msg->info.width)*msg->info.resolution;
-            double y = msg->info.origin.position.y + (j/msg->info.width)*msg->info.resolution;
+        for(size_t j = 0; j < this->map_->data.size(); j++){
+            double x = this->map_->info.origin.position.x + (j%this->map_->info.width)*this->map_->info.resolution;
+            double y = this->map_->info.origin.position.y + (j/this->map_->info.width)*this->map_->info.resolution;
             double dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
-            if(dist > 0.3 && dist < 0.4 && msg->data[j] > 0){
-                sum_ground_height += msg->data[j];
+            if(dist > 0.3 && dist < 0.4 && this->map_->data[j] > 0){
+                sum_ground_height += this->map_->data[j];
                 num_points_in_region++;
             }
         }
@@ -158,13 +174,13 @@ void BermEvaluation::bermEval(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
 
     for(size_t i = 0; i < berm_points.size(); i++){
         double max = 0;
-        for(size_t j = 0; j < msg->data.size(); j++){
-            double x = msg->info.origin.position.x + (j%msg->info.width)*msg->info.resolution;
-            double y = msg->info.origin.position.y + (j/msg->info.width)*msg->info.resolution;
+        for(size_t j = 0; j < this->map_->data.size(); j++){
+            double x = this->map_->info.origin.position.x + (j%this->map_->info.width)*this->map_->info.resolution;
+            double y = this->map_->info.origin.position.y + (j/this->map_->info.width)*this->map_->info.resolution;
             double dist = sqrt(pow(x - berm_points[i].x, 2) + pow(y - berm_points[i].y, 2));
             if(dist < 0.2){
-                if(msg->data[j] > max){
-                    max = msg->data[j];
+                if(this->map_->data[j] > max){
+                    max = this->map_->data[j];
                 }
             }
         }

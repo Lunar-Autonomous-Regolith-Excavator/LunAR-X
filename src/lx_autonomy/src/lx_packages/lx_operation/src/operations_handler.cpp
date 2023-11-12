@@ -9,12 +9,9 @@
  * - Summary
  * 
  * TODO
- * - getPlan
- * - Write executeTaskQueue
- * - Write checkBermBuilt
- * - Finish executeOperation
  * - Add documentation
  * - Add start and stop mapping service
+ * - Add visualization for Nav and Dig tasks
  * */
 
 #include "lx_operation/operations_handler.hpp"
@@ -22,7 +19,7 @@
 OperationsHandler::OperationsHandler(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()): Node("operations_handler_node"){
     (void)options;
     // Clear executed task queue
-    executed_task_ids_.clear();
+    executed_tasks_.clear();
 
     // Set up subscriptions, publishers, services, action servers and clients
     setupCommunications();
@@ -110,11 +107,12 @@ void OperationsHandler::setupCommunications(){
 
     // Publishers
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
+    plan_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/operations", 10);
     // Service servers
 
     // Service clients
-    set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("lx_param_server_node/set_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
     planner_client_ = this->create_client<lx_msgs::srv::Plan>("/plan_operation");
     // Action server
     using namespace std::placeholders;
@@ -179,7 +177,7 @@ void OperationsHandler::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
@@ -210,7 +208,11 @@ void OperationsHandler::switchRoverTaskMode(TaskModeEnum mode_to_set){
 
 rclcpp_action::GoalResponse OperationsHandler::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const Operation::Goal> goal){
     // Clear executed task queue
-    executed_task_ids_.clear();
+    executed_tasks_.clear();
+    // Set current_task_id_ to -1
+    current_task_id_ = -1;
+    // Set first operation dump to true for autodump
+    first_op_dump_ = true;
     // Clear task queue
     while(!task_queue_.empty()){
         task_queue_.pop();
@@ -254,13 +256,25 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     auto feedback = std::make_shared<Operation::Feedback>();
     auto result = std::make_shared<Operation::Result>();
 
-    do{
-        // Set task mode as IDLE
-        switchRoverTaskMode(TaskModeEnum::IDLE);
+    // Set task mode as IDLE
+    switchRoverTaskMode(TaskModeEnum::IDLE);
 
+    // for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
         // Call planner to plan full path
         // Get task queue from planner
         task_queue_ = getPlan();
+
+        // if(task_queue_.empty()){
+        //     RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
+        //     // If planner returns empty plan, either berm is built, or planner failed
+        //     break;
+        // }
+
+        // Copy for visualization
+        task_queue_copy_ = task_queue_;
+
+        // Visualize dump sequence
+        visualizationUpdate();
 
         // TODO Only keep first N tasks in queue
 
@@ -273,8 +287,7 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
             return;
         }
         // If all tasks successful, continue next loop iteration
-    } 
-    while(!checkBermBuilt());
+    // } 
 
     switchRoverTaskMode(TaskModeEnum::IDLE);
     
@@ -282,30 +295,85 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Operations goal succeeded, berm built");
+      RCLCPP_INFO(this->get_logger(), "Operations goal succeeded");
     }
 }
 
 std::queue<Task, std::list<Task>> OperationsHandler::getPlan(){
-    // TODO
-
     // Call planning service
+    auto request = std::make_shared<lx_msgs::srv::Plan::Request>();
+    // Fill in your request data here
+    std::vector<geometry_msgs::msg::Point> berm_pts;
+    geometry_msgs::msg::Point pt;
+    for(auto &berm_node: berm_config_.berm_configuration){
+        pt.x = berm_node.point.x; pt.y = berm_node.point.y; berm_pts.push_back(pt);
+    }
+
+    request->berm_input = berm_pts;
+    request->berm_height = BERM_HEIGHT;
+    request->section_length = BERM_SECTION_LENGTH;
+    if(current_task_id_ == -1){
+        request->new_plan = true;
+    }
+    else{
+        request->new_plan = false;
+    }
 
     // Block till planner returns plan
+    planner_blocking_ = true;
 
-    // Return task ids. Check already executed tasks by accessing executed_task_ids_
+    // Clear received plan
+    received_plan_.clear();
+
+    // Call the service
+    auto result_future = planner_client_->async_send_request(request, std::bind(&OperationsHandler::plannerClientCB, this, std::placeholders::_1));
+
+    // Block till planner returns plan
+    rclcpp::Rate loop_rate(1);
+    rclcpp::Time action_start_time = this->get_clock()->now();
+    while(planner_blocking_ && rclcpp::ok() && (this->get_clock()->now() - action_start_time).seconds() < blocking_time_limit_){
+        loop_rate.sleep();
+    }
+    // If planner does not respond in time, return empty task queue
+    if(planner_blocking_){
+        RCLCPP_ERROR(this->get_logger(), "Planner did not respond in time");
+        // Free planner block flag
+        planner_blocking_ = false;
+        return std::queue<Task, std::list<Task>>();
+    }
 
     std::queue<Task, std::list<Task>> build_task_queue {};
 
     // Add tasks to task queue
+    for(long unsigned int i = 0; i < received_plan_.size(); i++){
+        // Increment task id
+        current_task_id_++;
+        // Make task pose array
+        auto task_pose_array = geometry_msgs::msg::PoseArray();
+        task_pose_array.poses.push_back(received_plan_[i].pose);
+        build_task_queue.push(Task(current_task_id_, TaskTypeEnum(received_plan_[i].task_type), task_pose_array, received_plan_[i].berm_point));
+    }
 
-    // TEST TASKS - TO BE REMOVED
-    auto test_pose = geometry_msgs::msg::PoseArray();
-    build_task_queue.push(Task(0, TaskTypeEnum::AUTONAV, test_pose));
-    build_task_queue.push(Task(1, TaskTypeEnum::AUTODIG, test_pose));
-    build_task_queue.push(Task(2, TaskTypeEnum::AUTODUMP, test_pose));
+    // Clear receiving vector
+    received_plan_.clear();
 
     return build_task_queue;
+}
+
+void OperationsHandler::plannerClientCB(rclcpp::Client<lx_msgs::srv::Plan>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+
+    planner_blocking_ = false;
+
+    if(status == std::future_status::ready){ 
+        RCLCPP_INFO(this->get_logger(), "Received plan from planner");
+        auto result = future.get();
+        // Receive plan
+        received_plan_ = result->plan;
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
 }
 
 bool OperationsHandler::executeTaskQueue(){
@@ -319,7 +387,17 @@ bool OperationsHandler::executeTaskQueue(){
         else{
             // Execute task
             Task current_task = task_queue_.front();
+            // Store current task id for future dynamic plans
+            current_task_id_ = current_task.getID();
+            // Pop task queue
             task_queue_.pop();
+            // Copy task queue for visualization
+            task_queue_copy_ = task_queue_;
+            // Visualize current task to be executed
+            visualizeCurrentTask(current_task);
+            // Log Task ID being executed
+            RCLCPP_INFO(this->get_logger(), "Executing task %d", current_task.getID());
+            // Execute task based on type
             switch(current_task.getType()){
                 case TaskTypeEnum::AUTONAV:
                     if(!callAutoNav(current_task)){
@@ -340,8 +418,11 @@ bool OperationsHandler::executeTaskQueue(){
                     RCLCPP_ERROR(this->get_logger(), "Invalid task type");
                     return false;
             }
-            // Append executed task id to executed_task_ids_
-            executed_task_ids_.push_back(current_task.getID());
+            // Append executed task to executed_tasks_
+            executed_tasks_.emplace_back(current_task);
+
+            // Visualize task as completed
+            visualizationUpdate();
         }
     }
 
@@ -366,9 +447,11 @@ bool OperationsHandler::callAutoNav(Task current_task){
     auto_action_accepted_ = false;
     auto_action_success_ = false;
 
+    // Create Autonav Request from the Task
     auto autonav_request_msg = AutoNav::Goal();
-    // TODO Create Autonav Request from the Task
-    (void)current_task;
+    autonav_request_msg.goal.header.frame_id = "map";
+    autonav_request_msg.goal.header.stamp = this->get_clock()->now();
+    autonav_request_msg.goal.pose = current_task.getPoseArray().poses[0];
     
     RCLCPP_INFO(this->get_logger(), "Sending Auto Nav goal");
     
@@ -419,7 +502,6 @@ bool OperationsHandler::callAutoDig(Task current_task){
     auto_action_success_ = false;
 
     auto autodig_request_msg = AutoDig::Goal();
-    // TODO Create Autodig Request from the Task
     (void)current_task;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dig goal");
@@ -471,8 +553,37 @@ bool OperationsHandler::callAutoDump(Task current_task){
     auto_action_success_ = false;
 
     auto autodump_request_msg = AutoDump::Goal();
-    // TODO Create Autodump Request from the Task
-    (void)current_task;
+    
+    // Create Autodump Request from the Task
+    autodump_request_msg.first_op_dump = first_op_dump_;
+    autodump_request_msg.current_berm_segment = current_task.getBermPoint();
+    autodump_request_msg.prev_berm_segment.x = -1000.0;
+    autodump_request_msg.prev_berm_segment.y = -1000.0;
+    autodump_request_msg.prev_berm_segment.theta = -1000.0;
+    autodump_request_msg.first_seg_dump = true;
+    // Check if any previous task was autodump
+    if(!executed_tasks_.empty()){
+        for(long unsigned int i = executed_tasks_.size(); i > 0; i--){
+            // If it was autodump and of the previous segment, set previous berm segment
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP && 
+                !checkSameBermSegment(current_task.getBermPoint(), executed_tasks_[i].getBermPoint())) {
+                autodump_request_msg.prev_berm_segment = executed_tasks_[i].getBermPoint();
+                break;
+            }
+        }
+        for(long unsigned int i = executed_tasks_.size(); i > 0; i--){
+            //if it was autodump and is of the same segment, set first_seg_dump to false
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP){
+                if(checkSameBermSegment(current_task.getBermPoint(), executed_tasks_[i].getBermPoint())){
+                    autodump_request_msg.first_seg_dump = false;
+                }
+                break;
+            } 
+        }
+    }
+
+    // Not first dump anymore
+    first_op_dump_ = false;
 
     RCLCPP_INFO(this->get_logger(), "Sending Auto Dump goal");
     
@@ -627,21 +738,205 @@ void OperationsHandler::autoDumpResultCB(const GoalHandleAutoDump::WrappedResult
     auto_action_blocking_ = false;
 }
 
-bool OperationsHandler::checkBermBuilt(){
-    // TODO
-
-    // Call berm evaluation service
-
-    // Send action feedback on progress
-
-    // Return true if berm is built
-    return true;
-}
-
 void OperationsHandler::diagnosticPublish(){
     // Publish diagnostic message
     auto msg = lx_msgs::msg::NodeDiagnostics();
     msg.node_name = this->get_name();
     msg.stamp = this->get_clock()->now();
     diagnostic_publisher_->publish(msg);
+}
+
+std::vector<geometry_msgs::msg::Point> OperationsHandler::createVizRectangle(float x, float y, float theta){
+    std::vector<geometry_msgs::msg::Point> polygon;
+
+    // width of the rectangle is 0.2 m
+    // length of the rectangle is 0.4 m
+
+    // Add the four corners to the points
+    geometry_msgs::msg::Point point;
+    point.z = 0.0;
+    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    // Repeat first point to close the rectangle
+    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+
+    return polygon;
+}
+
+void OperationsHandler::visualizeCurrentTask(Task current_task){
+    RCLCPP_INFO(this->get_logger(), "Visualizing current task");
+
+    // Make Marker array
+    auto operations_marker_array = visualization_msgs::msg::MarkerArray();
+    auto marker = visualization_msgs::msg::Marker();
+    marker.header.frame_id = "map";
+    marker.header.stamp = this->get_clock()->now();
+    marker.ns = "current_task";
+    marker.id = 0;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.lifetime = rclcpp::Duration(0, 0);
+    marker.scale.x = 0.05;
+    marker.color.r = 0.0;
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+    marker.color.a = 1.0;
+
+    // Depending on task type, create marker
+    if(current_task.getType() == TaskTypeEnum::AUTODUMP){
+        // Create marker
+        marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+
+        // get points from createVizRectangle
+        auto dump_polygon = createVizRectangle(current_task.getBermPoint().x, 
+                                                current_task.getBermPoint().y, 
+                                                current_task.getBermPoint().theta);
+        // add points to line strip
+        for(auto &dump_point: dump_polygon){
+            geometry_msgs::msg::Point point;
+            point.x = dump_point.x;
+            point.y = dump_point.y;
+            point.z = 0.02;
+            marker.points.push_back(point);
+        }
+        // Add marker to marker array
+        operations_marker_array.markers.push_back(marker);
+    }
+    else if(current_task.getType() == TaskTypeEnum::AUTODIG){
+        // TODO
+    }
+    else{
+        // TODO
+    }
+
+    // Publish marker array
+    plan_viz_publisher_->publish(operations_marker_array);
+}
+
+void OperationsHandler::visualizationUpdate(){
+    vizCleanup();
+
+    // Make Marker array
+    auto operations_marker_array = visualization_msgs::msg::MarkerArray();
+    // Create line strip marker for planned dump pose in received task queue
+    
+    RCLCPP_INFO(this->get_logger(), "Visualizing plan and executed tasks");
+
+    // Loop through executed_tasks_
+    if(!executed_tasks_.empty()){
+        for(long unsigned int i = 0; i < executed_tasks_.size(); i++){
+            // If executed task is autodump
+            if(executed_tasks_[i].getType() == TaskTypeEnum::AUTODUMP){
+                // Create marker
+                auto marker = visualization_msgs::msg::Marker();
+                marker.header.frame_id = "map";
+                marker.header.stamp = this->get_clock()->now();
+                marker.ns = "executed_tasks";
+                marker.id = i;
+                marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+                marker.action = visualization_msgs::msg::Marker::ADD;
+                marker.scale.x = 0.05;
+                marker.color.r = 0.5;
+                marker.color.g = 0.5;
+                marker.color.b = 0.5;
+                marker.color.a = 0.8;
+                marker.lifetime = rclcpp::Duration(0, 0);
+                
+                // get points from createVizRectangle
+                auto executed_task_polygon = createVizRectangle(executed_tasks_[i].getBermPoint().x, 
+                                                            executed_tasks_[i].getBermPoint().y, 
+                                                            executed_tasks_[i].getBermPoint().theta);
+                // add points to line strip
+                for(auto &executed_task_point: executed_task_polygon){
+                    geometry_msgs::msg::Point point;
+                    point.x = executed_task_point.x;
+                    point.y = executed_task_point.y;
+                    point.z = 0.0;
+                    marker.points.push_back(point);
+                }
+                // Add marker to marker array
+                operations_marker_array.markers.push_back(marker);
+            }
+        }
+    }
+    
+
+    // Loop through task_queue_copy_
+    while(!task_queue_copy_.empty()){
+        int i = task_queue_copy_.front().getID();
+
+        // If task is autodump
+        if(task_queue_copy_.front().getType() == TaskTypeEnum::AUTODUMP){
+        
+            // Create marker
+            auto marker = visualization_msgs::msg::Marker();
+            marker.header.frame_id = "map";
+            marker.header.stamp = this->get_clock()->now();
+            marker.ns = "dump_segments";
+            marker.id = i;
+            marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+            marker.action = visualization_msgs::msg::Marker::ADD;
+            marker.scale.x = 0.05;
+            marker.color.r = 1.0;
+            marker.color.g = 0.0;
+            marker.color.b = 0.0;
+            marker.color.a = 0.8;
+            marker.lifetime = rclcpp::Duration(0, 0);
+            
+            // get points from createVizRectangle
+            auto dump_polygon = createVizRectangle(task_queue_copy_.front().getBermPoint().x, 
+                                                task_queue_copy_.front().getBermPoint().y, 
+                                                task_queue_copy_.front().getBermPoint().theta);
+            // add points to line strip
+            for(auto &dump_point: dump_polygon){
+                geometry_msgs::msg::Point point;
+                point.x = dump_point.x;
+                point.y = dump_point.y;
+                point.z = 0.01;
+                marker.points.push_back(point);
+            }
+            // Add marker to marker array
+            operations_marker_array.markers.push_back(marker);
+
+        
+        }
+        task_queue_copy_.pop();
+    }
+
+    // Publish marker array
+    plan_viz_publisher_->publish(operations_marker_array);
+}
+
+void OperationsHandler::vizCleanup(){
+    // Cleaning up visualization
+    RCLCPP_INFO(this->get_logger(), "Cleaning visualization");
+
+    // Make Marker array
+    auto operations_marker_array = visualization_msgs::msg::MarkerArray();
+
+    // Clear all markers marker
+    auto marker = visualization_msgs::msg::Marker();
+    marker.header.frame_id = "map";
+    marker.header.stamp = this->get_clock()->now();
+    marker.ns = "dump_segments";
+    marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    operations_marker_array.markers.push_back(marker);
+
+    marker.ns = "executed_tasks";
+    operations_marker_array.markers.push_back(marker);
+
+    marker.ns = "current_task";
+    operations_marker_array.markers.push_back(marker);
+    
+    // Publish marker array
+    plan_viz_publisher_->publish(operations_marker_array);
+}
+
+bool OperationsHandler::checkSameBermSegment(lx_msgs::msg::BermSection berm_segment_1, lx_msgs::msg::BermSection berm_segment_2){
+    // Check if euler distance between berm points is less than 0.15m
+    if(sqrt(pow(berm_segment_1.x - berm_segment_2.x, 2) + pow(berm_segment_1.y - berm_segment_2.y, 2)) < 0.15){
+        return true;
+    }
+    return false;
 }

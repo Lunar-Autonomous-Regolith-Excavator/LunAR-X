@@ -12,11 +12,11 @@ find_package(lx_msgs REQUIRED)
 
 include_directories(include)
 
-add_executable(param_server_node src/param_server_node.cpp src/param_server.cpp)
-ament_target_dependencies(param_server_node rclcpp lx_msgs)
+add_executable(lx_param_server_node src/lx_param_server_node.cpp src/lx_param_server.cpp)
+ament_target_dependencies(lx_param_server_node rclcpp lx_msgs)
 
 install(TARGETS
-  param_server_node
+  lx_param_server_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
