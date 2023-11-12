@@ -15,12 +15,17 @@ find_package(lx_library REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
 
 include_directories(include)
 
 # Operations handler node
 add_executable(operations_handler_node src/operations_handler_node.cpp src/operations_handler.cpp)
-ament_target_dependencies(operations_handler_node rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library)
+ament_target_dependencies(operations_handler_node rclcpp rclcpp_action rclcpp_components geometry_msgs lx_msgs lx_library visualization_msgs)
 
 # Auto Dig Handler node
 add_executable(auto_dig_handler_node src/auto_dig_handler_node.cpp src/auto_dig_handler.cpp)
@@ -32,7 +37,7 @@ ament_target_dependencies(auto_dump_handler_node rclcpp rclcpp_action rclcpp_com
 
 # Auto Nav Handler node
 add_executable(auto_nav_handler_node src/auto_nav_handler_node.cpp src/auto_nav_handler.cpp)
-ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library)
+ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library nav_msgs nav2_msgs tf2_ros)
 
 
 install(TARGETS

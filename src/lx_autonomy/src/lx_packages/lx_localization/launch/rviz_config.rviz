@@ -34,7 +34,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud2
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -224,6 +224,19 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /odometry/ekf_global_node
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Marker
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localization/marker
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -270,25 +283,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 11.257444381713867
+      Distance: 19.666728973388672
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
+        X: 0.3398466110229492
+        Y: -2.644536018371582
         Z: 0
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.5
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4952024221420288
+      Pitch: 1.5697963237762451
       Target Frame: base_link
       Value: ThirdPersonFollower (rviz_default_plugins)
-      Yaw: 3.729447603225708
+      Yaw: 4.714455604553223
     Saved: ~
 Window Geometry:
   Camera:

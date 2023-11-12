@@ -5,7 +5,7 @@
  *    - /task_status_nano: [std_msgs::msg::Int32] publish current task mode to the nano
  *    - /lock_status_nano: [std_msgs::msg::Bool] publish current lock status to the nano
  * Clients:
- *    - /param_server_node/get_parameters - Client - [rcl_interfaces::srv::GetParameters] 
+ *    - /lx_param_server_node/get_parameters - Client - [rcl_interfaces::srv::GetParameters] 
  *        get lock/op mode/task mode params every 0.5 seconds from the param server
  *
  * - Publishes status indication data for LEDs on the electronics panel
@@ -39,7 +39,7 @@ void StatusRelay::setupCommunications(){
   lock_status_publisher_ = this->create_publisher<std_msgs::msg::Bool>("lock_status_nano", 10);
 
   // Clients
-  get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+  get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
 }
 
 void StatusRelay::pubHWStatus(){

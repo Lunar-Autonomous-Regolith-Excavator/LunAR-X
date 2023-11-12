@@ -118,7 +118,7 @@ void AutoDumpHandler::setupCommunications(){
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 1);
 
     // Service clients
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
     visual_servo_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/visual_servo_switch");
 
     // Action server
@@ -180,7 +180,7 @@ void AutoDumpHandler::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
@@ -247,10 +247,10 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         rclcpp::Time action_curr_time = this->get_clock()->now();
 
         // Abort action if no tool info message recieved in last 2 seconds
-        if((action_curr_time - servoing_msg_time).seconds() > 2){
+        if((action_curr_time - servoing_msg_time).seconds() > 2 && first_dump_done == true){
             result->success = false;
             goal_handle->abort(result);
-            RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
+            RCLCPP_ERROR(this->get_logger(), "Autodump failed due to no tool info message timeout");
             // Stop visual servoing
             if(!callVisualServoSwitch(false)){
                 result->success = false;
@@ -259,15 +259,19 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
             }
             return;
         }
-
         // Read errors from visual servoing
         double dx  = visual_servo_error_.x;
         double dy = -visual_servo_error_.y;
         double dz = -visual_servo_error_.z;
 
         // Control drum height, rover x and rover y
+        if(first_dump_done == false)
+        {
+            dx = 0;
+            dy = 0;
+            dz = drum_height_ - 0.3;
+        }
         double drum_cmd, x_vel, yaw_vel;
-
         if(abs(dx) < 0.02){x_vel = 0;}
         else{x_vel = pid_x.getCommand(dx);}
 
@@ -348,7 +352,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum height: %f, Target: %f, Error: %f, Command: %f", drum_height_, END_TOOL_HEIGHT, drum_height_error, drum_pid_command);
         loop_rate.sleep();
 
-        if (abs(drum_height_error) < 0.01)
+        if (drum_height_error > 0.01)
         {
             RCLCPP_INFO(this->get_logger(), "Autodump raised drum to target");
             break;
@@ -361,6 +365,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     
     // If autodump executed successfully, return goal success
     if (rclcpp::ok() && !goal_handle->is_canceling()) {
+      first_dump_done = true;
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autodump succeeded");

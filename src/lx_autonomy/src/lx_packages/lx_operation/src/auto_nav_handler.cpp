@@ -1,4 +1,4 @@
-/* Author: 
+/* Author: Hariharan Ravichandran
  * Subscribers:
  *    - /topic: description
  * Publishers:
@@ -95,20 +95,25 @@ void AutoNavHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>:
 }
 
 void AutoNavHandler::setupCommunications(){
-    // Subscribers 
-
-    // Publishers
-    
-    // Service servers
-
     // Service clients
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
+    
     // Action server
     using namespace std::placeholders;
     this->autonav_action_server_ = rclcpp_action::create_server<AutoNav>(this, "operations/autonav_action",
                                             std::bind(&AutoNavHandler::handle_goal, this, _1, _2),
                                             std::bind(&AutoNavHandler::handle_cancel, this, _1),
                                             std::bind(&AutoNavHandler::handle_accepted, this, _1));
+    
+    // Action client
+    this->navigate_to_pose_client_ = rclcpp_action::create_client<NavigateToPose>(this, "navigate_to_pose");
+
+    // Subscribers
+    this->cmd_vel_nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
+        "cmd_vel_nav", 10, std::bind(&AutoNavHandler::cmdVelNavCallback, this, _1));
+    
+    // Publishers
+    this->rover_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_auto_cmd", 10);
 }
 
 void AutoNavHandler::setupParams(){
@@ -162,7 +167,7 @@ void AutoNavHandler::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
@@ -207,17 +212,141 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     auto feedback = std::make_shared<AutoNav::Feedback>();
     auto result = std::make_shared<AutoNav::Result>();
 
-    // If autonav fails, return goal aborted. Uncomment following:
+    // Update new goal
+    this->goal_pose_ = goal->goal;
     
-    // result->success = false;
-    // goal_handle->abort(result);
-    // RCLCPP_ERROR(this->get_logger(), "Autonav failed");
-    // return;
-    
+    // Navigate to goal pose
+    if (!this->navigateToPose()) {
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autonav failed");
+        // Publish 0 rover command to stop rover
+        lx_msgs::msg::RoverCommand rov_cmd;
+        rover_cmd_pub_->publish(rov_cmd);
+        return;
+    }
+
+    // Publish 0 rover command to stop rover
+    lx_msgs::msg::RoverCommand rov_cmd;
+    rover_cmd_pub_->publish(rov_cmd);
+
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autonav succeeded");
     }
+}
+
+bool AutoNavHandler::navigateToPose(){
+    using namespace std::placeholders;
+    if (!this->navigate_to_pose_client_->wait_for_action_server(std::chrono::seconds(10))) {
+        RCLCPP_ERROR(this->get_logger(), "Navigate to pose action server not available after waiting");
+        return false;
+    }
+    
+    // Block action
+    this->action_blocking_ = true;
+    this->action_server_responded_ = false;
+    this->action_accepted_ = false;
+    this->action_success_ = false;
+    
+    // Create goal message
+    auto goal_msg = NavigateToPose::Goal();
+    goal_msg.pose = this->goal_pose_;
+    
+    RCLCPP_INFO(this->get_logger(), "Sending goal to navigate to pose action server");
+    
+    auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&AutoNavHandler::navigateToPoseResponseCallback, this, _1);
+    send_goal_options.feedback_callback = std::bind(&AutoNavHandler::navigateToPoseFeedbackCallback, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&AutoNavHandler::navigateToPoseResultCallback, this, _1);
+
+    auto goal_handle_future = this->navigate_to_pose_client_->async_send_goal(goal_msg, send_goal_options);
+
+    auto start_time = this->now();
+
+    // Block till action complete
+    rclcpp::Rate loop_rate(10);
+    while(this->action_blocking_ && rclcpp::ok()) {
+        // Print feedback
+        // RCLCPP_INFO(this->get_logger(), "In progress... Distance to goal: %f m | Time remaining: %f secs", this->distance_remaining_, this->estimated_time_remaining_.sec);
+
+        // Check timeout
+        // if (this->now() - start_time > rclcpp::Duration(this->MAX_DURATION, 0)) {
+        //     RCLCPP_ERROR(this->get_logger(), "AutoNav timed out");
+        //     // Cancel goal
+        //     this->navigate_to_pose_client_->async_cancel_all_goals();
+        // }
+
+        loop_rate.sleep();
+    }
+
+    if (!this->action_accepted_) {
+        RCLCPP_ERROR(this->get_logger(), "Action was rejected");
+        return false;
+    }
+    else if (!this->action_success_) {
+        RCLCPP_ERROR(this->get_logger(), "Action failed");
+        return false;
+    }
+    else {
+        RCLCPP_INFO(this->get_logger(), "Action succeeded");
+        return true;
+    }
+
+    return false;
+}
+
+void AutoNavHandler::navigateToPoseResponseCallback(GoalHandleNavigateToPose::SharedPtr future){
+    auto goal_handle = future.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+        this->action_blocking_ = false;
+        this->action_server_responded_ = true;
+        this->action_accepted_ = false;
+        this->action_success_ = false;
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
+        this->action_server_responded_ = true;
+        this->action_accepted_ = true;
+    }
+}
+
+void AutoNavHandler::navigateToPoseFeedbackCallback(GoalHandleNavigateToPose::SharedPtr, const std::shared_ptr<const NavigateToPose::Feedback> feedback){
+    this->current_pose_ = feedback->current_pose;
+    this->navigation_time_ = feedback->navigation_time;
+    this->estimated_time_remaining_ = feedback->estimated_time_remaining;
+    this->number_of_recoveries_ = feedback->number_of_recoveries;
+    this->distance_remaining_ = feedback->distance_remaining;
+}
+
+void AutoNavHandler::navigateToPoseResultCallback(const GoalHandleNavigateToPose::WrappedResult & result){
+    switch (result.code) {
+        case rclcpp_action::ResultCode::SUCCEEDED:
+            RCLCPP_INFO(this->get_logger(), "Path followed successfully");
+            this->action_success_ = true;
+            break;
+        case rclcpp_action::ResultCode::ABORTED:
+            RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
+            this->action_success_ = false;
+            break;
+        case rclcpp_action::ResultCode::CANCELED:
+            RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
+            this->action_success_ = false;
+            break;
+        default:
+            RCLCPP_ERROR(this->get_logger(), "Unknown result code");
+            this->action_success_ = false;
+            break;
+    }
+    this->action_blocking_ = false;
+}
+
+void AutoNavHandler::cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+    lx_msgs::msg::RoverCommand rov_cmd;
+    rov_cmd.mobility_twist = *msg;
+    
+    // Publish rover command
+    rover_cmd_pub_->publish(rov_cmd);
 }

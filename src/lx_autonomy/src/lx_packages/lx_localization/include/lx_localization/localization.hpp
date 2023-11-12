@@ -17,10 +17,13 @@
 #include "lx_msgs/action/calibrate_imu.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "lx_msgs/msg/rover_command.hpp"
+#include <Eigen/Dense>
+#include <visualization_msgs/msg/marker.hpp>
 
 class Localization : public rclcpp::Node
 {
     private:
+        bool DEBUG_ = false;
         // Variables & pointers -----------------
         using CalibrateImu = lx_msgs::action::CalibrateImu;
         using GoalHandleCalibrateImu = rclcpp_action::ServerGoalHandle<CalibrateImu>;
@@ -45,6 +48,7 @@ class Localization : public rclcpp::Node
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
         rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_command_pub_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
         // Actions
         rclcpp_action::Server<CalibrateImu>::SharedPtr calibrate_imu_action_server_;
         // --------------------------------------

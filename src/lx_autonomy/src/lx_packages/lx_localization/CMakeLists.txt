@@ -25,6 +25,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(lx_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIRS})
 
@@ -32,7 +33,7 @@ include_directories(include)
 
 #remap node for husky odom
 add_executable(localization_node src/localization_node.cpp src/localization.cpp)
-ament_target_dependencies(localization_node rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs lx_msgs rclcpp_action)
+ament_target_dependencies(localization_node rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs geometry_msgs lx_msgs rclcpp_action visualization_msgs)
 
 install(TARGETS
   localization_node

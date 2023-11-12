@@ -4,7 +4,7 @@
  * Publishers:
  *    - /rover_teleop_cmd: [lx_msgs::msg::RoverCommand] Teleop command passthrough to command_mux_node
  * Services:
- *    - /param_server_node/set_parameters - Client - [rcl_interfaces::srv::SetParameters] Client to set or change global params on param_server_node
+ *    - /lx_param_server_node/set_parameters - Client - [rcl_interfaces::srv::SetParameters] Client to set or change global params on lx_param_server_node
  *
  * - Based on user inputs, guides the robot operation
  * - Joystick buttons set the lock, operation mode and task mode
@@ -68,9 +68,9 @@ void ExternalInterface::setupCommunications(){
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
 
     // Clients
-    set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/param_server_node/set_parameters");
+    set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("/lx_param_server_node/set_parameters");
     map_switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/map_switch");
-    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/param_server_node/get_parameters");
+    get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
     calibrate_imu_action_client_ = rclcpp_action::create_client<CalibrateImu>(this, "/lx_localization/calibrate_imu");
 }
 
@@ -214,7 +214,7 @@ void ExternalInterface::setupParams(){
     };
 
     // Names of node & params for adding callback
-    auto param_server_name = std::string("param_server_node");
+    auto param_server_name = std::string("lx_param_server_node");
     auto mob_lock_param_name = std::string("rover.mobility_lock");
     auto act_lock_param_name = std::string("rover.actuation_lock");
     auto op_mode_param_name = std::string("rover.op_mode");
