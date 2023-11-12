@@ -48,7 +48,7 @@ class VisualServoing : public rclcpp::Node
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
         const int NUM_BINS = 100; // number of bins in each dim the ROI
-        const double MIN_PLANE_ANGLE_DEG = 15.0; // minimum angle of the plane wrt the ground plane
+        const double MIN_PLANE_ANGLE_DEG = 10.0; // minimum angle of the plane wrt the ground plane
         const double PEAK_LINE_DISTANCE_M = 0.05; // max dist between two points in the peak line
         const double DRUM_X_BASELINK_M = 0.9; // higher value -> rover stops more towards the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
@@ -69,6 +69,8 @@ class VisualServoing : public rclcpp::Node
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr peakline_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr targetpoint_marker_publisher_;
         rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr visual_servo_error_publisher_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr groundplane_publisher_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr bermplane_publisher_;
 
         // Servers
         rclcpp::Service<lx_msgs::srv::Switch>::SharedPtr visual_servo_switch_server_;
