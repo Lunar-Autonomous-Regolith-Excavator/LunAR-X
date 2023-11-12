@@ -31,7 +31,7 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
                         std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
-    autodig_pid_outer_.kp = 0.014;
+    autodig_pid_outer_.kp = 0.013;
     autodig_pid_outer_.ki = 0.000001;
     autodig_pid_outer_.kd = 0.02;
 

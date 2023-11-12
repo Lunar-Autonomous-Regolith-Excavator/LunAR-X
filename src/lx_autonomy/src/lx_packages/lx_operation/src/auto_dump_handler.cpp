@@ -250,7 +250,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         if((action_curr_time - servoing_msg_time).seconds() > 2 && first_dump_done == true){
             result->success = false;
             goal_handle->abort(result);
-            RCLCPP_ERROR(this->get_logger(), "Autodig failed due to no tool info message timeout");
+            RCLCPP_ERROR(this->get_logger(), "Autodump failed due to no tool info message timeout");
             // Stop visual servoing
             if(!callVisualServoSwitch(false)){
                 result->success = false;
@@ -352,7 +352,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum height: %f, Target: %f, Error: %f, Command: %f", drum_height_, END_TOOL_HEIGHT, drum_height_error, drum_pid_command);
         loop_rate.sleep();
 
-        if (abs(drum_height_error) < 0.01)
+        if (drum_height_error > 0.01)
         {
             RCLCPP_INFO(this->get_logger(), "Autodump raised drum to target");
             break;

@@ -82,8 +82,8 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
 
     geometry_msgs::msg::Pose start_pose;
-    start_pose.position.x = 2;
-    start_pose.position.y = 3.5;
+    start_pose.position.x = 1.25;
+    start_pose.position.y = 4.0;
     start_pose.position.z = 0;
     tf2::Quaternion q;
     q.setRPY(0.0, 0.0, 0);
@@ -109,10 +109,11 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             lx_msgs::msg::PlannedTask navigation_task;
             navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
             navigation_task.pose = start_pose;
-            res->plan.push_back(navigation_task);
+            if (j > 0) res->plan.push_back(navigation_task);
 
             // Add excavation task to the plan
             res->plan.push_back(excavation_task);
+            excavation_task.pose.position.y -= 0.5;
 
             // Add navigation task to the plan
             navigation_task.pose = dump_pose;

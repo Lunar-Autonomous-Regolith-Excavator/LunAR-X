@@ -343,8 +343,8 @@ void GoalHandler::visualizeFeasibleBerm(){
         berm_points_marker.scale.x = 0.1;
         berm_points_marker.scale.y = 0.1;
         berm_points_marker.scale.z = 0.1;
-        berm_points_marker.color.r = 1.0;
-        berm_points_marker.color.g = 1.0;
+        berm_points_marker.color.r = 0.0;
+        berm_points_marker.color.g = 0.0;
         berm_points_marker.color.b = 1.0;
         berm_points_marker.color.a = 1.0;
         // Add points to marker
@@ -379,8 +379,8 @@ void GoalHandler::visualizeFeasibleBerm(){
             berm_text_marker.pose.position.z = processed_berm_points_[0].point.z + 0.3;
         }
         berm_text_marker.scale.z = 0.3;
-        berm_text_marker.color.r = 1.0;
-        berm_text_marker.color.g = 1.0;
+        berm_text_marker.color.r = 0.0;
+        berm_text_marker.color.g = 0.0;
         berm_text_marker.color.b = 1.0;
         berm_text_marker.color.a = 1.0;
         berm_text_marker.text = "Processed_Berm";
@@ -401,8 +401,8 @@ void GoalHandler::visualizeFeasibleBerm(){
             berm_line_marker.pose.position.y = 0;
             berm_line_marker.pose.position.z = 0;
             berm_line_marker.scale.x = 0.03;
-            berm_line_marker.color.r = 0.5;
-            berm_line_marker.color.g = 0.5;
+            berm_line_marker.color.r = 0.0;
+            berm_line_marker.color.g = 0.0;
             berm_line_marker.color.b = 0.5;
             berm_line_marker.color.a = 1.0;
             // Add points to marker

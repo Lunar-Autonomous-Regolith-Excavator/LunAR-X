@@ -45,6 +45,12 @@ def generate_launch_description():
     operation_launch = IncludeLaunchDescription(
                                 PythonLaunchDescriptionSource(
                                     operation_dir + '/launch/operation.launch.py'))
+    
+    # task planner launch
+    planning_dir = get_package_share_directory('lx_planning')
+    planning_launch = IncludeLaunchDescription(
+                                PythonLaunchDescriptionSource(
+                                    planning_dir + '/launch/planning.launch.py'))
 
     # mapping launch                                
     mapping_dir = get_package_share_directory('lx_mapping')
@@ -77,10 +83,11 @@ def generate_launch_description():
     # ld.add_action(diagnostics_launch)
     ld.add_action(command_mux_launch)
     ld.add_action(external_interface_launch)
-    # ld.add_action(operation_launch)
-    ld.add_action(pcl_relay)
+    ld.add_action(operation_launch)
+    ld.add_action(planning_launch)
+    # ld.add_action(pcl_relay)
     # ld.add_action(foxglove_bridge_launch)
-    # ld.add_action(mapping_launch)
+    ld.add_action(mapping_launch)
     # ld.add_action(localization_launch)
     
     return ld
