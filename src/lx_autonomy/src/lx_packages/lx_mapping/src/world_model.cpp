@@ -159,7 +159,6 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     }
     catch(const std::exception& e)
     {
-        RCLCPP_INFO(this->get_logger(), "F");
         std::cerr << e.what() << '\n';
         return;
     }
@@ -181,7 +180,7 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
         int global_idx = col_x + row_y*global_map_.info.width;
         double elev = cropped_cloud_local_map->points[i].z;
-        elevation_values[global_idx] += 200.0*(elev-1.2);
+        elevation_values[global_idx] += (elev+0.5)/MAP_RESOLUTION;
         density_values[global_idx] += 1.0;
     }
 
@@ -193,11 +192,10 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     }
     
 
-    RCLCPP_INFO(this->get_logger(), "Map fused");
     // buildWorldModel();
-    // RCLCPP_INFO(this->get_logger(), "World Model built");
+    RCLCPP_INFO(this->get_logger(), "World Model built");
     filterMap();
-    RCLCPP_INFO(this->get_logger(), "Map filtered");
+    // display that map is built but keep updating in the display
 
     global_map_publisher_->publish(global_map_);
 }
