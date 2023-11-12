@@ -8,7 +8,6 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_action REQUIRED)
 find_package(lx_msgs REQUIRED)
 find_package(lx_library REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -25,17 +24,9 @@ ament_target_dependencies(task_planner_node rclcpp lx_msgs lx_library geometry_m
 add_executable(map_pub src/temp_map_pub_node.cpp)
 ament_target_dependencies(map_pub rclcpp nav2_msgs)
 
-add_executable(call_plan src/planner_action_client.cpp)
-ament_target_dependencies(call_plan rclcpp rclcpp_action nav2_msgs lx_msgs)
-
-add_executable(test_planner src/test_task_planner.cpp)
-ament_target_dependencies(test_planner rclcpp lx_msgs geometry_msgs)
-
 install(TARGETS
   task_planner_node
   map_pub
-  call_plan
-  test_planner
   DESTINATION lib/${PROJECT_NAME}
 )
 

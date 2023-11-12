@@ -397,26 +397,22 @@ bool OperationsHandler::executeTaskQueue(){
             visualizeCurrentTask(current_task);
             // Log Task ID being executed
             RCLCPP_INFO(this->get_logger(), "Executing task %d", current_task.getID());
-            rclcpp::Rate loop_rate(0.8);
             // Execute task based on type
             switch(current_task.getType()){
                 case TaskTypeEnum::AUTONAV:
                     if(!callAutoNav(current_task)){
                         return false;
                     }
-                    loop_rate.sleep();
                     break;
                 case TaskTypeEnum::AUTODIG:
                     if(!callAutoDig(current_task)){
                         return false;
                     }
-                    loop_rate.sleep();
                     break;
                 case TaskTypeEnum::AUTODUMP:
                     if(!callAutoDump(current_task)){
                         return false;
                     }
-                    loop_rate.sleep();
                     break;
                 default:
                     RCLCPP_ERROR(this->get_logger(), "Invalid task type");
