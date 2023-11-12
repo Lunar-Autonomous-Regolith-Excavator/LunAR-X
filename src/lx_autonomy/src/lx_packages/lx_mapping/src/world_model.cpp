@@ -163,13 +163,8 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
         return;
     }
 
-    // array with double to store elevation vlaues
-    double elevation_values[global_map_.info.width*global_map_.info.height];
-    double density_values[global_map_.info.width*global_map_.info.height];
-    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
-        elevation_values[i] = 0.0;
-        density_values[i] = 0.0;
-    }
+    std::vector<double> elevation_values(global_map_.info.width*global_map_.info.height, 0.0);
+    std::vector<double> density_values(global_map_.info.width*global_map_.info.height, 0.0);
 
     for(size_t i = 0; i < cropped_cloud_local_map->points.size(); i++){
         int col_x =  int(cropped_cloud_local_map->points[i].x / global_map_.info.resolution ) + global_map_.info.width/2;
@@ -249,7 +244,7 @@ void WorldModel::buildWorldModel(){
 
 
 void WorldModel::filterMap(){
-    double gradient = 200*0.01;
+    double gradient = 1/0.866;
     // use globalmap to update bayes filter and then update filtered global map
     for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         if(global_map_.data[i] == 0){

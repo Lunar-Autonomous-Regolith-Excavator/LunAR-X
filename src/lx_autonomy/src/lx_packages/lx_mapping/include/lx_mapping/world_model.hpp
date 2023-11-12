@@ -15,14 +15,14 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 #include <thread>
-
+#include <vector>
 
 class WorldModel : public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
         const double MAP_DIMENSION = 8.0;
-        const double MAP_RESOLUTION = 0.04;
+        const double MAP_RESOLUTION = 0.015;
         bool debug_mode_;
         nav_msgs::msg::OccupancyGrid global_map_, 
                                      filtered_global_map_,
