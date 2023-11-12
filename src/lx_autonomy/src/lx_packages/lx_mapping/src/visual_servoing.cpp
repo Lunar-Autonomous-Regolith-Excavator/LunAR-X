@@ -50,6 +50,8 @@ void VisualServoing::setupCommunications(){
         peakpoints_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/peakpoints_marker", 10);
         groundplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/groundplane_marker", 10);
         bermplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/bermplane_marker", 10);
+        groundplane_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/groundplane", 10);
+        bermplane_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/bermplane", 10);
     }  
 
     // Servers
@@ -202,7 +204,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         bin_values[row_idx][col_idx].push_back(inlier_cloud->points[i].z);
     }
 
-    std::vector<std::vector<double>> median_vec(NUM_BINS, std::vector<double>(NUM_BINS,0.0)); // 2D vector of bin values
+    std::vector<std::vector<double>> median_vec(NUM_BINS, std::vector<double>(NUM_BINS,-100.0)); // 2D vector of bin values
     for(int i = 0; i < NUM_BINS; i++){
         for(int j=0;j<NUM_BINS;j++){
             // calculate median of bin using O(N) algorithm
@@ -219,15 +221,15 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     std::vector<int> peak_x(NUM_BINS,0.0);
     std::vector<double> peak_z(NUM_BINS,0.0);
     for(int j = 0; j < NUM_BINS; j++){
-        double max_z = 0.0;
+        double max_z = -100.0;
         for(int i = 0; i < NUM_BINS; i++){
-            if(median_vec[i][j]>max_z){
+                        if(median_vec[i][j]>max_z){
                 max_z = median_vec[i][j];
                 peak_x[j] = i;
                 peak_z[j] = max_z;
             }
         }
-    } 
+            } 
 
     // visualization_msgs/MarkerArray.msg make
     visualization_msgs::msg::Marker marker_array_msg;
@@ -265,9 +267,9 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         binned_cloud->points.push_back(p);
     }
 
-    // get the distance of the points in binned_cloud from the ground plane
+        // get the distance of the points in binned_cloud from the ground plane
     vector<double> distances;
-    double max_distance = 0.0;
+    double max_distance = -100.0;
     for(long unsigned int i = 0; i < binned_cloud->points.size(); i++){
         double x = binned_cloud->points[i].x;
         double y = binned_cloud->points[i].y;
@@ -377,23 +379,65 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     std::vector<double> ground_plane_equation;
     std::vector<double> line_coefficients;
 
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane1(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane2(new pcl::PointCloud<pcl::PointXYZ>);
+    sensor_msgs::msg::PointCloud2 groundplane_msg;
+    sensor_msgs::msg::PointCloud2 bermplane_msg;
+
+    if(debug_mode_){
+        pcl::ExtractIndices<pcl::PointXYZ> extract_d1, extract_d2;
+
+        extract_d1.setInputCloud(input_cloud);
+        extract_d1.setIndices(inliers_1);
+        extract_d1.setNegative(false);
+        extract_d1.filter(*cloud_plane1);
+        groundplane_msg.header.frame_id = "base_link";
+
+        extract_d2.setInputCloud(cloud_minus_plane1);
+        extract_d2.setIndices(inliers_2);
+        extract_d2.setNegative(false);
+        extract_d2.filter(*cloud_plane2);
+        bermplane_msg.header.frame_id = "base_link";
+    }
+
     if (theta < MIN_PLANE_ANGLE_DEG*M_PI/180.0){
         // no berm
         ground_plane_vec = &normal_1;
         berm_plane_vec = &normal_1;
-        RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small");
+        RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small %f", theta);
+        // publish ground plane
+        if(debug_mode_){
+            pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+            groundplane_publisher_->publish(groundplane_msg);
+            pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+            bermplane_publisher_->publish(bermplane_msg);
+        }
     }
     else if(cross_product[1]<0){
         ground_plane_vec = &normal_1;
         berm_plane_vec = &normal_2;
         ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
-        line_coefficients = binPoints(input_cloud, inliers_2, ground_plane_equation);
+        line_coefficients = binPoints(cloud_minus_plane1, inliers_2, ground_plane_equation);
+        if(debug_mode_)
+        {
+            pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+            groundplane_publisher_->publish(groundplane_msg);
+            pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+            bermplane_publisher_->publish(bermplane_msg);
+        }
     }
     else{
         ground_plane_vec = &normal_2;
         berm_plane_vec = &normal_1;
         ground_plane_equation = {coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]};
         line_coefficients = binPoints(input_cloud, inliers_1, ground_plane_equation);
+        if(debug_mode_)
+        {
+            pcl::toROSMsg(*cloud_plane2, groundplane_msg);
+            groundplane_publisher_->publish(groundplane_msg);
+            pcl::toROSMsg(*cloud_plane1, bermplane_msg);
+            bermplane_publisher_->publish(bermplane_msg);
+        }    
     }
 
     // check if line_coefficients is empty

@@ -57,16 +57,18 @@ void PointCloudHandler::pointCloudCallback(const sensor_msgs::msg::PointCloud2::
 
 
 void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
-    // Lookup the transform from the sensor frame to the target frame
-    geometry_msgs::msg::TransformStamped cam2map_transform;
-    try
-    {
-      cam2map_transform = tf_buffer_->lookupTransform("base_link","camera_depth_optical_frame",tf2::TimePointZero, tf2::durationFromSec(1));
-    }
-    catch (tf2::TransformException& ex)
-    {
-      RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
-      return;
+    if(this->cam2map_transform.header.frame_id == ""){
+        // Lookup the transform from the sensor frame to the target frame
+        try
+        {
+            cam2map_transform = tf_buffer_->lookupTransform("base_link","camera_depth_optical_frame",tf2::TimePointZero, tf2::durationFromSec(1));
+            RCLCPP_INFO(this->get_logger(), "Transform found");
+        }
+        catch (tf2::TransformException& ex)
+        {
+            RCLCPP_INFO(this->get_logger(), "Waiting for transform... %s", ex.what());
+            return;
+        }
     }
   
     // convert x,y,z,w to roll, pitch, yaw
@@ -86,23 +88,14 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
     sor.setStddevMulThresh(1.0);
     sor.filter(*cloud_filtered);  
 
-    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
-    transform_2.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
-    transform_2.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
-    transform_2.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
-    transform_2.translation() << cam2map_transform.transform.translation.x, cam2map_transform.transform.translation.y, cam2map_transform.transform.translation.z;
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud_1 (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud(*cloud_filtered, *transformed_cloud_1, transform_2);
-
-    Eigen::Affine3f transform_3 = Eigen::Affine3f::Identity();
-    // transform_3.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
-    // transform_3.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
-    // transform_3.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
-    // transform_3.translation() << cam2map_transform.transform.translation.x, cam2map_transform.transform.translation.y, cam2map_transform.transform.translation.z;
+    Eigen::Affine3f afine_transform = Eigen::Affine3f::Identity();
+    afine_transform.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()));
+    afine_transform.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()));
+    afine_transform.rotate(Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()));
+    afine_transform.translation() << cam2map_transform.transform.translation.x, cam2map_transform.transform.translation.y, cam2map_transform.transform.translation.z;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud(*transformed_cloud_1, *transformed_cloud, transform_3);
+    pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, afine_transform);
 
     if(debug_mode_){
         // find the best fit plane
