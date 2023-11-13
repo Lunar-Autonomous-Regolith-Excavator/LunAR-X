@@ -36,7 +36,7 @@ include_directories(include)
 add_executable(visual_servoing_node src/visual_servoing_node.cpp src/visual_servoing.cpp)
 ament_target_dependencies(visual_servoing_node pcl_ros rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions visualization_msgs)
 
-add_executable(world_model_node src/world_model_node.cpp src/world_model.cpp)
+add_executable(world_model_node src/world_model_node.cpp src/world_model.cpp src/bayes_filter.cpp include/lx_mapping/bayes_filter.hpp)
 ament_target_dependencies(world_model_node lx_msgs rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
 
 add_executable(pc_handler_node src/pc_handler_node.cpp src/pc_handler.cpp)

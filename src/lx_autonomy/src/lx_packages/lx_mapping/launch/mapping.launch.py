@@ -36,7 +36,7 @@ def generate_launch_description():
       executable='static_transform_publisher',
       name='map_to_moonyard',
       output='screen',
-      arguments=['-9', '-5' ,'0' ,'0' ,'0' ,'0', 'map', 'moonyard'],
+      arguments=['4', '4' ,'0' ,'0' ,'0' ,'0', 'map', 'moonyard'],
       emulate_tty=True
     )
 
