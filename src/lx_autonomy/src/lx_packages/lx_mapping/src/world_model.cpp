@@ -190,7 +190,7 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     
 
     // buildWorldModel();
-    RCLCPP_INFO(this->get_logger(), "World Model built");
+    // RCLCPP_INFO(this->get_logger(), "World Model built");
     filterMap();
     // display that map is built but keep updating in the display
 

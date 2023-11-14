@@ -43,6 +43,9 @@ void BermEvaluation::setupCommunications(){
     // Servers
     berm_points_server_ = this->create_service<lx_msgs::srv::BermService>("berm_evaluation/requested_berm_points", 
                                     std::bind(&BermEvaluation::userBermPointsCB, this, std::placeholders::_1, std::placeholders::_2));
+
+    berm_eval_server_ = this->create_service<lx_msgs::srv::BermProgressEval>("berm_evaluation/berm_progress", 
+                                    std::bind(&BermEvaluation::evalServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 
@@ -53,20 +56,25 @@ void BermEvaluation::userBermPointsCB(const std::shared_ptr<lx_msgs::srv::BermSe
     // Store requested berm points for evaluation
     for(auto &point: req->berm.berm_configuration){
         requested_berm_points_.push_back(point);
+        berm_progress_.berm_points.push_back(point);
     }
 
     RCLCPP_INFO(this->get_logger(), "Received berm goal points for berm evaluation");
 
     res->success = true;
-
-    //TODO: call in a thread
-    bermEval();
 }
 
 
 void BermEvaluation::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
-    berm_evaluation_thread_ = std::thread(std::bind(&BermEvaluation::saveUpdatedMap, this, msg));
+    map_update_thread_ = std::thread(std::bind(&BermEvaluation::saveUpdatedMap, this, msg));
 
+    map_update_thread_.detach();
+}
+
+void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::BermProgressEval::Request> req,
+                                          const std::shared_ptr<lx_msgs::srv::BermProgressEval::Response> res){
+
+    berm_evaluation_thread_ = std::thread(std::bind(&BermEvaluation::bermEval, this, req, res));
     berm_evaluation_thread_.detach();
 }
 
@@ -76,7 +84,14 @@ void BermEvaluation::saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPt
 }
 
 
-void BermEvaluation::bermEval(){
+void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEval::Request> req,
+                                          const std::shared_ptr<lx_msgs::srv::BermProgressEval::Response> res){
+
+    if(!req->need_metrics){
+        return;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Evaluating berm");
 
     // print the requested berm points
     for(size_t i = 0; i < requested_berm_points_.size(); i++){
@@ -151,7 +166,7 @@ void BermEvaluation::bermEval(){
 
     //find the mean elevation of the region 0.3 to 0.4 m away from the line joining the two points
     double sum_ground_height = 0;
-    int num_points_in_region = 0;
+    int num_points_in_region = 1;
     // loop over the the rectangle region parallel to the line joining the two berm_marker_points 1 and 2 but 0.3 to 0.4 m away from it
     double m = y_diff/x_diff;
     double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
@@ -160,6 +175,7 @@ void BermEvaluation::bermEval(){
             double x = this->map_->info.origin.position.x + (j%this->map_->info.width)*this->map_->info.resolution;
             double y = this->map_->info.origin.position.y + (j/this->map_->info.width)*this->map_->info.resolution;
             double dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
+            RCLCPP_INFO(this->get_logger(), "Distance of point %d from line: %f", (int)j, dist);
             if(dist > 0.3 && dist < 0.4 && this->map_->data[j] > 0){
                 sum_ground_height += this->map_->data[j];
                 num_points_in_region++;
@@ -184,6 +200,7 @@ void BermEvaluation::bermEval(){
                 }
             }
         }
+        RCLCPP_INFO(this->get_logger(), "Max value at point %d: %f, %f", (int)i, max, mean_ground_height);
         int percetage_completed = int((max - mean_ground_height)/(2*0.15));
         berm_heights.push_back(percetage_completed);
     }
@@ -211,9 +228,16 @@ void BermEvaluation::bermEval(){
         geometry_msgs::msg::Point point;
         point.x = berm_points[i].x;
         point.y = berm_points[i].y;
-        point.z = berm_heights[i]*0.015-1.0;
+        point.z = berm_heights[i]*0.015-0.75;
         marker_array_msg.points.push_back(point);
         marker_array_msg.colors.push_back(marker_array_msg.color);
     }
     berm_evaluation_array_publisher_->publish(marker_array_msg);
+
+    for(size_t i = 0; i < berm_points.size(); i++){
+        berm_progress_.heights.push_back(berm_heights[i]);
+    }
+
+    res->progress = berm_progress_;
+
 }
