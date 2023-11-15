@@ -108,7 +108,7 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             // Add navigation task to the plan
             lx_msgs::msg::PlannedTask navigation_task;
             navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
-            navigation_task.pose = start_pose;
+            navigation_task.pose = excavation_task.pose;
             if (j > 0) res->plan.push_back(navigation_task);
 
             // Add excavation task to the plan

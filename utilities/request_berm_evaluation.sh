@@ -16,8 +16,8 @@ ros2 service call berm_evaluation/requested_berm_points lx_msgs/srv/BermService 
             "frame_id": "map"
         },
         "point": {
-            "x": -3.0,
-            "y": 2.0,
+            "x": 5.22,
+            "y": 3.81,
             "z": 0.0
         }
     },
@@ -26,8 +26,8 @@ ros2 service call berm_evaluation/requested_berm_points lx_msgs/srv/BermService 
             "frame_id": "map"
         },
         "point": {
-            "x": -1.0,
-            "y": 4.0,
+            "x": 5.22,
+            "y": 3.28,
             "z": 0.0
         }
     },

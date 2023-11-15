@@ -114,6 +114,8 @@ void OperationsHandler::setupCommunications(){
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("lx_param_server_node/set_parameters");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
     planner_client_ = this->create_client<lx_msgs::srv::Plan>("/plan_operation");
+    map_switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/map_switch");
+
     // Action server
     using namespace std::placeholders;
     this->operation_action_server_ = rclcpp_action::create_server<Operation>(this, "operations/berm_build_action",
@@ -400,19 +402,28 @@ bool OperationsHandler::executeTaskQueue(){
             // Execute task based on type
             switch(current_task.getType()){
                 case TaskTypeEnum::AUTONAV:
+                    // Start mapping service
+                    callMapSwitch(true);
+                    // Call autonav action
                     if(!callAutoNav(current_task)){
                         return false;
                     }
                     break;
                 case TaskTypeEnum::AUTODIG:
-                    if(!callAutoDig(current_task)){
-                        return false;
-                    }
+                    // Stop mapping service
+                    callMapSwitch(false);
+                    // Call autodig action
+                    // if(!callAutoDig(current_task)){
+                    //     return false;
+                    // }
                     break;
                 case TaskTypeEnum::AUTODUMP:
-                    if(!callAutoDump(current_task)){
-                        return false;
-                    }
+                    // Stop mapping service
+                    callMapSwitch(false);
+                    // Call autodump action
+                    // if(!callAutoDump(current_task)){
+                    //     return false;
+                    // }
                     break;
                 default:
                     RCLCPP_ERROR(this->get_logger(), "Invalid task type");
@@ -939,4 +950,34 @@ bool OperationsHandler::checkSameBermSegment(lx_msgs::msg::BermSection berm_segm
         return true;
     }
     return false;
+}
+
+void OperationsHandler::callMapSwitch(bool state){
+    // Call start mapping switch service
+    while(!map_switch_client_->wait_for_service(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
+    }
+
+    auto set_request = std::make_shared<lx_msgs::srv::Switch::Request>();
+
+    set_request->switch_state = state;
+
+    RCLCPP_INFO(this->get_logger(), "Calling start mapping service");
+
+    auto future_result = map_switch_client_->async_send_request(set_request, std::bind(&OperationsHandler::mapSwitchCB, this, std::placeholders::_1));
+}
+
+void OperationsHandler::mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    if(status == std::future_status::ready){ 
+        if(future.get()->success){
+            RCLCPP_INFO(this->get_logger(), "Map status switched");
+        }
+        else{
+            RCLCPP_WARN(this->get_logger(), "Map switch server returned 'unsuccesful'");
+        }
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
 }

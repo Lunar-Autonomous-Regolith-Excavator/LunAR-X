@@ -81,6 +81,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
 // TODO: make it a service
 void BermEvaluation::saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
     this->map_ = msg;
+    RCLCPP_INFO(this->get_logger(), "Received updated map");
 }
 
 
@@ -99,7 +100,7 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
     }
 
     // TODO: create berm_markers_1 and 2 for end points of berm and publish them
-    berm_marker_1_.header.frame_id = "moonyard";
+    berm_marker_1_.header.frame_id = "map";
     berm_marker_1_.header.stamp = this->now();
     berm_marker_1_.ns = "berm";
     berm_marker_1_.id = 0;
@@ -116,7 +117,7 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
     berm_marker_1_.color.g = 1.0;
     berm_marker_1_.color.b = 0.0;
 
-    berm_marker_2_.header.frame_id = "moonyard";
+    berm_marker_2_.header.frame_id = "map";
     berm_marker_2_.header.stamp = this->now();
     berm_marker_2_.ns = "berm";
     berm_marker_2_.id = 0;
@@ -149,8 +150,8 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
 
     // break the line segment joining the two points into parts of length 0.4
     std::vector <geometry_msgs::msg::Point> berm_points;
-    double x_diff = berm_marker_2_point.x - berm_marker_1_point.x;
-    double y_diff = berm_marker_2_point.y - berm_marker_1_point.y;
+    double x_diff = berm_marker_2_point.x - berm_marker_1_point.x + 0.00001;
+    double y_diff = berm_marker_2_point.y - berm_marker_1_point.y + 0.00001;
 
     double dist = sqrt(pow(x_diff, 2) + pow(y_diff, 2));
     int num_points = dist/0.4;
@@ -171,47 +172,48 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
     double m = y_diff/x_diff;
     double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
     for(size_t i = 0; i < berm_points.size(); i++){
+        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, dist: %f", berm_points[i].x, berm_points[i].y, abs(m*berm_points[i].x - berm_points[i].y + c)/sqrt(pow(m, 2) + 1));
         for(size_t j = 0; j < this->map_->data.size(); j++){
-            double x = this->map_->info.origin.position.x + (j%this->map_->info.width)*this->map_->info.resolution;
-            double y = this->map_->info.origin.position.y + (j/this->map_->info.width)*this->map_->info.resolution;
-            double dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
-            RCLCPP_INFO(this->get_logger(), "Distance of point %d from line: %f", (int)j, dist);
-            if(dist > 0.3 && dist < 0.4 && this->map_->data[j] > 0){
+            double x = (j%this->map_->info.width)*this->map_->info.resolution;
+            double y = (j/this->map_->info.width)*this->map_->info.resolution;
+            double line_dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
+            if(line_dist > 0.3 && line_dist < 0.4 && this->map_->data[j] > 0){
                 sum_ground_height += this->map_->data[j];
                 num_points_in_region++;
             }
+
+
         }
     }
 
     double mean_ground_height = sum_ground_height/num_points_in_region;
-
-    // for every point in the vector, find the max value of the occupancy grid in a 0.2m radius
-    std::vector <int> berm_heights;
+    std::vector<double> berm_heights;
 
     for(size_t i = 0; i < berm_points.size(); i++){
         double max = 0;
         for(size_t j = 0; j < this->map_->data.size(); j++){
-            double x = this->map_->info.origin.position.x + (j%this->map_->info.width)*this->map_->info.resolution;
-            double y = this->map_->info.origin.position.y + (j/this->map_->info.width)*this->map_->info.resolution;
+            double x = (j%this->map_->info.width)*this->map_->info.resolution;
+            double y = (j/this->map_->info.width)*this->map_->info.resolution;
             double dist = sqrt(pow(x - berm_points[i].x, 2) + pow(y - berm_points[i].y, 2));
             if(dist < 0.2){
                 if(this->map_->data[j] > max){
                     max = this->map_->data[j];
+                    RCLCPP_INFO(this->get_logger(), "Max index: x: %f, y: %f", x, y);
                 }
             }
         }
         RCLCPP_INFO(this->get_logger(), "Max value at point %d: %f, %f", (int)i, max, mean_ground_height);
-        int percetage_completed = int((max - mean_ground_height)/(2*0.15));
-        berm_heights.push_back(percetage_completed);
+        auto height = (max - mean_ground_height)/ELEVATION_SCALE;
+        berm_heights.push_back(height);
     }
     // print the heights
     for(size_t i = 0; i < berm_heights.size(); i++){
-        RCLCPP_INFO(this->get_logger(), "Percentage completion at point %d: %d", (int)i, berm_heights[i]);
+        RCLCPP_INFO(this->get_logger(), "Height at point %d: %f, percent: %f", (int)i, berm_heights[i], 100*berm_heights[i]/0.15);
     }
 
     // publish the berm evaluation array. every marker is a cuboid of 0.2m x 0.2m x berms_heights[i]*0.15m
     visualization_msgs::msg::Marker marker_array_msg;
-    marker_array_msg.header.frame_id = "moonyard";
+    marker_array_msg.header.frame_id = "map";
     marker_array_msg.header.stamp = this->now();
     marker_array_msg.ns = "berm";
     marker_array_msg.id = 0;
@@ -228,7 +230,7 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
         geometry_msgs::msg::Point point;
         point.x = berm_points[i].x;
         point.y = berm_points[i].y;
-        point.z = berm_heights[i]*0.015-0.75;
+        point.z = berm_heights[i]*1.5-75;
         marker_array_msg.points.push_back(point);
         marker_array_msg.colors.push_back(marker_array_msg.color);
     }
