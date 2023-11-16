@@ -38,7 +38,7 @@ from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseArray, Pose
-from ros2_aruco_interfaces.msg import ArucoMarkers, ToolHeight
+from ros2_aruco_interfaces.msg import ArucoMarkers
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 
@@ -143,6 +143,7 @@ class ArucoNode(rclpy.node.Node):
         self.poses_pub = self.create_publisher(PoseArray, "aruco_poses", 10)
         self.markers_pub = self.create_publisher(ArucoMarkers, "aruco_markers", 10)
         self.tool_height_pub = self.create_publisher(Float64, "tool_height", 10)
+        self.tool_x_pub = self.create_publisher(Float64, "tool_distance", 10)
 
         # Set up fields for camera parameters
         self.info_msg = None
@@ -193,11 +194,15 @@ class ArucoNode(rclpy.node.Node):
             for i, marker_id in enumerate(marker_ids):
                 pose = Pose()
                 heights = Float64()
+                posX = Float64()
 		
                 pose.position.x = tvecs[i][0][0]
                 pose.position.y = tvecs[i][0][1]
                 pose.position.z = tvecs[i][0][2]
                 heights.data = -(tvecs[i][0][1]* 0.7349 + tvecs[i][0][2]* 0.2389 -0.2688)/0.6346
+                # posX.data = np.cos(0.14)*np.cos(0.646)*tvecs[i][0][2]
+                # Calibrated with tool height
+                posX.data = (-8.91e-3 * heights.data**2 + 0.59 * heights.data + 80.7) * 1e-2
 
                 rot_matrix = np.eye(4)
                 rot_matrix[0:3, 0:3] = cv2.Rodrigues(np.array(rvecs[i][0]))[0]
@@ -217,6 +222,7 @@ class ArucoNode(rclpy.node.Node):
             self.poses_pub.publish(pose_array)
             self.markers_pub.publish(markers)
             self.tool_height_pub.publish(heights)
+            self.tool_x_pub.publish(posX)
             self.not_got_msg_count = 0 
             
         if marker_ids is None:
@@ -224,7 +230,10 @@ class ArucoNode(rclpy.node.Node):
             if self.not_got_msg_count > 20:
                 heights = Float64()
                 heights.data = 0.48
-                self.tool_height_pub.publish(heights)        
+                posX = Float64()
+                posX.data = (-8.91e-3 * heights.data**2 + 0.59 * heights.data + 80.7) * 1e-2
+                self.tool_height_pub.publish(heights)
+                self.tool_x_pub.publish(posX)        
 	
 
 
