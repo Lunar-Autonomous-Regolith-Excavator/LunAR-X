@@ -50,13 +50,13 @@ class VisualServoing : public rclcpp::Node
     private:
         // Variables & pointers -----------------
         bool debug_mode_;
-        double tool_height_wrt_base_link_;
+        double tool_height_wrt_base_link_, tool_distance_wrt_base_link_;
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
         const int NUM_BINS = 100; // number of bins in each dim the ROI
         const double MIN_PLANE_ANGLE_DEG = 10.0; // minimum angle of the plane wrt the ground plane
         const double PEAK_LINE_DISTANCE_M = 0.05; // max dist between two points in the peak line
-        const double DRUM_X_BASELINK_M = 0.9; // higher value -> rover stops more towards the berm
+        // const double DRUM_X_BASELINK_M = 0.9; // higher value -> rover stops more towards the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
         const double DRUM_Z_BASELINK_M = -0.3; // more negative-> higher drum
         bool node_state_ = false; // state of the node
@@ -69,6 +69,7 @@ class VisualServoing : public rclcpp::Node
         // Subscribers
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_subscriber_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr tool_height_subscriber_;
+        rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr tool_distance_subscriber_;
         // Publishers
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr peakpoints_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr groundplane_marker_publisher_;
@@ -139,6 +140,8 @@ class VisualServoing : public rclcpp::Node
         *
         * */
         void toolHeightCallback(const std_msgs::msg::Float64::SharedPtr );
+
+        void toolDistanceCallback(const std_msgs::msg::Float64::SharedPtr );
 
         vector<geometry_msgs::msg::PoseStamped> getTransformedBermSegments();
 

@@ -42,6 +42,8 @@ void VisualServoing::setupCommunications(){
     // Subscribers
     tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>("tool_height", 10, 
                                     std::bind(&VisualServoing::toolHeightCallback, this, std::placeholders::_1));
+    tool_distance_subscriber_ = this->create_subscription<std_msgs::msg::Float64>("tool_distance", 10, 
+                                    std::bind(&VisualServoing::toolDistanceCallback, this, std::placeholders::_1));
     // Publishers
     visual_servo_error_publisher_ = this->create_publisher<geometry_msgs::msg::Point>("mapping/visual_servo_error", 10);
     peakline_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/C_peakline_marker", 10);
@@ -63,6 +65,10 @@ void VisualServoing::setupCommunications(){
 
 void VisualServoing::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr msg){
    tool_height_wrt_base_link_ = msg->data;
+}
+
+void VisualServoing::toolDistanceCallback(const std_msgs::msg::Float64::SharedPtr msg){
+    tool_distance_wrt_base_link_ = msg->data;
 }
 
 void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
@@ -177,7 +183,7 @@ void VisualServoing::publishVector(std::vector<double> v, std::string topic_name
         // green color
         marker_msg.color.g = 1.0;
         marker_msg.color.a = 1.0;
-        marker_msg.points[0].x = DRUM_X_BASELINK_M;
+        marker_msg.points[0].x = tool_distance_wrt_base_link_;
         marker_msg.points[0].y = DRUM_Y_BASELINK_M;
         marker_msg.points[0].z = std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
         targetpoint_marker_publisher_->publish(marker_msg);
@@ -541,7 +547,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             else if(yaw_error < -M_PI/2){
                 yaw_error = yaw_error + M_PI;
             }
-            curr_error.x = target_point[0] - DRUM_X_BASELINK_M;
+            curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
             curr_error.y = yaw_error;
             curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
             publishVector(target_point, "targetpoint");
@@ -584,7 +590,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
             projected_point[2] = intersection_point[2];
 
-            curr_error.x = projected_point[0] - DRUM_X_BASELINK_M;
+            curr_error.x = projected_point[0] - tool_distance_wrt_base_link_;
             curr_error.y = curr_segment_theta;
             curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
             publishVector(projected_point, "targetpoint");
