@@ -105,16 +105,16 @@ void ParamServer::updateModeMarker(){
     lock_marker.id = 0;
     lock_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
     lock_marker.action = visualization_msgs::msg::Marker::ADD;
-    lock_marker.pose.position.x = -0.2;
-    lock_marker.pose.position.y = 1.0;
+    lock_marker.pose.position.x = 6.9;
+    lock_marker.pose.position.y = 7.0;
     lock_marker.pose.position.z = 0.0;
     lock_marker.pose.orientation.x = 0.0;
     lock_marker.pose.orientation.y = 0.0;
     lock_marker.pose.orientation.z = 0.0;
     lock_marker.pose.orientation.w = 1.0;
-    lock_marker.scale.x = 0.5;
-    lock_marker.scale.y = 0.5;
-    lock_marker.scale.z = 0.5;
+    lock_marker.scale.x = 0.2;
+    lock_marker.scale.y = 0.2;
+    lock_marker.scale.z = 0.2;
     if(rover_lock_mobility_ && rover_lock_actuation_){
         // Color red
         lock_marker.color.r = 1.0;
@@ -137,7 +137,7 @@ void ParamServer::updateModeMarker(){
         lock_marker.color.g = 1.0;
         lock_marker.color.b = 0.0;
         lock_marker.color.a = 1.0;
-        lock_marker.text = "Partially Locked - Error";
+        lock_marker.text = "Error";
     }
 
     visualization_msgs::msg::Marker op_marker;
@@ -147,48 +147,48 @@ void ParamServer::updateModeMarker(){
     op_marker.id = 0;
     op_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
     op_marker.action = visualization_msgs::msg::Marker::ADD;
-    op_marker.pose.position.x = -0.2;
-    op_marker.pose.position.y = 0.5;
+    op_marker.pose.position.x = 6.9;
+    op_marker.pose.position.y = 6.7;
     op_marker.pose.position.z = 0.0;
     op_marker.pose.orientation.x = 0.0;
     op_marker.pose.orientation.y = 0.0;
     op_marker.pose.orientation.z = 0.0;
     op_marker.pose.orientation.w = 1.0;
-    op_marker.scale.x = 0.5;
-    op_marker.scale.y = 0.5;
-    op_marker.scale.z = 0.5;
+    op_marker.scale.x = 0.2;
+    op_marker.scale.y = 0.2;
+    op_marker.scale.z = 0.2;
     switch(rover_op_mode_){
         case 0:
-            // Color green - Standby
+            // Color green-Standby
             op_marker.color.r = 0.0;
             op_marker.color.g = 1.0;
             op_marker.color.b = 0.0;
             op_marker.color.a = 1.0;
-            op_marker.text = "OP - Standby";
+            op_marker.text = "OP-Standby";
             break;
         case 1:
-            // Color white - Teleop
+            // Color white-Teleop
             op_marker.color.r = 1.0;
             op_marker.color.g = 1.0;
             op_marker.color.b = 1.0;
             op_marker.color.a = 1.0;
-            op_marker.text = "OP - Teleop";
+            op_marker.text = "OP-Teleop";
             break;
         case 2:
-            // Color Blue - Autonomous
+            // Color Blue-Autonomous
             op_marker.color.r = 0.0;
             op_marker.color.g = 0.0;
             op_marker.color.b = 1.0;
             op_marker.color.a = 1.0;
-            op_marker.text = "OP - Autonomous";
+            op_marker.text = "OP-Autonomous";
             break;
         default:
-            // Color Yellow - Error
+            // Color Yellow-Error
             op_marker.color.r = 1.0;
             op_marker.color.g = 1.0;
             op_marker.color.b = 0.0;
             op_marker.color.a = 1.0;
-            op_marker.text = "OP - Error";
+            op_marker.text = "OP-Error";
             break;
     }
 
@@ -199,56 +199,56 @@ void ParamServer::updateModeMarker(){
     task_marker.id = 0;
     task_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
     task_marker.action = visualization_msgs::msg::Marker::ADD;  
-    task_marker.pose.position.x = -0.2;
-    task_marker.pose.position.y = 0.0;
+    task_marker.pose.position.x = 6.9;
+    task_marker.pose.position.y = 6.4;
     task_marker.pose.position.z = 0.0;
     task_marker.pose.orientation.x = 0.0;
     task_marker.pose.orientation.y = 0.0;
     task_marker.pose.orientation.z = 0.0;
     task_marker.pose.orientation.w = 1.0;
-    task_marker.scale.x = 0.5;
-    task_marker.scale.y = 0.5;
-    task_marker.scale.z = 0.5;
+    task_marker.scale.x = 0.2;
+    task_marker.scale.y = 0.2;
+    task_marker.scale.z = 0.2;
     switch(rover_task_mode_){
         case 0:
-            // Color green - Idle
+            // Color green-Idle
             task_marker.color.r = 0.0;
             task_marker.color.g = 1.0;
             task_marker.color.b = 0.0;
             task_marker.color.a = 1.0;
-            task_marker.text = "Task - Idle";
+            task_marker.text = "Task-Idle";
             break;
         case 1:
-            // Color white - Navigation
+            // Color white-Navigation
             task_marker.color.r = 1.0;
             task_marker.color.g = 1.0;
             task_marker.color.b = 1.0;
             task_marker.color.a = 1.0;
-            task_marker.text = "Task - Navigation";
+            task_marker.text = "Task-Navigation";
             break;
         case 2:
-            // Color Blue - Excavation
+            // Color Blue-Excavation
             task_marker.color.r = 0.0;
             task_marker.color.g = 0.0;
             task_marker.color.b = 1.0;
             task_marker.color.a = 1.0;
-            task_marker.text = "Task - Excavation";
+            task_marker.text = "Task-Excavation";
             break;
         case 3:
-            // Color Red - Dumping
+            // Color Red-Dumping
             task_marker.color.r = 1.0;
             task_marker.color.g = 0.0;
             task_marker.color.b = 0.0;
             task_marker.color.a = 1.0;
-            task_marker.text = "Task - Dumping";
+            task_marker.text = "Task-Dumping";
             break;
         default:
-            // Color Yellow - Error
+            // Color Yellow-Error
             task_marker.color.r = 1.0;
             task_marker.color.g = 1.0;
             task_marker.color.b = 0.0;
             task_marker.color.a = 1.0;
-            task_marker.text = "Task - Error";
+            task_marker.text = "Task-Error";
     }
 
     msg.markers.push_back(lock_marker);
