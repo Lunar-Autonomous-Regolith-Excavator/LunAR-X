@@ -43,14 +43,14 @@ void VisualServoing::setupCommunications(){
     tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>("tool_height", 10, 
                                     std::bind(&VisualServoing::toolHeightCallback, this, std::placeholders::_1));
     // Publishers
-    visual_servo_error_publisher_ = this->create_publisher<geometry_msgs::msg::Point>("mapping/5_visual_servo_error", 10);
-    peakline_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/3_peakline_marker", 10);
-    targetpoint_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/4_targetpoint_marker", 10);
-    projected_point_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/5_projected_point_marker", 10);
+    visual_servo_error_publisher_ = this->create_publisher<geometry_msgs::msg::Point>("mapping/visual_servo_error", 10);
+    peakline_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/C_peakline_marker", 10);
+    targetpoint_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/D_targetpoint_marker", 10);
+    projected_point_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/E_projected_point_marker", 10);
     if(debug_mode_){
-        peakpoints_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/2_peakpoints_marker", 10);
-        groundplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/1_groundplane_marker", 10);
-        bermplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/1_bermplane_marker", 10);
+        peakpoints_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/B_peakpoints_marker", 10);
+        groundplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/A_groundplane_marker", 10);
+        bermplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/A_bermplane_marker", 10);
         groundplane_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/groundplane", 10);
         bermplane_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/bermplane", 10);
     }  
@@ -356,7 +356,8 @@ vector<geometry_msgs::msg::PoseStamped> VisualServoing::getTransformedBermSegmen
     try
     {
         tf2_ros::Buffer tf_buffer(this->get_clock());
-        transformStamped = tf_buffer.lookupTransform("map", "base_link", tf2::TimePointZero);
+        tf2_ros::TransformListener tf_listener(tf_buffer);
+        transformStamped = tf_buffer.lookupTransform("map", "base_link", tf2::TimePointZero, tf2::durationFromSec(0.5));
     }
     catch (tf2::TransformException &ex)
     {
@@ -510,8 +511,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         if (transformed_berm_segments.size() == 0)
         {
             got_transformed_berm_segments = false;
-            RCLCPP_INFO(this->get_logger(), "Visual Servoing could not ould not transform berm segments, resorting to default behavior");
-            return;
+            RCLCPP_INFO(this->get_logger(), "Visual Servoing could not transform berm segments, resorting to default behavior");
         }
         geometry_msgs::msg::PoseStamped curr_segment_pose, prev_segment_pose;
         double dist_to_curr_segment, dist_to_prev_segment;
@@ -558,6 +558,9 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             closest_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
             closest_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
 
+            // cout closest_point
+            RCLCPP_INFO(this->get_logger(), "closest point: %f %f %f", closest_point[0], closest_point[1], closest_point[2]);
+
 
             // get theta of previous berm segment
             tf2::Quaternion q(prev_segment_pose.pose.orientation.x, prev_segment_pose.pose.orientation.y, prev_segment_pose.pose.orientation.z, prev_segment_pose.pose.orientation.w);
@@ -597,6 +600,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
                 marker_msg.scale.x = 0.05;
                 marker_msg.scale.y = 0.05;
                 marker_msg.color.g = 1.0;
+                marker_msg.color.r = 1.0;
                 marker_msg.color.a = 1.0;
                 geometry_msgs::msg::Point p;
                 p.x = intersection_point[0]; p.y = intersection_point[1]; p.z = intersection_point[2];

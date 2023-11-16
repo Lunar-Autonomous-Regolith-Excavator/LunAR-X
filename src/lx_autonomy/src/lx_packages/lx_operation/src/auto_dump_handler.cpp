@@ -225,6 +225,8 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     auto feedback = std::make_shared<AutoDump::Feedback>();
     auto result = std::make_shared<AutoDump::Result>();
 
+    RCLCPP_INFO(this->get_logger(), "Got request to dump with First Op Dump: %s", (goal->first_op_dump?"True":"False"));
+
     // Move to targets
     // 3 PIDs for drum height, rover x and rover y
     auto pid_height = PID(tool_height_pid_, -CLIP_HEIGHT_CMD_VAL, CLIP_HEIGHT_CMD_VAL);
@@ -263,17 +265,20 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
             }
             return;
         }
-        // Read errors from visual servoing
-        double dx  = visual_servo_error_.x;
-        double dy = -visual_servo_error_.y;
-        double dz = -visual_servo_error_.z;
 
+        double dx, dy, dz;
         // Skip x and y control if first op dump
-        if(goal->first_op_dump == false)
+        if(goal->first_op_dump == true)
         {
             dx = 0;
             dy = 0;
             dz = drum_height_ - 0.3;
+        }
+        else         // Read errors from visual servoing
+        {
+            dx  = visual_servo_error_.x;
+            dy = -visual_servo_error_.y;
+            dz = -visual_servo_error_.z;
         }
         double drum_cmd, x_vel, yaw_vel;
         if(abs(dx) < 0.02){x_vel = 0;}
@@ -423,10 +428,10 @@ bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state){
 void AutoDumpHandler::visualServoSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
     auto status = future.wait_for(std::chrono::milliseconds(100));
     if (status == std::future_status::ready && future.get()->success){
-        RCLCPP_INFO(this->get_logger(), "Visual servoing started");
+        RCLCPP_INFO(this->get_logger(), "Visual servoing switched");
         visual_servo_switch_ = true;
     } 
     else {
-        RCLCPP_INFO(this->get_logger(), "Visual servoing failed to start");
+        RCLCPP_INFO(this->get_logger(), "Visual servoing failed to switch");
     }
 }
