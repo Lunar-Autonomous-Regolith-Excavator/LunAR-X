@@ -254,7 +254,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         if((action_curr_time - servoing_msg_time).seconds() > 2 && goal->first_op_dump == false){
             result->success = false;
             goal_handle->abort(result);
-            RCLCPP_ERROR(this->get_logger(), "Autodump failed due to no tool info message timeout");
+            RCLCPP_ERROR(this->get_logger(), "Autodump failed due to no visual servoing message timeout");
             // Stop visual servoing
             if(!callVisualServoSwitch(false)){
                 result->success = false;
