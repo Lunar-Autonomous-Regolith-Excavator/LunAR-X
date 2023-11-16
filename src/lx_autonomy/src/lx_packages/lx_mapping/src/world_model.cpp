@@ -207,35 +207,22 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
 
 void WorldModel::buildRestrictedZonesWorldModel(){
-    geometry_msgs::msg::PointStamped ts_zone[4], speaker_zone[4], safety_person_zone[4];
 
-    // ts_zone[0].header.frame_id = "map";
-    // ts_zone[1].header.frame_id = "map";
-    // ts_zone[2].header.frame_id = "map";
-    // ts_zone[3].header.frame_id = "map";
-    // ts_zone[0].point.x = 0.0; ts_zone[0].point.y = 0.0; ts_zone[0].point.z = 0.0;
-    // ts_zone[1].point.x = 1.0; ts_zone[1].point.y = 0.0; ts_zone[1].point.z = 0.0;
-    // ts_zone[2].point.x = 1.0; ts_zone[2].point.y = 1.0; ts_zone[2].point.z = 0.0;
-    // ts_zone[3].point.x = 0.0; ts_zone[3].point.y = 1.0; ts_zone[3].point.z = 0.0;
+    geometry_msgs::msg::PointStamped restricted_zones[7];
 
-    for(size_t i = 0; i < 4; i++){
-        ts_zone[i].header.frame_id = "map";
-        speaker_zone[i].header.frame_id = "map";
-        safety_person_zone[i].header.frame_id = "map";
+    for(size_t i = 0; i < 7; i++){
+        restricted_zones[i].header.frame_id = "map";
     }
+    // populate restricted zones to form an L shape 
+    restricted_zones[0].point.x = 0.0; restricted_zones[0].point.y = 0.0; restricted_zones[0].point.z = 0.0;
+    restricted_zones[1].point.x = 7.0; restricted_zones[1].point.y = 0.0; restricted_zones[1].point.z = 0.0;
+    restricted_zones[2].point.x = 1.0; restricted_zones[2].point.y = 1.0; restricted_zones[2].point.z = 0.0;
+    restricted_zones[3].point.x = 8.0; restricted_zones[3].point.y = 1.0; restricted_zones[3].point.z = 0.0;
+    restricted_zones[4].point.x = 8.0; restricted_zones[4].point.y = 8.0; restricted_zones[4].point.z = 0.0;
+    restricted_zones[5].point.x = 0.0; restricted_zones[5].point.y = 8.0; restricted_zones[5].point.z = 0.0;
+    restricted_zones[6].point.x = 0.0; restricted_zones[6].point.y = 0.0; restricted_zones[6].point.z = 0.0;
 
-    auto neighbour_points = [](geometry_msgs::msg::PointStamped* points, double x, double y, double z){
-        points[0].point.x = x; points[0].point.y = y; points[0].point.z = z;
-        points[1].point.x = x+1.0; points[1].point.y = y; points[1].point.z = z;
-        points[2].point.x = x+1.0; points[2].point.y = y+1.0; points[2].point.z = z;
-        points[3].point.x = x; points[3].point.y = y+1.0; points[3].point.z = z;
-    };
-
-    neighbour_points(ts_zone, 0.0, 0.0, 0.0);
-    neighbour_points(speaker_zone, 4.0, 0.0, 0.0);
-    neighbour_points(safety_person_zone, 7.0, 4.0, 0.0);
-
-    // for all points inside ts_zone, set zone_costmap_.data[i] = 100
+    // for all points inside restricted_zones, set zone_costmap_.data[i] = 100
     for(size_t i = 0; i < zone_costmap_.data.size(); i++){
         if(zone_costmap_.data[i] == 100){
             continue;
@@ -246,14 +233,17 @@ void WorldModel::buildRestrictedZonesWorldModel(){
         // convert x,y to world coordinates
         double x = col_x*zone_costmap_.info.resolution + zone_costmap_.info.origin.position.x;
         double y = row_y*zone_costmap_.info.resolution + zone_costmap_.info.origin.position.y;
-        // check if point is inside ts_zone
-        if(x >= ts_zone[0].point.x && x <= ts_zone[1].point.x && y >= ts_zone[0].point.y && y <= ts_zone[3].point.y){
+        // check if point is inside restricted_zones
+        if(x >= restricted_zones[0].point.x && x <= restricted_zones[1].point.x && y >= restricted_zones[0].point.y && y <= restricted_zones[2].point.y){
             zone_costmap_.data[i] = 100;
         }
-        else if(x >= speaker_zone[0].point.x && x <= speaker_zone[1].point.x && y >= speaker_zone[0].point.y && y <= speaker_zone[3].point.y){
+        else if(x >= restricted_zones[1].point.x && x <= restricted_zones[3].point.x && y >= restricted_zones[1].point.y && y <= restricted_zones[4].point.y){
             zone_costmap_.data[i] = 100;
         }
-        else if(x >= safety_person_zone[0].point.x && x <= safety_person_zone[1].point.x && y >= safety_person_zone[0].point.y && y <= safety_person_zone[3].point.y){
+        else if(x >= restricted_zones[3].point.x && x <= restricted_zones[5].point.x && y >= restricted_zones[3].point.y && y <= restricted_zones[5].point.y){
+            zone_costmap_.data[i] = 100;
+        }
+        else if(x >= restricted_zones[5].point.x && x <= restricted_zones[6].point.x && y >= restricted_zones[5].point.y && y <= restricted_zones[6].point.y){
             zone_costmap_.data[i] = 100;
         }
     }
