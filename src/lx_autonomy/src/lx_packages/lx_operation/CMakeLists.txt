@@ -19,6 +19,7 @@ find_package(nav_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 
 include_directories(include)
@@ -37,7 +38,7 @@ ament_target_dependencies(auto_dump_handler_node rclcpp rclcpp_action rclcpp_com
 
 # Auto Nav Handler node
 add_executable(auto_nav_handler_node src/auto_nav_handler_node.cpp src/auto_nav_handler.cpp)
-ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library nav_msgs nav2_msgs tf2_ros)
+ament_target_dependencies(auto_nav_handler_node rclcpp rclcpp_action rclcpp_components lx_msgs lx_library nav_msgs nav2_msgs tf2_ros tf2_geometry_msgs)
 
 
 install(TARGETS
