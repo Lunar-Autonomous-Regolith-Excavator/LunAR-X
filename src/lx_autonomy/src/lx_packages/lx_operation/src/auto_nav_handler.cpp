@@ -106,7 +106,7 @@ void AutoNavHandler::setupCommunications(){
                                             std::bind(&AutoNavHandler::handle_accepted, this, _1));
     
     // Action client
-    this->navigate_to_pose_client_ = rclcpp_action::create_client<NavigateToPose>(this, "navigate_to_pose");
+    this->navigate_to_pose_client_ = rclcpp_action::create_client<NavigateThroughPoses>(this, "navigate_to_pose");
 
     // Subscribers
     this->cmd_vel_nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -214,9 +214,10 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
 
     // Update new goal
     this->goal_pose_ = goal->goal;
+    this->next_action_ = goal->next;
     
     // Navigate to goal pose
-    if (!this->navigateToPose()) {
+    if (!this->navigateThroughPoses()) {
         result->success = false;
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Autonav failed");
@@ -238,7 +239,7 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     }
 }
 
-bool AutoNavHandler::navigateToPose(){
+bool AutoNavHandler::navigateThroughPoses(){
     using namespace std::placeholders;
     if (!this->navigate_to_pose_client_->wait_for_action_server(std::chrono::seconds(10))) {
         RCLCPP_ERROR(this->get_logger(), "Navigate to pose action server not available after waiting");
@@ -252,16 +253,36 @@ bool AutoNavHandler::navigateToPose(){
     this->action_success_ = false;
     
     // Create goal message
-    auto goal_msg = NavigateToPose::Goal();
-    goal_msg.pose = this->goal_pose_;
-    goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/replanning.xml";
+    auto goal_msg = NavigateThroughPoses::Goal();
     
-    RCLCPP_INFO(this->get_logger(), "Sending goal to navigate to pose action server");
+    // Make intermediate pose 0.5 m behind/front goal pose
+    geometry_msgs::msg::PoseStamped intermediate_pose = this->goal_pose_;
+    double yaw = tf2::getYaw(this->goal_pose_.pose.orientation);
+
+    if (this->next_action_ == 0) { // Excavate
+        goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodig.xml";
+        
+        intermediate_pose.pose.position.x += 0.5 * cos(yaw);
+        intermediate_pose.pose.position.y += 0.5 * sin(yaw);
+        goal_msg.poses.push_back(intermediate_pose);
+    }
+    else if (this->next_action_ == 1) { // Dump
+        goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
+        intermediate_pose.pose.position.x -= 0.5 * cos(yaw);
+        intermediate_pose.pose.position.y -= 0.5 * sin(yaw);
+        goal_msg.poses.push_back(intermediate_pose);
+    }
+    else {
+        goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
+    }
+    goal_msg.poses.push_back(this->goal_pose_);
     
-    auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
-    send_goal_options.goal_response_callback = std::bind(&AutoNavHandler::navigateToPoseResponseCallback, this, _1);
-    send_goal_options.feedback_callback = std::bind(&AutoNavHandler::navigateToPoseFeedbackCallback, this, _1, _2);
-    send_goal_options.result_callback = std::bind(&AutoNavHandler::navigateToPoseResultCallback, this, _1);
+    RCLCPP_INFO(this->get_logger(), "Sending goal to navigate through pose action server");
+    
+    auto send_goal_options = rclcpp_action::Client<NavigateThroughPoses>::SendGoalOptions();
+    send_goal_options.goal_response_callback = std::bind(&AutoNavHandler::navigateThroughPosesResponseCallback, this, _1);
+    send_goal_options.feedback_callback = std::bind(&AutoNavHandler::navigateThroughPosesFeedbackCallback, this, _1, _2);
+    send_goal_options.result_callback = std::bind(&AutoNavHandler::navigateThroughPosesResultCallback, this, _1);
 
     auto goal_handle_future = this->navigate_to_pose_client_->async_send_goal(goal_msg, send_goal_options);
 
@@ -299,7 +320,7 @@ bool AutoNavHandler::navigateToPose(){
     return false;
 }
 
-void AutoNavHandler::navigateToPoseResponseCallback(GoalHandleNavigateToPose::SharedPtr future){
+void AutoNavHandler::navigateThroughPosesResponseCallback(GoalHandleNavigateThroughPoses::SharedPtr future){
     auto goal_handle = future.get();
     if (!goal_handle) {
         RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
@@ -314,7 +335,7 @@ void AutoNavHandler::navigateToPoseResponseCallback(GoalHandleNavigateToPose::Sh
     }
 }
 
-void AutoNavHandler::navigateToPoseFeedbackCallback(GoalHandleNavigateToPose::SharedPtr, const std::shared_ptr<const NavigateToPose::Feedback> feedback){
+void AutoNavHandler::navigateThroughPosesFeedbackCallback(GoalHandleNavigateThroughPoses::SharedPtr, const std::shared_ptr<const NavigateThroughPoses::Feedback> feedback){
     this->current_pose_ = feedback->current_pose;
     this->navigation_time_ = feedback->navigation_time;
     this->estimated_time_remaining_ = feedback->estimated_time_remaining;
@@ -322,7 +343,7 @@ void AutoNavHandler::navigateToPoseFeedbackCallback(GoalHandleNavigateToPose::Sh
     this->distance_remaining_ = feedback->distance_remaining;
 }
 
-void AutoNavHandler::navigateToPoseResultCallback(const GoalHandleNavigateToPose::WrappedResult & result){
+void AutoNavHandler::navigateThroughPosesResultCallback(const GoalHandleNavigateThroughPoses::WrappedResult & result){
     switch (result.code) {
         case rclcpp_action::ResultCode::SUCCEEDED:
             RCLCPP_INFO(this->get_logger(), "Path followed successfully");
