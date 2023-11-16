@@ -36,7 +36,7 @@ def generate_launch_description():
       executable='static_transform_publisher',
       name='base_link_to_imu_link',
       output='screen',
-      arguments=['0.17', '0', '0.52', '1.5708', '0', '0', 'base_link', 'vectornav'],
+      arguments=['0.165', '0', '0.405', '-1.5708', '0', '0', 'base_link', 'vectornav'],
       parameters=[{'use_sim_time': use_sim_time_param}],
       condition=launch.conditions.IfCondition(launch_rviz)
     ), # (x y z yaw pitch roll frame_id child_frame_id period_in_ms)
