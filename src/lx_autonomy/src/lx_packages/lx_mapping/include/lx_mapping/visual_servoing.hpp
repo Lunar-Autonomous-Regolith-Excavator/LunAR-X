@@ -76,6 +76,7 @@ class VisualServoing : public rclcpp::Node
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr peakline_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr targetpoint_marker_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr projected_point_marker_publisher_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr transformed_berm_points_publisher_;
         rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr visual_servo_error_publisher_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr groundplane_publisher_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr bermplane_publisher_;
