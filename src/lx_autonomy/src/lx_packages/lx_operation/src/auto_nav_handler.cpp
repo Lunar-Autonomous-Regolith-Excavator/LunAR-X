@@ -254,6 +254,7 @@ bool AutoNavHandler::navigateToPose(){
     // Create goal message
     auto goal_msg = NavigateToPose::Goal();
     goal_msg.pose = this->goal_pose_;
+    goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/replanning.xml";
     
     RCLCPP_INFO(this->get_logger(), "Sending goal to navigate to pose action server");
     
