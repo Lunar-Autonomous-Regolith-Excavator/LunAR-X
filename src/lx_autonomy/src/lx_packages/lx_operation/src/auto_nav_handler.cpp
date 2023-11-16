@@ -106,7 +106,7 @@ void AutoNavHandler::setupCommunications(){
                                             std::bind(&AutoNavHandler::handle_accepted, this, _1));
     
     // Action client
-    this->navigate_to_pose_client_ = rclcpp_action::create_client<NavigateThroughPoses>(this, "navigate_to_pose");
+    this->navigate_through_poses_client_ = rclcpp_action::create_client<NavigateThroughPoses>(this, "navigate_through_poses");
 
     // Subscribers
     this->cmd_vel_nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -241,7 +241,7 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
 
 bool AutoNavHandler::navigateThroughPoses(){
     using namespace std::placeholders;
-    if (!this->navigate_to_pose_client_->wait_for_action_server(std::chrono::seconds(10))) {
+    if (!this->navigate_through_poses_client_->wait_for_action_server(std::chrono::seconds(10))) {
         RCLCPP_ERROR(this->get_logger(), "Navigate to pose action server not available after waiting");
         return false;
     }
@@ -255,18 +255,18 @@ bool AutoNavHandler::navigateThroughPoses(){
     // Create goal message
     auto goal_msg = NavigateThroughPoses::Goal();
     
-    // Make intermediate pose 0.5 m behind/front goal pose
+    // Make intermediate pose
     geometry_msgs::msg::PoseStamped intermediate_pose = this->goal_pose_;
     double yaw = tf2::getYaw(this->goal_pose_.pose.orientation);
 
-    if (this->next_action_ == 0) { // Excavate
+    if (this->next_action_ == 1) { // Excavate
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodig.xml";
         
         intermediate_pose.pose.position.x += 0.5 * cos(yaw);
         intermediate_pose.pose.position.y += 0.5 * sin(yaw);
         goal_msg.poses.push_back(intermediate_pose);
     }
-    else if (this->next_action_ == 1) { // Dump
+    else if (this->next_action_ == 2) { // Dump
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
         intermediate_pose.pose.position.x -= 0.5 * cos(yaw);
         intermediate_pose.pose.position.y -= 0.5 * sin(yaw);
@@ -284,7 +284,7 @@ bool AutoNavHandler::navigateThroughPoses(){
     send_goal_options.feedback_callback = std::bind(&AutoNavHandler::navigateThroughPosesFeedbackCallback, this, _1, _2);
     send_goal_options.result_callback = std::bind(&AutoNavHandler::navigateThroughPosesResultCallback, this, _1);
 
-    auto goal_handle_future = this->navigate_to_pose_client_->async_send_goal(goal_msg, send_goal_options);
+    auto goal_handle_future = this->navigate_through_poses_client_->async_send_goal(goal_msg, send_goal_options);
 
     auto start_time = this->now();
 
@@ -298,7 +298,7 @@ bool AutoNavHandler::navigateThroughPoses(){
         // if (this->now() - start_time > rclcpp::Duration(this->MAX_DURATION, 0)) {
         //     RCLCPP_ERROR(this->get_logger(), "AutoNav timed out");
         //     // Cancel goal
-        //     this->navigate_to_pose_client_->async_cancel_all_goals();
+        //     this->navigate_through_poses_client_->async_cancel_all_goals();
         // }
 
         loop_rate.sleep();

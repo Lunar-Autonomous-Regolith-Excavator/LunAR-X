@@ -18,6 +18,7 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "lx_msgs/msg/rover_command.hpp"
 #include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 class AutoNavHandler: public rclcpp::Node
 {
@@ -50,7 +51,7 @@ class AutoNavHandler: public rclcpp::Node
         // Action server
         rclcpp_action::Server<AutoNav>::SharedPtr autonav_action_server_;
         // Action clients
-        rclcpp_action::Client<NavigateThroughPoses>::SharedPtr navigate_to_pose_client_;
+        rclcpp_action::Client<NavigateThroughPoses>::SharedPtr navigate_through_poses_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
