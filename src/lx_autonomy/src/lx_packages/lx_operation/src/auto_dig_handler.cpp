@@ -31,9 +31,9 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
                         std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
-    autodig_pid_outer_.kp = 0.013;
-    autodig_pid_outer_.ki = 0.000001;
-    autodig_pid_outer_.kd = 0.02;
+    autodig_pid_outer_.kp = 0.016;
+    autodig_pid_outer_.ki = 0.0000022;
+    autodig_pid_outer_.kd = 0.021;
 
     autodig_pid_inner_.kp = 20.0;
     autodig_pid_inner_.ki = 0.0001;
@@ -249,7 +249,6 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     // Allow rover to be controlled by inner PID loop
     inner_PID_control_rover_ = true; 
 
-    rclcpp::Time action_start_time = this->get_clock()->now();
 
     // Wait for drum height to reach GOTO_TOOL_HEIGHT
     target_drum_height = GOTO_TOOL_HEIGHT;
@@ -258,6 +257,8 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
             break;
         }
     }
+
+    rclcpp::Time action_start_time = this->get_clock()->now();
 
     // 10 Hz loop
     rclcpp::Rate loop_rate(10);
