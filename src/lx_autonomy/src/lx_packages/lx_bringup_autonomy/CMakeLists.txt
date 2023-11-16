@@ -9,11 +9,12 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lx_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 include_directories(include)
 
 add_executable(lx_param_server_node src/lx_param_server_node.cpp src/lx_param_server.cpp)
-ament_target_dependencies(lx_param_server_node rclcpp lx_msgs)
+ament_target_dependencies(lx_param_server_node rclcpp lx_msgs visualization_msgs)
 
 install(TARGETS
   lx_param_server_node
