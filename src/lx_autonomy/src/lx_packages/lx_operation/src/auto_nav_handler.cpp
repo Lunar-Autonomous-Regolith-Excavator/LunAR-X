@@ -259,17 +259,17 @@ bool AutoNavHandler::navigateThroughPoses(){
     geometry_msgs::msg::PoseStamped intermediate_pose = this->goal_pose_;
     double yaw = tf2::getYaw(this->goal_pose_.pose.orientation);
 
-    if (this->next_action_ == 1) { // Excavate
+    if (this->next_action_ == 1) { // Excavation pose
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodig.xml";
         
-        intermediate_pose.pose.position.x += 0.5 * cos(yaw);
-        intermediate_pose.pose.position.y += 0.5 * sin(yaw);
+        intermediate_pose.pose.position.x += this->INTERMEDIATE_GOAL_DISTANCE * cos(yaw);
+        intermediate_pose.pose.position.y += this->INTERMEDIATE_GOAL_DISTANCE * sin(yaw);
         goal_msg.poses.push_back(intermediate_pose);
     }
-    else if (this->next_action_ == 2) { // Dump
+    else if (this->next_action_ == 2) { // Dump pose
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
-        intermediate_pose.pose.position.x -= 0.5 * cos(yaw);
-        intermediate_pose.pose.position.y -= 0.5 * sin(yaw);
+        intermediate_pose.pose.position.x -= this->INTERMEDIATE_GOAL_DISTANCE * cos(yaw);
+        intermediate_pose.pose.position.y -= this->INTERMEDIATE_GOAL_DISTANCE * sin(yaw);
         goal_msg.poses.push_back(intermediate_pose);
     }
     else {

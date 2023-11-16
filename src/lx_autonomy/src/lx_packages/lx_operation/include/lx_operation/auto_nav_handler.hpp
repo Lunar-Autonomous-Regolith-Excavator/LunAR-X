@@ -143,6 +143,7 @@ class AutoNavHandler: public rclcpp::Node
 
         // Constants
         static constexpr double MAX_DURATION = 180.0; // seconds
+        static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.7; // meters
 };
 
 #endif
