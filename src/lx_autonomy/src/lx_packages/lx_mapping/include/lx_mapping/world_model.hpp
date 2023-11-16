@@ -51,7 +51,7 @@ class WorldModel : public rclcpp::Node
         rclcpp::Service<lx_msgs::srv::Switch>::SharedPtr map_switch_server_;
 
         // Wall Timer
-        rclcpp::TimerBase::SharedPtr timer_;
+        rclcpp::TimerBase::SharedPtr timer_traversibility_costmap_, timer_global_map_;
 
         // --------------------------------------
 
@@ -110,6 +110,9 @@ class WorldModel : public rclcpp::Node
         void updateBermZonesWorldModel();
 
         void publishTraversibilityCostmap();
+
+        void publishGlobalMap();
+
         // void buildSpecialZones(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     public:

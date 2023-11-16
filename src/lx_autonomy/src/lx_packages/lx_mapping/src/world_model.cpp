@@ -53,9 +53,9 @@ WorldModel::WorldModel() : Node("world_model_node")
 void WorldModel::setupCommunications(){
 
     // Publishers
-    global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map", 10);
+    global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map2", 10);
     world_model_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/world_model", 10);
-    filtered_global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/filtered_global_map", 10);
+    filtered_global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/filtered_global_map2", 10);
     traversibility_costmap_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/traversibility_costmap", 10);
 
     // Servers
@@ -67,7 +67,7 @@ void WorldModel::setupCommunications(){
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-    timer_ = this->create_wall_timer(std::chrono::milliseconds(1000), std::bind(&WorldModel::publishTraversibilityCostmap, this));
+    timer_traversibility_costmap_ = this->create_wall_timer(std::chrono::milliseconds(1000), std::bind(&WorldModel::publishTraversibilityCostmap, this));
 }
 
 void WorldModel::configureMaps(){
@@ -112,6 +112,8 @@ void WorldModel::mapSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::R
         // Subscribe to the Point cloud topic
         transformed_pcl_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
                                                                                     std::bind(&WorldModel::transformedPCLCallback, this, std::placeholders::_1));
+
+        timer_global_map_ = this->create_wall_timer(std::chrono::milliseconds(1000), std::bind(&WorldModel::publishGlobalMap, this));
     }
     else{
         transformed_pcl_subscriber_.reset();
@@ -201,8 +203,6 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     
     filterMap();
     updateElevationWorldModel();
-
-    global_map_publisher_->publish(global_map_);
 }
 
 
@@ -271,8 +271,13 @@ void WorldModel::updateTraversibilityCostmapWorldModel(){
 }
 
 void WorldModel::publishTraversibilityCostmap(){
-    RCLCPP_INFO(this->get_logger(), "Traversibility Costmap published");
     traversibility_costmap_publisher_->publish(traversibility_costmap_);
+}
+
+void WorldModel::publishGlobalMap(){
+    global_map_publisher_->publish(global_map_);
+    filtered_global_map_publisher_->publish(filtered_global_map_);
+    // world_model_publisher_->publish(world_model_);
 }
 
 void WorldModel::updateBermZonesWorldModel(){
@@ -368,6 +373,4 @@ void WorldModel::filterMap(){
             }
         }
     }
-    // publish filtered global map
-    filtered_global_map_publisher_->publish(filtered_global_map_);
 }
