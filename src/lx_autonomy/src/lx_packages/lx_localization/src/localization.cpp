@@ -70,6 +70,15 @@ void Localization::handle_accepted(const std::shared_ptr<GoalHandleCalibrateImu>
     std::thread{std::bind(&Localization::executeCalibrateIMU, this, std::placeholders::_1), goal_handle}.detach();
 }
 
+double addAngles(double angle1, double angle2)
+{
+    // sum clips to -pi to pi
+    double sum = angle1 + angle2;
+    if(sum > M_PI) sum -= 2.0 * M_PI;
+    else if(sum < -M_PI) sum += 2.0 * M_PI;
+    return sum;
+}
+
 void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrateImu> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Executing calibrate imu action");
     const auto goal = goal_handle->get_goal();
@@ -82,13 +91,13 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         this->get_transforms();
     }
 
-    // If latest IMU msg and TS msg are more than 1 second away from current time, return error
+    // If latest IMU msg and TS msg are more than 1.5 second away from current time, return error
     auto current_time = this->get_clock()->now();
     double time_diff_imu = (current_time - this->last_imu_msg_time_).seconds(), time_diff_ts = (current_time - this->last_ts_msg_time_).seconds();
-    if(time_diff_imu > 1.0 || time_diff_ts > 1.0)
+    if(time_diff_imu > 1.5 || time_diff_ts > 1.5)
     {
-        if (time_diff_imu > 1.0) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1 second of the initial point in calibration");
-        if (time_diff_ts > 1.0) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1 second of the initial point in calibration");
+        if (time_diff_imu > 1.5) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1.5 second of the initial point in calibration");
+        if (time_diff_ts > 1.5) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1.5 second of the initial point in calibration, found in %f seconds", time_diff_ts);
         // Set result
         result->success = false;
         goal_handle->abort(result);
@@ -143,13 +152,13 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         return;
     }
 
-    // If latest IMU msg and TS msg are more than 1 second away from current time, return error
+    // If latest IMU msg and TS msg are more than 1.5 second away from current time, return error
     current_time = this->get_clock()->now();
     time_diff_imu = (current_time - this->last_imu_msg_time_).seconds(), time_diff_ts = (current_time - this->last_ts_msg_time_).seconds();
-    if(time_diff_imu > 1.0 || time_diff_ts > 1.0)
+    if(time_diff_imu > 1.5 || time_diff_ts > 1.5)
     {
-        if (time_diff_imu > 1.0) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1 second of the final point in calibration");
-        if (time_diff_ts > 1.0) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1 second of the final point in calibration");
+        if (time_diff_imu > 1.5) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1.5 second of the final point in calibration");
+        if (time_diff_ts > 1.5) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1.5 second of the final point in calibration, found in %f seconds", time_diff_ts);
         // Set result
         result->success = false;
         goal_handle->abort(result);
@@ -173,9 +182,10 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     }
 
     // Calculate yaw offset
-    auto avg_imu_yaw = (yaw_initial + yaw_final) / 2.0;
+    auto avg_imu_yaw = addAngles((yaw_initial+yaw_final) / 2.0, 0);
     auto yaw_total_station = atan2(final_ts_point.y - init_ts_point.y, final_ts_point.x - init_ts_point.x);
     double new_yaw_offset = yaw_total_station - avg_imu_yaw;
+    new_yaw_offset = addAngles(new_yaw_offset, 0);
     if(goal->dont_move_rover == true)
     {
         // called from autodig, conservative update (only update if new offset is less than 15 degrees from old offset)
@@ -198,7 +208,7 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         this->yaw_offset_ = new_yaw_offset;
     }
 
-    RCLCPP_INFO(this->get_logger(), "Calibration complete, with yaw offset: %f", this->yaw_offset_);
+    RCLCPP_INFO(this->get_logger(), "Calibration complete, with yaw offset: %f, Avg IMU Yaw: %f, Yaw TS: %f", this->yaw_offset_, avg_imu_yaw, yaw_total_station);
     this->calibration_complete_ = true;
 
     // Set result
@@ -280,7 +290,7 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     double yaw, pitch, roll;
     tf2::getEulerYPR(imu_transformed.orientation, yaw, pitch, roll);
     tf2::Quaternion q_map_to_baselink;
-    q_map_to_baselink.setRPY(-roll, pitch, yaw+this->yaw_offset_);
+    q_map_to_baselink.setRPY(-roll, pitch, addAngles(yaw, this->yaw_offset_));
 
     // Get position of baselink in map frame 
     // NOTE: 
