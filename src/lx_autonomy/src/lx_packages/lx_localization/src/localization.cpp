@@ -237,7 +237,7 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     double yaw, pitch, roll;
     tf2::getEulerYPR(imu_transformed.orientation, yaw, pitch, roll);
     tf2::Quaternion q_map_to_baselink;
-    q_map_to_baselink.setRPY(roll, pitch, yaw+this->yaw_offset_);
+    q_map_to_baselink.setRPY(-roll, pitch, yaw+this->yaw_offset_);
 
     // Get position of baselink in map frame 
     // NOTE: 
