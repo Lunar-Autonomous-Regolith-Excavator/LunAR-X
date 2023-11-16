@@ -50,6 +50,7 @@ class VisualServoing : public rclcpp::Node
     private:
         // Variables & pointers -----------------
         bool debug_mode_;
+        bool transform_mode_; // if true, then projects the berm points to the current_berm_segment
         double tool_height_wrt_base_link_, tool_distance_wrt_base_link_;
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction

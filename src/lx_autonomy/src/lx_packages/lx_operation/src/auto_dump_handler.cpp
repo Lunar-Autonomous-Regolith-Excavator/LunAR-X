@@ -251,11 +251,11 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     }
 
     // sleep for 1 second to allow visual servoing to start
-    rclcpp::sleep_for(std::chrono::seconds(1));
+    rclcpp::sleep_for(std::chrono::seconds(3));
 
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
-
+    bool print_once = false;
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
         rclcpp::Time action_curr_time = this->get_clock()->now();
@@ -277,19 +277,27 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
             // If time since drum height message is more than 2 seconds, abort
             if(((action_curr_time - last_drum_height_msg_time).seconds() > 2))
             {
-                RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Autodig aborting due to timeout on drum height message");
+                RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Autodump aborting due to timeout on drum height message");
                 goal_handle->abort(result);
                 return;
             }
 
-            RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Executing predefined tool height correction");
+            if(print_once == false) 
+            {
+                RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Executing predefined tool height correction");
+                print_once = true;
+            }
             dx = 0;
             dy = 0;
             dz = drum_height_ - 0.3;
         }
         else // Execute visual servoing alignment
         {
-            RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Visual servoing");
+            if (print_once == false)
+            {
+                RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Executing visual servoing");
+                print_once = true;
+            }
             dx = visual_servo_error_.x;
             dy = -visual_servo_error_.y;
             dz = -visual_servo_error_.z;
@@ -310,9 +318,9 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         rover_cmd.mobility_twist.angular.z = yaw_vel;
         this->rover_auto_cmd_pub_->publish(rover_cmd);
         
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum: Error: %f, Command: %f", dz, drum_cmd);
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum: Error: %f, Command: %f", dz, drum_cmd);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
 
         if (abs(dz) < 0.02 && abs(dx) < 0.02 && abs(dy) < 0.03)
         {
@@ -345,6 +353,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
 
     // Dump!
     auto dump_start_time = this->get_clock()->now();
+    RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Dumping material");
     while (rclcpp::ok() && !goal_handle->is_canceling())
     {   
         // get time in ms
@@ -355,7 +364,6 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         }
         rover_cmd.drum_speed = DRUM_DUMP_SPEED;
         this->rover_auto_cmd_pub_->publish(rover_cmd);
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Dumping material");
         loop_rate.sleep();
     }
     // Set targets to 0 to stop the rover
@@ -374,7 +382,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         // If time since drum height message is more than 2 seconds, abort
         if(((curr_time - last_drum_height_msg_time).seconds() > 2))
         {
-            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Autodig aborting due to timeout on drum height message");
+            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Autodump aborting due to timeout on drum height message");
             goal_handle->abort(result);
             return;
         }
@@ -387,7 +395,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         rover_cmd.mobility_twist.linear.x = 0;
         this->rover_auto_cmd_pub_->publish(rover_cmd);
         
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum height: %f, Target: %f, Error: %f, Command: %f", drum_height_, END_TOOL_HEIGHT, drum_height_error, drum_pid_command);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum height: %f, Target: %f, Error: %f, Command: %f", drum_height_, END_TOOL_HEIGHT, drum_height_error, drum_pid_command);
         loop_rate.sleep();
 
         if (drum_height_error > 0.01)

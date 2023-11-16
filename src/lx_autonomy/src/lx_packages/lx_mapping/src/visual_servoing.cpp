@@ -78,6 +78,13 @@ void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Swi
                                         std::bind(&VisualServoing::pointCloudCallback, this, std::placeholders::_1));
         this->current_berm_segment = req->current_berm_segment;
         this->prev_berm_segment = req->prev_berm_segment;
+        // if all values in current_berm_segment are 0, set transform_mode_ to false
+        if(this->current_berm_segment.x == 0 && this->current_berm_segment.y == 0 && this->current_berm_segment.theta == 0){
+            transform_mode_ = false;
+        }
+        else{
+            transform_mode_ = true;
+        }
         node_state_ = true;
     }
     else{
@@ -535,9 +542,9 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             dist_to_prev_segment = sqrt(pow(target_point[0] - prev_segment_pose.pose.position.x, 2) + pow(target_point[1] - prev_segment_pose.pose.position.y, 2));
         }
 
-        if(dist_to_prev_segment>dist_to_curr_segment)
+        if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
         {
-            RCLCPP_INFO(this->get_logger(), "Current berm segment is closer to target point");
+            RCLCPP_INFO(this->get_logger(), "Servoing to detected berm");
             // calculate yaw error by projecting the direction vector into the x-y plane
             double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
             // shift yaw error to -pi/2 to pi/2
