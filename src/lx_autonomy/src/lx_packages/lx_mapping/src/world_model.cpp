@@ -205,45 +205,40 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     updateElevationWorldModel();
 }
 
+bool WorldModel::isPointInsideConcavePolygon(geometry_msgs::msg::Point32& point, const geometry_msgs::msg::Polygon& polygon) {
+    bool inside = false;
+    size_t i, j = polygon.points.size() - 1;
+
+    for (i = 0; i < polygon.points.size(); i++) {
+        if (((polygon.points[i].y > point.y) != (polygon.points[j].y > point.y)) &&
+            (point.x < (polygon.points[j].x - polygon.points[i].x) * (point.y - polygon.points[i].y) /
+                       (polygon.points[j].y - polygon.points[i].y) + polygon.points[i].x)) {
+            inside = !inside;
+        }
+        j = i;
+    }
+    return inside;
+}
 
 void WorldModel::buildRestrictedZonesWorldModel(){
 
-    geometry_msgs::msg::PointStamped restricted_zones[7];
+    geometry_msgs::msg::Polygon restricted_zones;
+    restricted_zones.points.resize(7);
+    
+    restricted_zones.points[0].x = 0.0; restricted_zones.points[0].y = 0.0; restricted_zones.points[0].z = 0.0;
+    restricted_zones.points[1].x = 8.0; restricted_zones.points[1].y = 0.0; restricted_zones.points[1].z = 0.0;
+    restricted_zones.points[2].x = 8.0; restricted_zones.points[2].y = 8.0; restricted_zones.points[2].z = 0.0;
+    restricted_zones.points[3].x = 7.0; restricted_zones.points[3].y = 8.0; restricted_zones.points[3].z = 0.0;
+    restricted_zones.points[4].x = 7.0; restricted_zones.points[4].y = 1.0; restricted_zones.points[4].z = 0.0;
+    restricted_zones.points[5].x = 0.0; restricted_zones.points[5].y = 1.0; restricted_zones.points[5].z = 0.0;
+    restricted_zones.points[6].x = 0.0; restricted_zones.points[6].y = 0.0; restricted_zones.points[6].z = 0.0;
 
-    for(size_t i = 0; i < 7; i++){
-        restricted_zones[i].header.frame_id = "map";
-    }
-    // populate restricted zones to form an L shape 
-    restricted_zones[0].point.x = 0.0; restricted_zones[0].point.y = 0.0; restricted_zones[0].point.z = 0.0;
-    restricted_zones[1].point.x = 7.0; restricted_zones[1].point.y = 0.0; restricted_zones[1].point.z = 0.0;
-    restricted_zones[2].point.x = 1.0; restricted_zones[2].point.y = 1.0; restricted_zones[2].point.z = 0.0;
-    restricted_zones[3].point.x = 8.0; restricted_zones[3].point.y = 1.0; restricted_zones[3].point.z = 0.0;
-    restricted_zones[4].point.x = 8.0; restricted_zones[4].point.y = 8.0; restricted_zones[4].point.z = 0.0;
-    restricted_zones[5].point.x = 0.0; restricted_zones[5].point.y = 8.0; restricted_zones[5].point.z = 0.0;
-    restricted_zones[6].point.x = 0.0; restricted_zones[6].point.y = 0.0; restricted_zones[6].point.z = 0.0;
-
-    // for all points inside restricted_zones, set zone_costmap_.data[i] = 100
-    for(size_t i = 0; i < zone_costmap_.data.size(); i++){
-        if(zone_costmap_.data[i] == 100){
-            continue;
-        }
-        // convert i to x,y
-        int col_x = i % zone_costmap_.info.width;
-        int row_y = i / zone_costmap_.info.width;
-        // convert x,y to world coordinates
-        double x = col_x*zone_costmap_.info.resolution + zone_costmap_.info.origin.position.x;
-        double y = row_y*zone_costmap_.info.resolution + zone_costmap_.info.origin.position.y;
-        // check if point is inside restricted_zones
-        if(x >= restricted_zones[0].point.x && x <= restricted_zones[1].point.x && y >= restricted_zones[0].point.y && y <= restricted_zones[2].point.y){
-            zone_costmap_.data[i] = 100;
-        }
-        else if(x >= restricted_zones[1].point.x && x <= restricted_zones[3].point.x && y >= restricted_zones[1].point.y && y <= restricted_zones[4].point.y){
-            zone_costmap_.data[i] = 100;
-        }
-        else if(x >= restricted_zones[3].point.x && x <= restricted_zones[5].point.x && y >= restricted_zones[3].point.y && y <= restricted_zones[5].point.y){
-            zone_costmap_.data[i] = 100;
-        }
-        else if(x >= restricted_zones[5].point.x && x <= restricted_zones[6].point.x && y >= restricted_zones[5].point.y && y <= restricted_zones[6].point.y){
+    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+        geometry_msgs::msg::Point32 point;
+        point.x = global_map_.info.origin.position.x + (i%global_map_.info.width)*global_map_.info.resolution;
+        point.y = global_map_.info.origin.position.y + (i/global_map_.info.width)*global_map_.info.resolution;
+        point.z = 0.0;
+        if(isPointInsideConcavePolygon(point, restricted_zones)){
             zone_costmap_.data[i] = 100;
         }
     }
