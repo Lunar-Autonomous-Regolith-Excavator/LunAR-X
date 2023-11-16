@@ -17,13 +17,19 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "lx_msgs/msg/node_diagnostics.hpp"
+#include "lx_msgs/action/calibrate_imu.hpp"
 
 class AutoDigHandler: public rclcpp::Node
 {
     private:
+        // IMU calibration action client
+        using CalibrateImu = lx_msgs::action::CalibrateImu;
+        rclcpp_action::Client<CalibrateImu>::SharedPtr calibrate_imu_action_client_;
+
         // Variables & pointers -----------------
         using AutoDig = lx_msgs::action::AutoDig;
         using GoalHandleAutoDig = rclcpp_action::ServerGoalHandle<AutoDig>;
+
         lx_msgs::msg::ToolInfo tool_info_msg_;
         double drum_height_ = 0;
         bool inner_PID_control_rover_ = false;
@@ -156,6 +162,12 @@ class AutoDigHandler: public rclcpp::Node
         * Diagnostic heartbeat published at a fixed rate
         * */
         void diagnosticPublish();
+
+
+        /*
+        * Call IMU calibration action
+        * */
+        void callLocalizationCalibration();
 
     public:
         // Functions
