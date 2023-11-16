@@ -34,12 +34,20 @@ WorldModel::WorldModel() : Node("world_model_node")
     // Initializing occupancy grid
     this->global_map_.data.resize(global_map_.info.width*global_map_.info.height);
     this->filtered_global_map_.data.resize(global_map_.info.width*global_map_.info.height);
+    this->elevation_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
+    this->world_model_.data.resize(global_map_.info.width*global_map_.info.height);
+    this->zone_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
+    this->traversibility_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
     for(size_t i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
         this->global_map_.data[i] = 0;
         this->filtered_global_map_.data[i] = 0;
     }
 
     RCLCPP_INFO(this->get_logger(), "World Model initialized");
+
+    buildRestrictedZonesWorldModel();
+
+
 }
 
 void WorldModel::setupCommunications(){
@@ -48,6 +56,7 @@ void WorldModel::setupCommunications(){
     global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map", 10);
     world_model_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/world_model", 10);
     filtered_global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/filtered_global_map", 10);
+    traversibility_costmap_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/traversibility_costmap", 10);
 
     // Servers
     map_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/map_switch", 
@@ -57,6 +66,8 @@ void WorldModel::setupCommunications(){
     // Transform Listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(1000), std::bind(&WorldModel::publishTraversibilityCostmap, this));
 }
 
 void WorldModel::configureMaps(){
@@ -75,9 +86,6 @@ void WorldModel::configureMaps(){
     elevation_costmap_.header.frame_id = "map";
     elevation_costmap_.info = global_map_.info;
 
-    slope_costmap_.header.frame_id = "map";
-    slope_costmap_.info = global_map_.info;
-
     berm_costmap_.header.frame_id = "map";
     berm_costmap_.info = global_map_.info;
 
@@ -86,6 +94,9 @@ void WorldModel::configureMaps(){
 
     world_model_.header.frame_id = "map";
     world_model_.info = global_map_.info;
+
+    traversibility_costmap_.header.frame_id = "map";
+    traversibility_costmap_.info = global_map_.info;
 
     // Initialize bayes filter
     for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
@@ -188,59 +199,131 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
         }
     }
     
-
-    // buildWorldModel();
-    // RCLCPP_INFO(this->get_logger(), "World Model built");
     filterMap();
-    // display that map is built but keep updating in the display
+    updateElevationWorldModel();
 
     global_map_publisher_->publish(global_map_);
 }
 
 
-void WorldModel::buildWorldModel(){
+void WorldModel::buildRestrictedZonesWorldModel(){
+    geometry_msgs::msg::PointStamped ts_zone[4], speaker_zone[4], safety_person_zone[4];
 
-    for(size_t i = 0; i < elevation_costmap_.data.size(); i++){
+    // ts_zone[0].header.frame_id = "map";
+    // ts_zone[1].header.frame_id = "map";
+    // ts_zone[2].header.frame_id = "map";
+    // ts_zone[3].header.frame_id = "map";
+    // ts_zone[0].point.x = 0.0; ts_zone[0].point.y = 0.0; ts_zone[0].point.z = 0.0;
+    // ts_zone[1].point.x = 1.0; ts_zone[1].point.y = 0.0; ts_zone[1].point.z = 0.0;
+    // ts_zone[2].point.x = 1.0; ts_zone[2].point.y = 1.0; ts_zone[2].point.z = 0.0;
+    // ts_zone[3].point.x = 0.0; ts_zone[3].point.y = 1.0; ts_zone[3].point.z = 0.0;
+
+    for(size_t i = 0; i < 4; i++){
+        ts_zone[i].header.frame_id = "map";
+        speaker_zone[i].header.frame_id = "map";
+        safety_person_zone[i].header.frame_id = "map";
+    }
+
+    auto neighbour_points = [](geometry_msgs::msg::PointStamped* points, double x, double y, double z){
+        points[0].point.x = x; points[0].point.y = y; points[0].point.z = z;
+        points[1].point.x = x+1.0; points[1].point.y = y; points[1].point.z = z;
+        points[2].point.x = x+1.0; points[2].point.y = y+1.0; points[2].point.z = z;
+        points[3].point.x = x; points[3].point.y = y+1.0; points[3].point.z = z;
+    };
+
+    neighbour_points(ts_zone, 0.0, 0.0, 0.0);
+    neighbour_points(speaker_zone, 4.0, 0.0, 0.0);
+    neighbour_points(safety_person_zone, 7.0, 4.0, 0.0);
+
+    // for all points inside ts_zone, set zone_costmap_.data[i] = 100
+    for(size_t i = 0; i < zone_costmap_.data.size(); i++){
+        if(zone_costmap_.data[i] == 100){
+            continue;
+        }
+        // convert i to x,y
+        int col_x = i % zone_costmap_.info.width;
+        int row_y = i / zone_costmap_.info.width;
+        // convert x,y to world coordinates
+        double x = col_x*zone_costmap_.info.resolution + zone_costmap_.info.origin.position.x;
+        double y = row_y*zone_costmap_.info.resolution + zone_costmap_.info.origin.position.y;
+        // check if point is inside ts_zone
+        if(x >= ts_zone[0].point.x && x <= ts_zone[1].point.x && y >= ts_zone[0].point.y && y <= ts_zone[3].point.y){
+            zone_costmap_.data[i] = 100;
+        }
+        else if(x >= speaker_zone[0].point.x && x <= speaker_zone[1].point.x && y >= speaker_zone[0].point.y && y <= speaker_zone[3].point.y){
+            zone_costmap_.data[i] = 100;
+        }
+        else if(x >= safety_person_zone[0].point.x && x <= safety_person_zone[1].point.x && y >= safety_person_zone[0].point.y && y <= safety_person_zone[3].point.y){
+            zone_costmap_.data[i] = 100;
+        }
+    }
+
+    updateTraversibilityCostmapWorldModel();
+}
+
+void WorldModel::updateTraversibilityCostmapWorldModel(){
+
+    //traversibility_costmap_ is same as zone_costmap_ for now
+    for(size_t i = 0; i < traversibility_costmap_.data.size(); i++){
+        traversibility_costmap_.data[i] = zone_costmap_.data[i];
+    }
+    RCLCPP_INFO(this->get_logger(), "Traversibility Costmap updated");
+}
+
+void WorldModel::publishTraversibilityCostmap(){
+    RCLCPP_INFO(this->get_logger(), "Traversibility Costmap published");
+    traversibility_costmap_publisher_->publish(traversibility_costmap_);
+}
+
+void WorldModel::updateBermZonesWorldModel(){
+
+}
+
+void WorldModel::updateElevationWorldModel(){
+
+    for(size_t i = 0; i < global_map_.data.size(); i++){
         if (global_map_.data[i] != 0 && global_map_.data[i] < 20){
             elevation_costmap_.data[i] = 100 - global_map_.data[i];
         }        
         else{
             elevation_costmap_.data[i] = 0;
         }
+        
     }
+    RCLCPP_INFO(this->get_logger(), "Elevation Costmap initialized");
     // int neighbour_deltas[8] = [-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1];
     int neighbour_deltas[8] = {-1, 1, -(int)global_map_.info.width, (int)global_map_.info.width, -(int)global_map_.info.width-1, -(int)global_map_.info.width+1, (int)global_map_.info.width-1, (int)global_map_.info.width+1};
 
-    for(size_t i=0; i<slope_costmap_.data.size(); i++){
-        double max_neighbour = -100, min_neighbour = 100;
-        for(size_t j=0;j<8;j++){
-            size_t neighbour_idx = i+neighbour_deltas[j];
-            if(neighbour_idx > slope_costmap_.data.size()){
-                continue;
-            }
-            else if(global_map_.data[neighbour_idx] == 0){
-                continue;
-            }   
-            if(global_map_.data[i+neighbour_deltas[j]] > max_neighbour){
-                max_neighbour = global_map_.data[i+neighbour_deltas[j]];
-            }
-            if(global_map_.data[i+neighbour_deltas[j]] < min_neighbour){
-                min_neighbour = global_map_.data[i+neighbour_deltas[j]];
-            }
-        }
-        if(max_neighbour == -100 || min_neighbour == 100){
-            slope_costmap_.data[i] = 0;
-        }
-        else{
-            slope_costmap_.data[i] = max_neighbour - min_neighbour;
-        }
-    }
+    // for(size_t i=0; i<slope_costmap_.data.size(); i++){
+    //     double max_neighbour = -100, min_neighbour = 100;
+    //     for(size_t j=0;j<8;j++){
+    //         size_t neighbour_idx = i+neighbour_deltas[j];
+    //         if(neighbour_idx > slope_costmap_.data.size()){
+    //             continue;
+    //         }
+    //         else if(global_map_.data[neighbour_idx] == 0){
+    //             continue;
+    //         }   
+    //         if(global_map_.data[i+neighbour_deltas[j]] > max_neighbour){
+    //             max_neighbour = global_map_.data[i+neighbour_deltas[j]];
+    //         }
+    //         if(global_map_.data[i+neighbour_deltas[j]] < min_neighbour){
+    //             min_neighbour = global_map_.data[i+neighbour_deltas[j]];
+    //         }
+    //     }
+    //     if(max_neighbour == -100 || min_neighbour == 100){
+    //         slope_costmap_.data[i] = 0;
+    //     }
+    //     else{
+    //         slope_costmap_.data[i] = max_neighbour - min_neighbour;
+    //     }
+    // }
     
-    for(size_t i=0;i<world_model_.data.size();i++){
-        world_model_.data[i] = std::max(elevation_costmap_.data[i], slope_costmap_.data[i]);
-    }
-    world_model_publisher_->publish(world_model_);
-
+    // for(size_t i=0;i<world_model_.data.size();i++){
+    //     world_model_.data[i] = std::max(elevation_costmap_.data[i], slope_costmap_.data[i]);
+    // }
+    // RCLCPP_INFO(this->get_logger(), "Slope Costmap initialized");
+    // world_model_publisher_->publish(elevation_costmap_);
 }
 
 

@@ -28,10 +28,10 @@ class WorldModel : public rclcpp::Node
         nav_msgs::msg::OccupancyGrid global_map_, 
                                      filtered_global_map_,
                                      elevation_costmap_, 
-                                     slope_costmap_, 
                                      berm_costmap_, 
                                      zone_costmap_, 
-                                     world_model_;
+                                     world_model_,
+                                     traversibility_costmap_;
 
         // Bayes Filter
         std::vector<BayesFilter> bayes_filter_;
@@ -46,8 +46,13 @@ class WorldModel : public rclcpp::Node
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr global_map_publisher_;
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr world_model_publisher_;
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr filtered_global_map_publisher_;
+        rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr traversibility_costmap_publisher_;
         // Servers
         rclcpp::Service<lx_msgs::srv::Switch>::SharedPtr map_switch_server_;
+
+        // Wall Timer
+        rclcpp::TimerBase::SharedPtr timer_;
+
         // --------------------------------------
 
         // Functions ----------------------------
@@ -92,11 +97,19 @@ class WorldModel : public rclcpp::Node
         *
         */
 
-        void buildWorldModel();
+        void updateElevationWorldModel();
 
         /*
         *
         * */
+
+        void buildRestrictedZonesWorldModel();
+
+        void updateTraversibilityCostmapWorldModel();
+
+        void updateBermZonesWorldModel();
+
+        void publishTraversibilityCostmap();
         // void buildSpecialZones(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     public:
