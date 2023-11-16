@@ -1,4 +1,4 @@
-std_msgs/Empty empty
+bool unused
 ---
 bool success
 ---

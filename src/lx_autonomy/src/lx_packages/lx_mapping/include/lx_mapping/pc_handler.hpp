@@ -29,6 +29,7 @@ class PointCloudHandler : public rclcpp::Node
         const double MAP_RESOLUTION = 0.05;
         const bool debug_mode_ = false;
         double tool_height_wrt_base_link_;
+        geometry_msgs::msg::TransformStamped cam2map_transform;
         // Transforms
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
