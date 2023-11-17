@@ -22,9 +22,10 @@ class WorldModel : public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
+        bool node_state_ = false; // state of the node
         const double MAP_DIMENSION = 8.0;
         const double MAP_RESOLUTION = 0.015;
-        const double ELEVATION_SCALE = 500;
+        const double ELEVATION_SCALE = 400;
         bool debug_mode_;
         nav_msgs::msg::OccupancyGrid global_map_, 
                                      filtered_global_map_,
@@ -121,6 +122,8 @@ class WorldModel : public rclcpp::Node
         void publishGlobalMap();
 
         bool isPointInsidePolygon(geometry_msgs::msg::Point32& , std::vector<geometry_msgs::msg::PointStamped> );
+
+        void setupInitialMaps();
 
     public:
         // Functions

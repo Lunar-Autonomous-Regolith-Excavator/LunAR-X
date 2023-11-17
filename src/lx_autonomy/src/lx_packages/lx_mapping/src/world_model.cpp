@@ -20,10 +20,13 @@
 
 #include "lx_mapping/world_model.hpp"
 
+#define GETMAXINDEX(x, y, width) ((y) * (width) + (x))
 
 WorldModel::WorldModel() : Node("world_model_node")
 {   
     debug_mode_ = false;
+
+    node_state_ = false;
 
     // Setup Communications
     setupCommunications();
@@ -36,9 +39,9 @@ WorldModel::WorldModel() : Node("world_model_node")
     this->filtered_global_map_.data.resize(global_map_.info.width*global_map_.info.height);
     this->elevation_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
     this->world_model_.data.resize(global_map_.info.width*global_map_.info.height);
-    this->zone_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
-    this->berm_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
-    this->traversibility_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
+    this->zone_costmap_.data.resize(zone_costmap_.info.width*zone_costmap_.info.height);
+    this->berm_costmap_.data.resize(berm_costmap_.info.width*berm_costmap_.info.height);
+    this->traversibility_costmap_.data.resize(traversibility_costmap_.info.width*traversibility_costmap_.info.height);
     for(size_t i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
         this->global_map_.data[i] = 0;
         this->filtered_global_map_.data[i] = 0;
@@ -46,24 +49,36 @@ WorldModel::WorldModel() : Node("world_model_node")
 
     RCLCPP_INFO(this->get_logger(), "World Model initialized");
 
-    // TODO: Make a service
-    std::vector<geometry_msgs::msg::PointStamped> default_restricted_zone;
-    default_restricted_zone.resize(5);
-    default_restricted_zone[0].point.x = 7.0; default_restricted_zone[0].point.y = 7.0; default_restricted_zone[0].point.z = 0.0;
-    default_restricted_zone[1].point.x = 8.0; default_restricted_zone[1].point.y = 7.0; default_restricted_zone[1].point.z = 0.0;
-    default_restricted_zone[2].point.x = 8.0; default_restricted_zone[2].point.y = 8.0; default_restricted_zone[2].point.z = 0.0;
-    default_restricted_zone[3].point.x = 7.0; default_restricted_zone[3].point.y = 8.0; default_restricted_zone[3].point.z = 0.0;
-    default_restricted_zone[4].point.x = 7.0; default_restricted_zone[4].point.y = 1.0; default_restricted_zone[4].point.z = 0.0;
-    buildRestrictedZonesWorldModel(default_restricted_zone);
+    setupInitialMaps();
+}
+
+void WorldModel::setupInitialMaps(){
+    for (int j = zone_costmap_.info.height - 1; j > zone_costmap_.info.height - 1 - 20; j--) {
+      for (int i = zone_costmap_.info.width - 1; i > zone_costmap_.info.width - 1 - 20; i--) {
+        zone_costmap_.data[GETMAXINDEX(i, j, zone_costmap_.info.width)] = 100;
+      }
+    }
+
+    // Make the borders of the map occupied
+    for (int i = 0; i < zone_costmap_.info.width; i++) {
+      zone_costmap_.data[GETMAXINDEX(i, 0, zone_costmap_.info.width)] = 100;
+      zone_costmap_.data[GETMAXINDEX(i, zone_costmap_.info.height - 1, zone_costmap_.info.width)] = 100;
+    }
+    for (int i = 0; i < zone_costmap_.info.height; i++) {
+      zone_costmap_.data[GETMAXINDEX(0, i, zone_costmap_.info.width)] = 100;
+      zone_costmap_.data[GETMAXINDEX(zone_costmap_.info.width - 1, i, zone_costmap_.info.width)] = 100;
+    }
+
     updateTraversibilityCostmapWorldModel();
+
 }
 
 void WorldModel::setupCommunications(){
 
     // Publishers
-    global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map2", 10);
+    global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map", 10);
     world_model_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/world_model", 10);
-    filtered_global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/filtered_global_map2", 10);
+    filtered_global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/filtered_global_map", 10);
     traversibility_costmap_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/traversibility_costmap", 10);
 
     // Servers
@@ -96,17 +111,30 @@ void WorldModel::configureMaps(){
     elevation_costmap_.header.frame_id = "map";
     elevation_costmap_.info = global_map_.info;
 
-    berm_costmap_.header.frame_id = "map";
-    berm_costmap_.info = global_map_.info;
-
+    // Set map properties
     zone_costmap_.header.frame_id = "map";
-    zone_costmap_.info = global_map_.info;
+    zone_costmap_.info.map_load_time = this->get_clock()->now();
+    zone_costmap_.info.resolution = 0.05;  // replace with your map resolution
+    zone_costmap_.info.width = 145;       // replace with your map width
+    zone_costmap_.info.height = 140;      // replace with your map height
+    zone_costmap_.info.origin.position.x = 0.1;  // replace with your map origin x
+    zone_costmap_.info.origin.position.y = 0.1;  // replace with your map origin y
+    // zone_costmap_.info.origin.position.x = -13;  // replace with your map origin x
+    // zone_costmap_.info.origin.position.y = -9;  // replace with your map origin y
+    zone_costmap_.info.origin.position.z = 0.0;
+    zone_costmap_.info.origin.orientation.x = 0.0;
+    zone_costmap_.info.origin.orientation.y = 0.0;
+    zone_costmap_.info.origin.orientation.z = 0.0;
+    zone_costmap_.info.origin.orientation.w = 1.0;
+
+    berm_costmap_.header.frame_id = "map";
+    berm_costmap_.info = zone_costmap_.info;
 
     world_model_.header.frame_id = "map";
     world_model_.info = global_map_.info;
 
     traversibility_costmap_.header.frame_id = "map";
-    traversibility_costmap_.info = global_map_.info;
+    traversibility_costmap_.info = zone_costmap_.info;
 
     // Initialize bayes filter
     for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
@@ -118,15 +146,19 @@ void WorldModel::configureMaps(){
 
 void WorldModel::mapSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
                                                 std::shared_ptr<lx_msgs::srv::Switch::Response> res){
-    if(req->switch_state){
+    if(req->switch_state && node_state_ == false){
+        RCLCPP_INFO(this->get_logger(), "Elevation mapping switched ON");
         // Subscribe to the Point cloud topic
         transformed_pcl_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
                                                                                     std::bind(&WorldModel::transformedPCLCallback, this, std::placeholders::_1));
 
         timer_global_map_ = this->create_wall_timer(std::chrono::milliseconds(1000), std::bind(&WorldModel::publishGlobalMap, this));
+        node_state_ = true;
     }
-    else{
+    else if (req->switch_state == false && node_state_ == true){
+        RCLCPP_INFO(this->get_logger(), "Elevation mapping switched OFF");
         transformed_pcl_subscriber_.reset();
+        node_state_ = false;
     }
     res->success = true;
 }
@@ -217,7 +249,7 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
 
         int global_idx = col_x + row_y*global_map_.info.width;
         double elev = cropped_cloud_local_map->points[i].z;
-        elevation_values[global_idx] += ELEVATION_SCALE*(elev-0.1);
+        elevation_values[global_idx] += ELEVATION_SCALE*(elev-0.05);
         density_values[global_idx] += 1.0;
     }
 
@@ -253,10 +285,10 @@ bool WorldModel::isPointInsidePolygon(geometry_msgs::msg::Point32& point, std::v
 
 void WorldModel::buildRestrictedZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> restricted_zone_coordinates){
 
-    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    for(size_t i = 0; i < zone_costmap_.info.width*zone_costmap_.info.height; i++){
         geometry_msgs::msg::Point32 point;
-        point.x = global_map_.info.origin.position.x + (i%global_map_.info.width)*global_map_.info.resolution;
-        point.y = global_map_.info.origin.position.y + (i/global_map_.info.width)*global_map_.info.resolution;
+        point.x = zone_costmap_.info.origin.position.x + (i%zone_costmap_.info.width)*zone_costmap_.info.resolution;
+        point.y = zone_costmap_.info.origin.position.y + (i/zone_costmap_.info.width)*zone_costmap_.info.resolution;
         point.z = 0.0;
         if(isPointInsidePolygon(point, restricted_zone_coordinates)){
             zone_costmap_.data[i] = 100;
@@ -284,15 +316,32 @@ void WorldModel::publishGlobalMap(){
 
 void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates){
 
-    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+    // berm_zone_coordinates is a vector of points that define the berm line segment. it is not a polygon. set berm_zone to 100 if point is within 0.3m of berm line
+    for(size_t i = 0; i < berm_costmap_.info.width*berm_costmap_.info.height; i++){
         geometry_msgs::msg::Point32 point;
-        point.x = global_map_.info.origin.position.x + (i%global_map_.info.width)*global_map_.info.resolution;
-        point.y = global_map_.info.origin.position.y + (i/global_map_.info.width)*global_map_.info.resolution;
+        point.x = berm_costmap_.info.origin.position.x + (i%berm_costmap_.info.width)*berm_costmap_.info.resolution;
+        point.y = berm_costmap_.info.origin.position.y + (i/berm_costmap_.info.width)*berm_costmap_.info.resolution;
         point.z = 0.0;
-        if(isPointInsidePolygon(point, berm_zone_coordinates)){
+        for(size_t j = 0; j < berm_zone_coordinates.size()-1; j++){
+            double x1 = berm_zone_coordinates[j].point.x;
+            double y1 = berm_zone_coordinates[j].point.y;
+            double x2 = berm_zone_coordinates[j+1].point.x;
+            double y2 = berm_zone_coordinates[j+1].point.y;
+            double dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
+            double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
+            if(dist < 0.3 && dist1 < 0.35){
+                berm_costmap_.data[i] = 100;
+                break;
+            }
+        }
+        double x1 = berm_zone_coordinates.back().point.x;
+        double y1 = berm_zone_coordinates.back().point.y;
+        double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
+        if(dist1 < 0.35){
             berm_costmap_.data[i] = 100;
         }
     }
+
 }
 
 

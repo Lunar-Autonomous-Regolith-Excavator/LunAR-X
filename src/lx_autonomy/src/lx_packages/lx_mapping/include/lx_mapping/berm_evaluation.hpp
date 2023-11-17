@@ -21,7 +21,7 @@ class BermEvaluation : public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        const double ELEVATION_SCALE = 500;
+        const double ELEVATION_SCALE = 400;
         std::vector<geometry_msgs::msg::PointStamped> requested_berm_points_;
         nav_msgs::msg::OccupancyGrid::SharedPtr map_;
         lx_msgs::msg::BermProgress berm_progress_;
@@ -30,7 +30,7 @@ class BermEvaluation : public rclcpp::Node
         // Publishers
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_1_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_2_publisher_;
-        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_evaluation_array_publisher_;
+        rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr berm_evaluation_array_publisher_;
         std::thread map_update_thread_, berm_evaluation_thread_;
         // Servers
         rclcpp::Service<lx_msgs::srv::BermService>::SharedPtr berm_points_server_;
@@ -65,7 +65,7 @@ class BermEvaluation : public rclcpp::Node
         *
         * */
 
-        visualization_msgs::msg::Marker createPillarMarker(float, float, float, int);
+        // visualization_msgs::msg::Marker createPillarMarker(float, float, float, int);
 
         void saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr);
 
