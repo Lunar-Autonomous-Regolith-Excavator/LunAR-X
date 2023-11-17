@@ -49,11 +49,11 @@ WorldModel::WorldModel() : Node("world_model_node")
     // TODO: Make a service
     std::vector<geometry_msgs::msg::PointStamped> default_restricted_zone;
     default_restricted_zone.resize(5);
-    default_restricted_zone[0].point.x = 0.0; default_restricted_zone[0].point.y = 0.0; default_restricted_zone[0].point.z = 0.0;
-    default_restricted_zone[1].point.x = 1.0; default_restricted_zone[1].point.y = 0.0; default_restricted_zone[1].point.z = 0.0;
-    default_restricted_zone[2].point.x = 1.0; default_restricted_zone[2].point.y = 1.0; default_restricted_zone[2].point.z = 0.0;
-    default_restricted_zone[3].point.x = 0.0; default_restricted_zone[3].point.y = 1.0; default_restricted_zone[3].point.z = 0.0;
-    default_restricted_zone[4].point.x = 0.0; default_restricted_zone[4].point.y = 0.0; default_restricted_zone[4].point.z= 0.0;
+    default_restricted_zone[0].point.x = 7.0; default_restricted_zone[0].point.y = 7.0; default_restricted_zone[0].point.z = 0.0;
+    default_restricted_zone[1].point.x = 8.0; default_restricted_zone[1].point.y = 7.0; default_restricted_zone[1].point.z = 0.0;
+    default_restricted_zone[2].point.x = 8.0; default_restricted_zone[2].point.y = 8.0; default_restricted_zone[2].point.z = 0.0;
+    default_restricted_zone[3].point.x = 7.0; default_restricted_zone[3].point.y = 8.0; default_restricted_zone[3].point.z = 0.0;
+    default_restricted_zone[4].point.x = 7.0; default_restricted_zone[4].point.y = 1.0; default_restricted_zone[4].point.z = 0.0;
     buildRestrictedZonesWorldModel(default_restricted_zone);
     updateTraversibilityCostmapWorldModel();
 }
