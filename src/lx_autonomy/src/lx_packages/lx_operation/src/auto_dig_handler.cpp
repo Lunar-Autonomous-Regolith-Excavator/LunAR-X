@@ -246,6 +246,7 @@ void AutoDigHandler::callLocalizationCalibration(){
     
     auto goal_msg = CalibrateImu::Goal();
     goal_msg.dont_move_rover = true;
+    goal_msg.time = 40;
 
     RCLCPP_INFO(this->get_logger(), "Calling localization calibration action with dont_move_rover = true");
 
