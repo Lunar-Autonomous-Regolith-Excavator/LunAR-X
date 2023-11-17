@@ -97,12 +97,6 @@ class WorldModel : public rclcpp::Node
         *
         */
 
-        void updateElevationWorldModel();
-
-        /*
-        *
-        * */
-
         void buildRestrictedZonesWorldModel();
 
         void updateTraversibilityCostmapWorldModel();
@@ -114,9 +108,6 @@ class WorldModel : public rclcpp::Node
         void publishGlobalMap();
 
         bool isPointInsideConcavePolygon(geometry_msgs::msg::Point32& , const geometry_msgs::msg::Polygon& );
-
-
-        // void buildSpecialZones(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     public:
         // Functions

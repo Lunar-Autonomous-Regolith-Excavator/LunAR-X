@@ -37,6 +37,7 @@ WorldModel::WorldModel() : Node("world_model_node")
     this->elevation_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
     this->world_model_.data.resize(global_map_.info.width*global_map_.info.height);
     this->zone_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
+    this->berm_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
     this->traversibility_costmap_.data.resize(global_map_.info.width*global_map_.info.height);
     for(size_t i = 0; i < this->global_map_.info.width*this->global_map_.info.height; i++){
         this->global_map_.data[i] = 0;
@@ -45,8 +46,10 @@ WorldModel::WorldModel() : Node("world_model_node")
 
     RCLCPP_INFO(this->get_logger(), "World Model initialized");
 
+    // TODO: Make a service
     buildRestrictedZonesWorldModel();
-
+    updateBermZonesWorldModel();
+    updateTraversibilityCostmapWorldModel();
 
 }
 
@@ -202,7 +205,6 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     }
     
     filterMap();
-    updateElevationWorldModel();
 }
 
 bool WorldModel::isPointInsideConcavePolygon(geometry_msgs::msg::Point32& point, const geometry_msgs::msg::Polygon& polygon) {
@@ -242,15 +244,12 @@ void WorldModel::buildRestrictedZonesWorldModel(){
             zone_costmap_.data[i] = 100;
         }
     }
-
-    updateTraversibilityCostmapWorldModel();
 }
 
 void WorldModel::updateTraversibilityCostmapWorldModel(){
 
-    //traversibility_costmap_ is same as zone_costmap_ for now
     for(size_t i = 0; i < traversibility_costmap_.data.size(); i++){
-        traversibility_costmap_.data[i] = zone_costmap_.data[i];
+        traversibility_costmap_.data[i] = std::max(berm_costmap_.data[i], zone_costmap_.data[i]);
     }
     RCLCPP_INFO(this->get_logger(), "Traversibility Costmap updated");
 }
@@ -267,53 +266,24 @@ void WorldModel::publishGlobalMap(){
 
 void WorldModel::updateBermZonesWorldModel(){
 
-}
-
-void WorldModel::updateElevationWorldModel(){
-
-    for(size_t i = 0; i < global_map_.data.size(); i++){
-        if (global_map_.data[i] != 0 && global_map_.data[i] < 20){
-            elevation_costmap_.data[i] = 100 - global_map_.data[i];
-        }        
-        else{
-            elevation_costmap_.data[i] = 0;
-        }
-        
-    }
-    RCLCPP_INFO(this->get_logger(), "Elevation Costmap initialized");
-    // int neighbour_deltas[8] = [-1, 1, -global_map_.info.width, global_map_.info.width, -global_map_.info.width-1, -global_map_.info.width+1, global_map_.info.width-1, global_map_.info.width+1];
-    int neighbour_deltas[8] = {-1, 1, -(int)global_map_.info.width, (int)global_map_.info.width, -(int)global_map_.info.width-1, -(int)global_map_.info.width+1, (int)global_map_.info.width-1, (int)global_map_.info.width+1};
-
-    // for(size_t i=0; i<slope_costmap_.data.size(); i++){
-    //     double max_neighbour = -100, min_neighbour = 100;
-    //     for(size_t j=0;j<8;j++){
-    //         size_t neighbour_idx = i+neighbour_deltas[j];
-    //         if(neighbour_idx > slope_costmap_.data.size()){
-    //             continue;
-    //         }
-    //         else if(global_map_.data[neighbour_idx] == 0){
-    //             continue;
-    //         }   
-    //         if(global_map_.data[i+neighbour_deltas[j]] > max_neighbour){
-    //             max_neighbour = global_map_.data[i+neighbour_deltas[j]];
-    //         }
-    //         if(global_map_.data[i+neighbour_deltas[j]] < min_neighbour){
-    //             min_neighbour = global_map_.data[i+neighbour_deltas[j]];
-    //         }
-    //     }
-    //     if(max_neighbour == -100 || min_neighbour == 100){
-    //         slope_costmap_.data[i] = 0;
-    //     }
-    //     else{
-    //         slope_costmap_.data[i] = max_neighbour - min_neighbour;
-    //     }
-    // }
+    geometry_msgs::msg::Polygon berm_zones;
+    berm_zones.points.resize(5);
     
-    // for(size_t i=0;i<world_model_.data.size();i++){
-    //     world_model_.data[i] = std::max(elevation_costmap_.data[i], slope_costmap_.data[i]);
-    // }
-    // RCLCPP_INFO(this->get_logger(), "Slope Costmap initialized");
-    // world_model_publisher_->publish(elevation_costmap_);
+    berm_zones.points[0].x = 3.0; berm_zones.points[0].y = 3.0; berm_zones.points[0].z = 0.0;
+    berm_zones.points[1].x = 3.0; berm_zones.points[1].y = 4.0; berm_zones.points[1].z = 0.0;
+    berm_zones.points[2].x = 5.0; berm_zones.points[2].y = 4.0; berm_zones.points[2].z = 0.0;
+    berm_zones.points[3].x = 5.0; berm_zones.points[3].y = 3.0; berm_zones.points[3].z = 0.0;
+    berm_zones.points[4].x = 3.0; berm_zones.points[4].y = 3.0; berm_zones.points[4].z = 0.0;
+
+    for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
+        geometry_msgs::msg::Point32 point;
+        point.x = global_map_.info.origin.position.x + (i%global_map_.info.width)*global_map_.info.resolution;
+        point.y = global_map_.info.origin.position.y + (i/global_map_.info.width)*global_map_.info.resolution;
+        point.z = 0.0;
+        if(isPointInsideConcavePolygon(point, berm_zones)){
+            berm_costmap_.data[i] = 100;
+        }
+    }
 }
 
 
