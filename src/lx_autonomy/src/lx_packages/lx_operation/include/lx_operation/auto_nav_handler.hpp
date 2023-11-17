@@ -42,6 +42,9 @@ class AutoNavHandler: public rclcpp::Node
         builtin_interfaces::msg::Duration estimated_time_remaining_;
         int number_of_recoveries_;
         double distance_remaining_;
+        // PID
+        nav_msgs::msg::Odometry current_odom_pose_;
+
         // Subscriber for cmd_vel_nav
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_nav_sub_;
         // Publisher for rover auto command
@@ -144,6 +147,29 @@ class AutoNavHandler: public rclcpp::Node
         // Constants
         static constexpr double MAX_DURATION = 180.0; // seconds
         static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.7; // meters
+};
+
+// Class for PID
+class PID{
+    public:
+        double kp, ki, kd;
+        double CLIP_MIN, CLIP_MAX;
+        double prev_error = 0, integral_error = 0;
+        PID(pid_struct gains, double CLIP_MIN, double CLIP_MAX){
+            this->kp = gains.kp;
+            this->ki = gains.ki;
+            this->kd = gains.kd;
+            this->CLIP_MIN = CLIP_MIN;
+            this->CLIP_MAX = CLIP_MAX;
+        }
+        double getCommand(double error)
+        {
+            double pid_command = kp*error + ki*integral_error + kd*(error - prev_error);
+            prev_error = error;
+            integral_error += error;
+            pid_command = std::min(std::max(pid_command, CLIP_MIN), CLIP_MAX);
+            return pid_command;
+        }
 };
 
 #endif
