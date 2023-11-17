@@ -16,6 +16,7 @@
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 #include <thread>
 #include <vector>
+#include "lx_msgs/srv/request_rover_service.hpp"
 
 class WorldModel : public rclcpp::Node
 {
@@ -40,7 +41,7 @@ class WorldModel : public rclcpp::Node
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
         // Subscribers
-        std::thread fuse_map_thread_;
+        std::thread fuse_map_thread_, update_traversibility_thread_;
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr transformed_pcl_subscriber_;
         // Publishers
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr global_map_publisher_;
@@ -49,6 +50,7 @@ class WorldModel : public rclcpp::Node
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr traversibility_costmap_publisher_;
         // Servers
         rclcpp::Service<lx_msgs::srv::Switch>::SharedPtr map_switch_server_;
+        rclcpp::Service<lx_msgs::srv::RequestRoverService>::SharedPtr world_model_points_server_;
 
         // Wall Timer
         rclcpp::TimerBase::SharedPtr timer_traversibility_costmap_, timer_global_map_;
@@ -86,6 +88,17 @@ class WorldModel : public rclcpp::Node
         /*
         *
         * */
+
+        void updateTraversibilityCostmapCallback(const std::shared_ptr<lx_msgs::srv::RequestRoverService::Request> ,
+                                std::shared_ptr<lx_msgs::srv::RequestRoverService::Response> );
+
+        /*
+        *
+        * */
+
+        void requestedPointsCallback(const std::shared_ptr<lx_msgs::srv::RequestRoverService::Request> ,
+                                std::shared_ptr<lx_msgs::srv::RequestRoverService::Response> );
+
         void fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr );
 
         /*
@@ -97,17 +110,17 @@ class WorldModel : public rclcpp::Node
         *
         */
 
-        void buildRestrictedZonesWorldModel();
+        void buildRestrictedZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> );
 
         void updateTraversibilityCostmapWorldModel();
 
-        void updateBermZonesWorldModel();
+        void updateBermZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> );
 
         void publishTraversibilityCostmap();
 
         void publishGlobalMap();
 
-        bool isPointInsideConcavePolygon(geometry_msgs::msg::Point32& , const geometry_msgs::msg::Polygon& );
+        bool isPointInsidePolygon(geometry_msgs::msg::Point32& , std::vector<geometry_msgs::msg::PointStamped> );
 
     public:
         // Functions

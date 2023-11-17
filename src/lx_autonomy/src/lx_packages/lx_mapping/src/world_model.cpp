@@ -47,10 +47,15 @@ WorldModel::WorldModel() : Node("world_model_node")
     RCLCPP_INFO(this->get_logger(), "World Model initialized");
 
     // TODO: Make a service
-    buildRestrictedZonesWorldModel();
-    updateBermZonesWorldModel();
+    std::vector<geometry_msgs::msg::PointStamped> default_restricted_zone;
+    default_restricted_zone.resize(5);
+    default_restricted_zone[0].point.x = 0.0; default_restricted_zone[0].point.y = 0.0; default_restricted_zone[0].point.z = 0.0;
+    default_restricted_zone[1].point.x = 1.0; default_restricted_zone[1].point.y = 0.0; default_restricted_zone[1].point.z = 0.0;
+    default_restricted_zone[2].point.x = 1.0; default_restricted_zone[2].point.y = 1.0; default_restricted_zone[2].point.z = 0.0;
+    default_restricted_zone[3].point.x = 0.0; default_restricted_zone[3].point.y = 1.0; default_restricted_zone[3].point.z = 0.0;
+    default_restricted_zone[4].point.x = 0.0; default_restricted_zone[4].point.y = 0.0; default_restricted_zone[4].point.z= 0.0;
+    buildRestrictedZonesWorldModel(default_restricted_zone);
     updateTraversibilityCostmapWorldModel();
-
 }
 
 void WorldModel::setupCommunications(){
@@ -65,7 +70,9 @@ void WorldModel::setupCommunications(){
     map_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/map_switch", 
                                                             std::bind(&WorldModel::mapSwitchCallback, 
                                                             this, std::placeholders::_1, std::placeholders::_2));
-
+    world_model_points_server_ = this->create_service<lx_msgs::srv::RequestRoverService>("world_model/requested_points",
+                                                            std::bind(&WorldModel::requestedPointsCallback, 
+                                                            this, std::placeholders::_1, std::placeholders::_2));
     // Transform Listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -121,6 +128,23 @@ void WorldModel::mapSwitchCallback(const std::shared_ptr<lx_msgs::srv::Switch::R
     else{
         transformed_pcl_subscriber_.reset();
     }
+    res->success = true;
+}
+
+void WorldModel::requestedPointsCallback(const std::shared_ptr<lx_msgs::srv::RequestRoverService::Request> req,
+                                                std::shared_ptr<lx_msgs::srv::RequestRoverService::Response> res){
+    update_traversibility_thread_ = std::thread(std::bind(&WorldModel::updateTraversibilityCostmapCallback, this, req, res));
+
+    update_traversibility_thread_.detach();
+}
+
+void WorldModel::updateTraversibilityCostmapCallback(const std::shared_ptr<lx_msgs::srv::RequestRoverService::Request> req,
+                                                std::shared_ptr<lx_msgs::srv::RequestRoverService::Response> res){
+                                                
+    buildRestrictedZonesWorldModel(req->restricted_zone_coordinates);
+    updateBermZonesWorldModel(req->berm.berm_configuration);
+    updateTraversibilityCostmapWorldModel();
+
     res->success = true;
 }
 
@@ -207,40 +231,34 @@ void WorldModel::fuseMap(const sensor_msgs::msg::PointCloud2::SharedPtr msg)  {
     filterMap();
 }
 
-bool WorldModel::isPointInsideConcavePolygon(geometry_msgs::msg::Point32& point, const geometry_msgs::msg::Polygon& polygon) {
+bool WorldModel::isPointInsidePolygon(geometry_msgs::msg::Point32& point, std::vector<geometry_msgs::msg::PointStamped> polygon){
     bool inside = false;
-    size_t i, j = polygon.points.size() - 1;
+    size_t i, j = polygon.size() - 1;
 
-    for (i = 0; i < polygon.points.size(); i++) {
-        if (((polygon.points[i].y > point.y) != (polygon.points[j].y > point.y)) &&
-            (point.x < (polygon.points[j].x - polygon.points[i].x) * (point.y - polygon.points[i].y) /
-                       (polygon.points[j].y - polygon.points[i].y) + polygon.points[i].x)) {
+    if(polygon.size() < 3){
+        return false;
+    }
+
+    for (i = 0; i < polygon.size(); i++) {
+        if (((polygon[i].point.y > point.y) != (polygon[j].point.y > point.y)) &&
+            (point.x < (polygon[j].point.x - polygon[i].point.x) * (point.y - polygon[i].point.y) /
+                       (polygon[j].point.y - polygon[i].point.y) + polygon[i].point.x)) {
             inside = !inside;
         }
         j = i;
     }
+
     return inside;
 }
 
-void WorldModel::buildRestrictedZonesWorldModel(){
-
-    geometry_msgs::msg::Polygon restricted_zones;
-    restricted_zones.points.resize(7);
-    
-    restricted_zones.points[0].x = 0.0; restricted_zones.points[0].y = 0.0; restricted_zones.points[0].z = 0.0;
-    restricted_zones.points[1].x = 8.0; restricted_zones.points[1].y = 0.0; restricted_zones.points[1].z = 0.0;
-    restricted_zones.points[2].x = 8.0; restricted_zones.points[2].y = 8.0; restricted_zones.points[2].z = 0.0;
-    restricted_zones.points[3].x = 7.0; restricted_zones.points[3].y = 8.0; restricted_zones.points[3].z = 0.0;
-    restricted_zones.points[4].x = 7.0; restricted_zones.points[4].y = 1.0; restricted_zones.points[4].z = 0.0;
-    restricted_zones.points[5].x = 0.0; restricted_zones.points[5].y = 1.0; restricted_zones.points[5].z = 0.0;
-    restricted_zones.points[6].x = 0.0; restricted_zones.points[6].y = 0.0; restricted_zones.points[6].z = 0.0;
+void WorldModel::buildRestrictedZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> restricted_zone_coordinates){
 
     for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         geometry_msgs::msg::Point32 point;
         point.x = global_map_.info.origin.position.x + (i%global_map_.info.width)*global_map_.info.resolution;
         point.y = global_map_.info.origin.position.y + (i/global_map_.info.width)*global_map_.info.resolution;
         point.z = 0.0;
-        if(isPointInsideConcavePolygon(point, restricted_zones)){
+        if(isPointInsidePolygon(point, restricted_zone_coordinates)){
             zone_costmap_.data[i] = 100;
         }
     }
@@ -264,23 +282,14 @@ void WorldModel::publishGlobalMap(){
     // world_model_publisher_->publish(world_model_);
 }
 
-void WorldModel::updateBermZonesWorldModel(){
-
-    geometry_msgs::msg::Polygon berm_zones;
-    berm_zones.points.resize(5);
-    
-    berm_zones.points[0].x = 3.0; berm_zones.points[0].y = 3.0; berm_zones.points[0].z = 0.0;
-    berm_zones.points[1].x = 3.0; berm_zones.points[1].y = 4.0; berm_zones.points[1].z = 0.0;
-    berm_zones.points[2].x = 5.0; berm_zones.points[2].y = 4.0; berm_zones.points[2].z = 0.0;
-    berm_zones.points[3].x = 5.0; berm_zones.points[3].y = 3.0; berm_zones.points[3].z = 0.0;
-    berm_zones.points[4].x = 3.0; berm_zones.points[4].y = 3.0; berm_zones.points[4].z = 0.0;
+void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates){
 
     for(size_t i = 0; i < global_map_.info.width*global_map_.info.height; i++){
         geometry_msgs::msg::Point32 point;
         point.x = global_map_.info.origin.position.x + (i%global_map_.info.width)*global_map_.info.resolution;
         point.y = global_map_.info.origin.position.y + (i/global_map_.info.width)*global_map_.info.resolution;
         point.z = 0.0;
-        if(isPointInsideConcavePolygon(point, berm_zones)){
+        if(isPointInsidePolygon(point, berm_zone_coordinates)){
             berm_costmap_.data[i] = 100;
         }
     }
