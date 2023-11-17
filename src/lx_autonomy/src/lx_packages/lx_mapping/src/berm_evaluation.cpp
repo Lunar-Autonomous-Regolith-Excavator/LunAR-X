@@ -113,6 +113,15 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
     marker_msg.color.g = 1.0;
     marker_msg.color.b = 0.0;
 
+    int num_bins_per_section = 0.4 / (this->map_->info.resolution * 1.414);
+    RCLCPP_INFO(this->get_logger(), "Num bins per section: %d", num_bins_per_section);
+
+    std::vector<double> berm_heights_bins(requested_berm_points_.size()*num_bins_per_section, 0);
+    std::vector<double> sum_weighted_dist_bins(requested_berm_points_.size()*num_bins_per_section, 0);
+    std::vector<double> sum_heights_bins(requested_berm_points_.size()*num_bins_per_section, 0.0001);
+
+    double peakline_length = 0;
+    double peakline_error = 0;
 
     for(size_t i = 0; i < requested_berm_points_.size()-1; i++){
 
@@ -148,8 +157,6 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
                 sum_ground_height += this->map_->data[j];
                 num_points_in_region++;
             }
-
-
         }
 
         double mean_ground_height = sum_ground_height/num_points_in_region;
@@ -159,9 +166,24 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
             double x = (j%this->map_->info.width)*this->map_->info.resolution;
             double y = (j/this->map_->info.width)*this->map_->info.resolution;
             double dist = sqrt(pow(x - midpoint.x, 2) + pow(y - midpoint.y, 2));
-            if(dist < 0.2){
+            if(dist < 0.3){
                 if(this->map_->data[j] > max){
                     max = this->map_->data[j];
+                }
+
+                // project the point onto the line joining the two berm_marker_points 1 and 2 and find the distance from berm_marker_point 1
+                double x_proj = (m*(y - m*x) + m*m*berm_marker_1_point.x + x)/(m*m + 1);
+                double y_proj = (m*m*(y - m*x) + m*berm_marker_1_point.x + y)/(m*m + 1);
+                double parallel_dist = (x_proj - berm_marker_1_point.x)*sqrt(pow(m, 2) + 1);
+                double perpendicular_dist = (m*x - y + c)/sqrt(pow(m, 2) + 1);
+                int bin = parallel_dist/(this->map_->info.resolution * 1.414);
+
+                if(bin < num_bins_per_section){
+                    if(this->map_->data[j] > berm_heights_bins[i*num_bins_per_section + bin]){
+                        berm_heights_bins[i*num_bins_per_section + bin] = this->map_->data[j];
+                    }
+                    sum_weighted_dist_bins[i*num_bins_per_section + bin] += this->map_->data[j]*perpendicular_dist;
+                    sum_heights_bins[i*num_bins_per_section + bin] += this->map_->data[j];
                 }
             }
         }
@@ -170,7 +192,7 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
         auto berm_height = (max - mean_ground_height)/ELEVATION_SCALE;
 
         // print the heights
-        RCLCPP_INFO(this->get_logger(), "Height at point %d: %f, percent: %f", (int)i, berm_height, 100*berm_height/0.15);
+        RCLCPP_INFO(this->get_logger(), "Height at point %d: %f, percent: %f", (int)i, berm_height, 100*berm_height/DESIRED_BERM_HEIGHT_M);
 
         marker_msg.id = i;
         marker_msg.pose.position.x = midpoint.x;
@@ -191,6 +213,20 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
         berm_progress_.heights.push_back(berm_height);
     }
 
+    
+    for(size_t i = 0; i < berm_heights_bins.size(); i++){
+        if(berm_heights_bins[i] >= 0.9*DESIRED_BERM_HEIGHT_M){
+            peakline_length += this->map_->info.resolution * 1.414;
+        }
+        peakline_error += pow(sum_weighted_dist_bins[i]/sum_heights_bins[i], 2);
+    }
+    peakline_error = sqrt(peakline_error)/num_bins_per_section;
+
+    berm_progress_.length = peakline_length;
+    berm_progress_.peakline_error = peakline_error;
+
+    RCLCPP_INFO(this->get_logger(), "Peakline length: %f, Peakline error: %f", peakline_length, peakline_error);
+    
     berm_evaluation_array_publisher_->publish(marker_array_msg);
 
     res->progress = berm_progress_;

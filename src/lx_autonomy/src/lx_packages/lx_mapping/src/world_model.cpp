@@ -53,18 +53,18 @@ WorldModel::WorldModel() : Node("world_model_node")
 }
 
 void WorldModel::setupInitialMaps(){
-    for (int j = zone_costmap_.info.height - 1; j > zone_costmap_.info.height - 1 - 20; j--) {
-      for (int i = zone_costmap_.info.width - 1; i > zone_costmap_.info.width - 1 - 20; i--) {
+    for (size_t j = zone_costmap_.info.height - 1; j > zone_costmap_.info.height - 1 - 20; j--) {
+      for (size_t i = zone_costmap_.info.width - 1; i > zone_costmap_.info.width - 1 - 20; i--) {
         zone_costmap_.data[GETMAXINDEX(i, j, zone_costmap_.info.width)] = 100;
       }
     }
 
     // Make the borders of the map occupied
-    for (int i = 0; i < zone_costmap_.info.width; i++) {
+    for (size_t i = 0; i < zone_costmap_.info.width; i++) {
       zone_costmap_.data[GETMAXINDEX(i, 0, zone_costmap_.info.width)] = 100;
       zone_costmap_.data[GETMAXINDEX(i, zone_costmap_.info.height - 1, zone_costmap_.info.width)] = 100;
     }
-    for (int i = 0; i < zone_costmap_.info.height; i++) {
+    for (size_t i = 0; i < zone_costmap_.info.height; i++) {
       zone_costmap_.data[GETMAXINDEX(0, i, zone_costmap_.info.width)] = 100;
       zone_costmap_.data[GETMAXINDEX(zone_costmap_.info.width - 1, i, zone_costmap_.info.width)] = 100;
     }
