@@ -9,7 +9,7 @@
  * - Summary
  * 
  * TODO
- * - Add todos
+ * - Cancel condition
  * */
 
 #include "lx_operation/auto_nav_handler.hpp"
@@ -230,6 +230,91 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Publish 0 rover command to stop rover
     lx_msgs::msg::RoverCommand rov_cmd;
     rover_cmd_pub_->publish(rov_cmd);
+
+    // CODE COPIED FROM AUTO DUMP
+    /*
+     * TODO:
+     * Correct for yaw error: Subscribe to odometry and get current yaw, target yaw get from this->goal_pose_, and use PID to correct
+    */
+    // rclcpp::Rate loop_rate(10);
+    
+    // while(rclcpp::ok() && !goal_handle->is_canceling())
+    // {
+    //     rclcpp::Time action_curr_time = this->get_clock()->now();
+    //     // Abort action if no tool info message recieved in last 2 seconds
+    //     if(((action_curr_time - servoing_msg_time).seconds() > 2) && exec_visual_servoing == true)
+    //     {
+    //         RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Alignment aborted due to no visual servoing message timeout");
+    //         // Stop visual servoing
+    //         if(!callVisualServoSwitch(false)){
+    //             RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to SWITCH OFF visual servoing");
+    //         }
+    //         exec_visual_servoing = false; // as aborted, set to false
+    //     }
+
+    //     double dx=0, dy=0, dz=0;
+    //     // Skip x and y control if first op dump
+    //     if(exec_visual_servoing == false) // Execute a hard coded dump
+    //     {
+    //         // If time since drum height message is more than 2 seconds, abort
+    //         if(((action_curr_time - last_drum_height_msg_time).seconds() > 2))
+    //         {
+    //             RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Autodump aborting due to timeout on drum height message");
+    //             goal_handle->abort(result);
+    //             return;
+    //         }
+
+    //         if(print_once == false) 
+    //         {
+    //             RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Executing predefined tool height correction");
+    //             print_once = true;
+    //         }
+    //         dx = 0;
+    //         dy = 0;
+    //         dz = drum_height_ - 0.3;
+    //     }
+    //     else // Execute visual servoing alignment
+    //     {
+    //         if (print_once == false)
+    //         {
+    //             RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Executing visual servoing");
+    //             print_once = true;
+    //         }
+    //         dx = visual_servo_error_.x;
+    //         dy = -visual_servo_error_.y;
+    //         dz = -visual_servo_error_.z;
+    //     }
+    //     double drum_cmd, x_vel, yaw_vel;
+    //     if(abs(dx) < 0.02){x_vel = 0;}
+    //     else{x_vel = pid_x.getCommand(dx);}
+
+    //     if(abs(dy) < 0.03){yaw_vel = 0;}
+    //     else{yaw_vel = pid_yaw.getCommand(dy);}
+
+    //     if (abs(dz) < 0.02) {drum_cmd = 0;}
+    //     else{drum_cmd = pid_height.getCommand(dz);}
+
+    //     // Publish to rover
+    //     rover_cmd.actuator_speed =  drum_cmd;
+    //     rover_cmd.mobility_twist.linear.x = x_vel;
+    //     rover_cmd.mobility_twist.angular.z = yaw_vel;
+    //     this->rover_auto_cmd_pub_->publish(rover_cmd);
+        
+    //     // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum: Error: %f, Command: %f", dz, drum_cmd);
+    //     // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
+    //     // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
+
+    //     if (abs(dz) < 0.02 && abs(dx) < 0.02 && abs(dy) < 0.03)
+    //     {
+    //         RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Reached targets");
+    //         break;
+    //     }
+
+    //     loop_rate.sleep();
+    // }
+    // // Set targets to 0 to stop the rover
+    // rover_cmd.actuator_speed = 0;
+    // rover_cmd.mobility_twist.linear.x = 0;
 
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {
