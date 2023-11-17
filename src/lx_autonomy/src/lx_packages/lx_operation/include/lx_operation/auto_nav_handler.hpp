@@ -36,12 +36,20 @@ class AutoNavHandler: public rclcpp::Node
         // Goal Pose
         geometry_msgs::msg::PoseStamped goal_pose_;
         int next_action_;
+        // Rover Current State
+        geometry_msgs::msg::PoseStamped rover_current_pose_;
+        geometry_msgs::msg::Twist rover_cmd_vel_;
         // Nav2 Action Feedback
-        geometry_msgs::msg::PoseStamped current_pose_;
+        geometry_msgs::msg::PoseStamped nav2_current_pose_;
         builtin_interfaces::msg::Duration navigation_time_;
         builtin_interfaces::msg::Duration estimated_time_remaining_;
         int number_of_recoveries_;
         double distance_remaining_;
+
+        // Subscriber for rover current pose
+        rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr rover_current_pose_sub_;
+        // Subscriber for cmd_vel
+        rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
         // Subscriber for cmd_vel_nav
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_nav_sub_;
         // Publisher for rover auto command
@@ -129,6 +137,11 @@ class AutoNavHandler: public rclcpp::Node
         // Function to remap cmd_vel_nav to rover_cmd
         void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr );
 
+        // Functions for rover state subscriber callbacks
+        void roverCurrentPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr );
+
+        void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr );
+
     public:
         // Functions
         /*
@@ -144,6 +157,13 @@ class AutoNavHandler: public rclcpp::Node
         // Constants
         static constexpr double MAX_DURATION = 180.0; // seconds
         static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.7; // meters
+
+        // PID Parameters for Yaw Control
+        static constexpr double YAW_TOLERANCE = 5 * M_PI / 180; // radians
+        static constexpr double YAW_KP = 8;
+        static constexpr double YAW_KI = 0.001;
+        static constexpr double YAW_KD = 0.6;
+        static constexpr double YAW_VEL_MAX = 0.05; // radians per second
 };
 
 #endif
