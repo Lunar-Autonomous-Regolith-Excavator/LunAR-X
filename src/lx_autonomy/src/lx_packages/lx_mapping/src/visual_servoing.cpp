@@ -61,6 +61,10 @@ void VisualServoing::setupCommunications(){
     // Servers
     visual_servo_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/visual_servo_switch", 
                         std::bind(&VisualServoing::startStopVSCallback, this, std::placeholders::_1, std::placeholders::_2));
+    
+    // TF
+    this->tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    this->tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*this->tf_buffer_, this, true);
 }
 
 void VisualServoing::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr msg){
@@ -73,7 +77,9 @@ void VisualServoing::toolDistanceCallback(const std_msgs::msg::Float64::SharedPt
 
 void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
                                                 std::shared_ptr<lx_msgs::srv::Switch::Response> res){
-    if(req->switch_state && node_state_ == false){
+    RCLCPP_INFO(this->get_logger(), "Visual Servoing switch requested with state: %d", req->switch_state);
+    if(req->switch_state ==true && node_state_ == false) // Turn on node if its ON requested and its not already ON
+    {
         this->pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
                                         std::bind(&VisualServoing::pointCloudCallback, this, std::placeholders::_1));
         this->current_berm_segment = req->current_berm_segment;
@@ -87,7 +93,8 @@ void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Swi
         }
         node_state_ = true;
     }
-    else{
+    else if (req->switch_state == false && node_state_ == true) // Turn off node if its OFF requested and its not already OFF
+    {
         node_state_ = false;
         this->pointcloud_subscriber_.reset();
     }
@@ -369,9 +376,7 @@ vector<geometry_msgs::msg::PoseStamped> VisualServoing::getTransformedBermSegmen
     geometry_msgs::msg::TransformStamped transformStamped;
     try
     {
-        tf2_ros::Buffer tf_buffer(this->get_clock());
-        tf2_ros::TransformListener tf_listener(tf_buffer);
-        transformStamped = tf_buffer.lookupTransform("base_link", "map", tf2::TimePointZero, tf2::durationFromSec(0.5));
+        transformStamped = this->tf_buffer_->lookupTransform("base_link", "map", tf2::TimePointZero, tf2::durationFromSec(0.5));
     }
     catch (tf2::TransformException &ex)
     {
@@ -597,8 +602,14 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
             projected_point[2] = intersection_point[2];
 
-            curr_error.x = projected_point[0] - tool_distance_wrt_base_link_;
+            curr_error.x = - tool_distance_wrt_base_link_;
             curr_error.y = curr_segment_theta;
+            if (curr_segment_theta > M_PI/2){
+                curr_error.y = curr_error.y - M_PI;
+            }
+            else if (curr_segment_theta < -M_PI/2){
+                curr_error.y = curr_error.y + M_PI;
+            }
             curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
             publishVector(projected_point, "targetpoint");
             if(debug_mode_)

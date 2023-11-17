@@ -50,7 +50,7 @@ class VisualServoing : public rclcpp::Node
     private:
         // Variables & pointers -----------------
         bool debug_mode_;
-        bool transform_mode_; // if true, then projects the berm points to the current_berm_segment
+        bool transform_mode_; // if true, then projects the berm points to the current_berm_segmen t
         double tool_height_wrt_base_link_, tool_distance_wrt_base_link_;
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
@@ -62,6 +62,8 @@ class VisualServoing : public rclcpp::Node
         const double DRUM_Z_BASELINK_M = -0.3; // more negative-> higher drum
         bool node_state_ = false; // state of the node
         lx_msgs::msg::BermSection current_berm_segment, prev_berm_segment;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+        std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
         // Exp filters for error values
         ExpFilter exp_filter_x_, exp_filter_y_, exp_filter_z_;

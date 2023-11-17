@@ -159,7 +159,10 @@ class ArucoNode(rclpy.node.Node):
         self.intrinsic_mat = np.reshape(np.array(self.info_msg.k), (3, 3))
         self.distortion = np.array(self.info_msg.d)
         # Assume that camera parameters will remain the same...
-        self.destroy_subscription(self.info_sub)
+        self.destroy_subscription(self.info_sub)\
+            
+    def get_distance(self, tool_height):
+        return -0.891 * tool_height**2 + 5.9e-1 * tool_height + 0.807 - 0.09
 
     def image_callback(self, img_msg):
         if self.info_msg is None:
@@ -202,7 +205,7 @@ class ArucoNode(rclpy.node.Node):
                 heights.data = -(tvecs[i][0][1]* 0.7349 + tvecs[i][0][2]* 0.2389 -0.2688)/0.6346
                 # posX.data = np.cos(0.14)*np.cos(0.646)*tvecs[i][0][2]
                 # Calibrated with tool height
-                posX.data = (-8.91e-3 * heights.data**2 + 0.59 * heights.data + 80.7) * 1e-2
+                posX.data = self.get_distance(heights.data)
 
                 rot_matrix = np.eye(4)
                 rot_matrix[0:3, 0:3] = cv2.Rodrigues(np.array(rvecs[i][0]))[0]
@@ -231,7 +234,7 @@ class ArucoNode(rclpy.node.Node):
                 heights = Float64()
                 heights.data = 0.48
                 posX = Float64()
-                posX.data = (-8.91e-3 * heights.data**2 + 0.59 * heights.data + 80.7) * 1e-2
+                posX.data = self.get_distance(heights.data)
                 self.tool_height_pub.publish(heights)
                 self.tool_x_pub.publish(posX)        
 	

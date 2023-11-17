@@ -453,7 +453,12 @@ bool OperationsHandler::callAutoNav(Task current_task){
     autonav_request_msg.goal.header.stamp = this->get_clock()->now();
     autonav_request_msg.goal.pose = current_task.getPoseArray().poses[0];
     // Check the next task
-    autonav_request_msg.next = (int)task_queue_.front().getType();
+    if(!task_queue_.empty()){
+        autonav_request_msg.next = (int)task_queue_.front().getType();
+    }
+    else{
+        autonav_request_msg.next = (int)TaskTypeEnum::AUTONAV;
+    }
     
     RCLCPP_INFO(this->get_logger(), "Sending Auto Nav goal");
     

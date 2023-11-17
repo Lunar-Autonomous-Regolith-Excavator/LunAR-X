@@ -335,6 +335,19 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     rover_cmd.mobility_twist.linear.x = 0;
     this->rover_auto_cmd_pub_->publish(rover_cmd);
 
+    if (goal_handle->is_canceling())
+    {
+        RCLCPP_INFO(this->get_logger(), "Autodump canceled");
+        // stop visual servoing
+        if(exec_visual_servoing && !callVisualServoSwitch(false))
+        {
+            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to switch off visual servoing");
+        }
+        result->success = false;
+        goal_handle->canceled(result);
+        return;
+    }
+
     // Stop Visual Servoing
     if(exec_visual_servoing && !callVisualServoSwitch(false))
     {
@@ -378,15 +391,6 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     pid_height = PID(tool_height_pid_, -CLIP_HEIGHT_CMD_VAL, CLIP_HEIGHT_CMD_VAL);
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
-        auto curr_time = this->get_clock()->now();
-        // If time since drum height message is more than 2 seconds, abort
-        if(((curr_time - last_drum_height_msg_time).seconds() > 2))
-        {
-            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Autodump aborting due to timeout on drum height message");
-            goal_handle->abort(result);
-            return;
-        }
-        
         double drum_height_error = drum_height_ - END_TOOL_HEIGHT;
         double drum_pid_command = -0.8;
 
