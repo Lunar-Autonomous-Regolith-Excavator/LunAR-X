@@ -122,9 +122,9 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
 
     std::vector<std::pair<geometry_msgs::msg::Point, double>> TS_IMU_Data;
 
-    // Extract the movement time, with default value of 5 seconds
+    // Extract the movement time, with default value of 6.5 seconds
     double move_time = goal->time;
-    if(goal->dont_move_rover == false) move_time = 5.0; // for manual call
+    if(goal->dont_move_rover == false) move_time = 6.5; // for manual call
 
     // Fill in TS_IMU_Data every 2 seconds for the next goal->time_s seconds
     // Move the rover if dont_move_rover is false
@@ -156,7 +156,7 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         }
         
         // Try to record TS and IMU data every 2 seconds
-        if (itr++ % 2 == 0) {
+        if (itr++ % 3 == 0) {
             append_TS_IMU_Data(TS_IMU_Data, itr);
         }
 

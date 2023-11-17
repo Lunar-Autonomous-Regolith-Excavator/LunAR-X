@@ -32,8 +32,8 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
 
     // Set PID values
     autodig_pid_outer_.kp = 0.016;
-    autodig_pid_outer_.ki = 0.0000022;
-    autodig_pid_outer_.kd = 0.021;
+    autodig_pid_outer_.ki = 0.0000025;
+    autodig_pid_outer_.kd = 0.020;
 
     autodig_pid_inner_.kp = 20.0;
     autodig_pid_inner_.ki = 0.0001;
@@ -279,7 +279,7 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     }
 
     // call localization calibration action before starting autodig
-    callLocalizationCalibration();
+    if(rclcpp::ok() && !goal_handle->is_canceling()) callLocalizationCalibration();
     
     rclcpp::Time action_start_time = this->get_clock()->now();
 
