@@ -31,9 +31,9 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
                         std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
-    autodig_pid_outer_.kp = 0.013;
-    autodig_pid_outer_.ki = 0.000001;
-    autodig_pid_outer_.kd = 0.02;
+    autodig_pid_outer_.kp = 0.016;
+    autodig_pid_outer_.ki = 0.0000022;
+    autodig_pid_outer_.kd = 0.021;
 
     autodig_pid_inner_.kp = 20.0;
     autodig_pid_inner_.ki = 0.0001;
@@ -140,6 +140,9 @@ void AutoDigHandler::setupCommunications(){
                                             std::bind(&AutoDigHandler::handle_goal, this, _1, _2),
                                             std::bind(&AutoDigHandler::handle_cancel, this, _1),
                                             std::bind(&AutoDigHandler::handle_accepted, this, _1));
+    
+    // Action client
+    this->calibrate_imu_action_client_ = rclcpp_action::create_client<CalibrateImu>(this, "/lx_localization/calibrate_imu");
 }
 
 void AutoDigHandler::setupParams(){
@@ -234,6 +237,22 @@ void AutoDigHandler::handle_accepted(const std::shared_ptr<GoalHandleAutoDig> go
     std::thread{std::bind(&AutoDigHandler::executeAutoDig, this, _1), goal_handle}.detach();
 }
 
+void AutoDigHandler::callLocalizationCalibration(){
+    // Wait for 1 second for action server to start
+    if (!calibrate_imu_action_client_->wait_for_action_server(std::chrono::seconds(1))) {
+        RCLCPP_ERROR(this->get_logger(), "Calibrate IMU action server not available after waiting");
+        return;
+    }
+    
+    auto goal_msg = CalibrateImu::Goal();
+    goal_msg.dont_move_rover = true;
+
+    RCLCPP_INFO(this->get_logger(), "Calling localization calibration action with dont_move_rover = true");
+
+    auto future_goal_handle = calibrate_imu_action_client_->async_send_goal(goal_msg);
+}
+
+
 void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Executing autodig request");
     
@@ -249,7 +268,6 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     // Allow rover to be controlled by inner PID loop
     inner_PID_control_rover_ = true; 
 
-    rclcpp::Time action_start_time = this->get_clock()->now();
 
     // Wait for drum height to reach GOTO_TOOL_HEIGHT
     target_drum_height = GOTO_TOOL_HEIGHT;
@@ -259,9 +277,13 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         }
     }
 
+    // call localization calibration action before starting autodig
+    callLocalizationCalibration();
+    
+    rclcpp::Time action_start_time = this->get_clock()->now();
+
     // 10 Hz loop
     rclcpp::Rate loop_rate(10);
-
     while(rclcpp::ok() && !goal_handle->is_canceling()){
         rclcpp::Time action_curr_time = this->get_clock()->now();
 

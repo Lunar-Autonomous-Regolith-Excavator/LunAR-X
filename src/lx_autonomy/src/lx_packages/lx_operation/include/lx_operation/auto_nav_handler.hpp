@@ -14,10 +14,11 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "nav_msgs/msg/path.hpp"
-#include "nav2_msgs/action/navigate_to_pose.hpp"
+#include "nav2_msgs/action/navigate_through_poses.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "lx_msgs/msg/rover_command.hpp"
-
+#include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 class AutoNavHandler: public rclcpp::Node
 {
@@ -25,8 +26,8 @@ class AutoNavHandler: public rclcpp::Node
         // Variables & pointers -----------------
         using AutoNav = lx_msgs::action::AutoNav;
         using GoalHandleAutoNav = rclcpp_action::ServerGoalHandle<AutoNav>;
-        using NavigateToPose = nav2_msgs::action::NavigateToPose;
-        using GoalHandleNavigateToPose = rclcpp_action::ClientGoalHandle<NavigateToPose>;
+        using NavigateThroughPoses = nav2_msgs::action::NavigateThroughPoses;
+        using GoalHandleNavigateThroughPoses = rclcpp_action::ClientGoalHandle<NavigateThroughPoses>;
         // Action blocking
         bool action_blocking_ = false;
         bool action_server_responded_ = false;
@@ -34,6 +35,7 @@ class AutoNavHandler: public rclcpp::Node
         bool action_success_ = false;
         // Goal Pose
         geometry_msgs::msg::PoseStamped goal_pose_;
+        int next_action_;
         // Nav2 Action Feedback
         geometry_msgs::msg::PoseStamped current_pose_;
         builtin_interfaces::msg::Duration navigation_time_;
@@ -49,7 +51,7 @@ class AutoNavHandler: public rclcpp::Node
         // Action server
         rclcpp_action::Server<AutoNav>::SharedPtr autonav_action_server_;
         // Action clients
-        rclcpp_action::Client<NavigateToPose>::SharedPtr navigate_to_pose_client_;
+        rclcpp_action::Client<NavigateThroughPoses>::SharedPtr navigate_through_poses_client_;
         // Parameter handling
         struct lock_struct rover_soft_lock_;
         OpModeEnum current_rover_op_mode_ = OpModeEnum::STANDBY;
@@ -116,13 +118,13 @@ class AutoNavHandler: public rclcpp::Node
         void executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> );
 
         // Functions to handle Nav2 Navigate to Pose action
-        bool navigateToPose();
+        bool navigateThroughPoses();
 
-        void navigateToPoseResponseCallback(GoalHandleNavigateToPose::SharedPtr );
+        void navigateThroughPosesResponseCallback(GoalHandleNavigateThroughPoses::SharedPtr );
 
-        void navigateToPoseFeedbackCallback(GoalHandleNavigateToPose::SharedPtr , const std::shared_ptr<const NavigateToPose::Feedback> );
+        void navigateThroughPosesFeedbackCallback(GoalHandleNavigateThroughPoses::SharedPtr , const std::shared_ptr<const NavigateThroughPoses::Feedback> );
 
-        void navigateToPoseResultCallback(const GoalHandleNavigateToPose::WrappedResult& );
+        void navigateThroughPosesResultCallback(const GoalHandleNavigateThroughPoses::WrappedResult& );
 
         // Function to remap cmd_vel_nav to rover_cmd
         void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr );
@@ -141,6 +143,7 @@ class AutoNavHandler: public rclcpp::Node
 
         // Constants
         static constexpr double MAX_DURATION = 180.0; // seconds
+        static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.7; // meters
 };
 
 #endif

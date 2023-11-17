@@ -73,31 +73,26 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         }
     }
 
-    // For each berm section, there will be an excavation task and a dump task
-
-    /********** EXCAVATION TASK **********/
-    // Assuming that the corner near the router is the origin
-    // Temporary start pose for excavation at (3,1) with orientation of zero degrees throughout
-    lx_msgs::msg::PlannedTask excavation_task;
-    excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
-
-    geometry_msgs::msg::Pose start_pose;
-    start_pose.position.x = 1.25;
-    start_pose.position.y = 4.0;
-    start_pose.position.z = 0;
-    tf2::Quaternion q;
-    q.setRPY(0.0, 0.0, 0);
-    start_pose.orientation = tf2::toMsg(q);
-    excavation_task.pose = start_pose;
-
     // TEMPORARY
-    drum_to_base_ = 1.0;
+    drum_to_base_ = 0.9;
     berm_section_heights_.resize(berm_sequence_.size(), 0.0);
+
+    int excavation_count = 0;
 
     // Loop through the berm sections
     for (int i = 0; i < berm_sequence_.size(); i++) {
         // Get the berm section
         BermSection berm_section = berm_sequence_[i];
+
+        // Start pose for excavation
+        geometry_msgs::msg::Pose start_pose;
+        start_pose.position.x = 1.25;
+        start_pose.position.y = 4.5 - (excavation_count % 10) * 0.3;
+        start_pose.position.z = 0;
+        // tf2::Quaternion q;
+        // q.setRPY(0.0, 0.0, 0);
+        // start_pose.orientation = tf2::toMsg(q);
+
         // Find the dump pose
         geometry_msgs::msg::Pose dump_pose = findDumpPose(berm_section, start_pose);
         // Find the number of iterations and update the berm section iterations
@@ -108,12 +103,15 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             // Add navigation task to the plan
             lx_msgs::msg::PlannedTask navigation_task;
             navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
-            navigation_task.pose = excavation_task.pose;
-            if (j > 0) res->plan.push_back(navigation_task);
+            navigation_task.pose = start_pose;
+            if (excavation_count > 0) res->plan.push_back(navigation_task);
 
             // Add excavation task to the plan
+            lx_msgs::msg::PlannedTask excavation_task;
+            excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
+            excavation_task.pose = start_pose;
             res->plan.push_back(excavation_task);
-            excavation_task.pose.position.y -= 0.5;
+            excavation_count++;
 
             // Add navigation task to the plan
             navigation_task.pose = dump_pose;
@@ -130,6 +128,14 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             res->plan.push_back(dump_task);
         }
     }
+    geometry_msgs::msg::Pose end_pose;
+    end_pose.position.x = 2;
+    end_pose.position.y = 3.5;
+    end_pose.position.z = 0;
+    lx_msgs::msg::PlannedTask navigation_task;
+    navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
+    navigation_task.pose = end_pose;
+    res->plan.push_back(navigation_task);
 
     // Change back parameter of global costmap
     // TODO

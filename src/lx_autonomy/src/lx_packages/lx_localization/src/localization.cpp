@@ -70,6 +70,15 @@ void Localization::handle_accepted(const std::shared_ptr<GoalHandleCalibrateImu>
     std::thread{std::bind(&Localization::executeCalibrateIMU, this, std::placeholders::_1), goal_handle}.detach();
 }
 
+double addAngles(double angle1, double angle2)
+{
+    // sum clips to -pi to pi
+    double sum = angle1 + angle2;
+    if(sum > M_PI) sum -= 2.0 * M_PI;
+    else if(sum < -M_PI) sum += 2.0 * M_PI;
+    return sum;
+}
+
 void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrateImu> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Executing calibrate imu action");
     const auto goal = goal_handle->get_goal();
@@ -82,11 +91,13 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         this->get_transforms();
     }
 
-    // If latest IMU msg and TS msg are more than 1 second away from current time, return error
+    // If latest IMU msg and TS msg are more than 1.5 second away from current time, return error
     auto current_time = this->get_clock()->now();
-    if((current_time - this->last_imu_msg_time_).seconds() > 1.0 || (current_time - this->last_ts_msg_time_).seconds() > 1.0)
+    double time_diff_imu = (current_time - this->last_imu_msg_time_).seconds(), time_diff_ts = (current_time - this->last_ts_msg_time_).seconds();
+    if(time_diff_imu > 1.5 || time_diff_ts > 1.5)
     {
-        RCLCPP_INFO(this->get_logger(), "No IMU or TS data found, please check if IMU and TS are publishing");
+        if (time_diff_imu > 1.5) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1.5 second of the initial point in calibration");
+        if (time_diff_ts > 1.5) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1.5 second of the initial point in calibration, found in %f seconds", time_diff_ts);
         // Set result
         result->success = false;
         goal_handle->abort(result);
@@ -99,30 +110,38 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     auto yaw_initial = tf2::getYaw(imu_orientation);
     geometry_msgs::msg::Point init_ts_point = this->ts_point_;
 
-    // Move the rover ahead for 5 seconds
-    auto start_time = this->get_clock()->now();
-    RCLCPP_INFO(this->get_logger(), "Starting calibration movement");
-    lx_msgs::msg::RoverCommand rover_command;
-    rclcpp::Rate loop_rate(10);
-    while(rclcpp::ok() && !goal_handle->is_canceling())
+    // Move the rover ahead for 5 seconds if dont_move_rover is false
+    if(goal->dont_move_rover == false)
     {
-        // Check if 5 seconds have passed
-        auto current_time = this->get_clock()->now();
-        auto time_diff = current_time - start_time;
-        if(time_diff.seconds() >= 5.0)
+        auto start_time = this->get_clock()->now();
+        RCLCPP_INFO(this->get_logger(), "Starting calibration movement");
+        lx_msgs::msg::RoverCommand rover_command;
+        rclcpp::Rate loop_rate(10);
+        while(rclcpp::ok() && !goal_handle->is_canceling())
         {
-            RCLCPP_INFO(this->get_logger(), "Calibration movement complete");
-            break;
-        }
+            // Check if 5 seconds have passed
+            auto current_time = this->get_clock()->now();
+            auto time_diff = current_time - start_time;
+            if(time_diff.seconds() >= 5.0)
+            {
+                RCLCPP_INFO(this->get_logger(), "Calibration movement complete");
+                break;
+            }
 
-        // Publish rover command
-        rover_command.mobility_twist.linear.x = 0.1;
+            // Publish rover command
+            rover_command.mobility_twist.linear.x = 0.1;
+            rover_command_pub_->publish(rover_command);
+            loop_rate.sleep();
+        }
+        // Stop the rover
+        rover_command.mobility_twist.linear.x = 0.0;
         rover_command_pub_->publish(rover_command);
-        loop_rate.sleep();
     }
-    // Stop the rover
-    rover_command.mobility_twist.linear.x = 0.0;
-    rover_command_pub_->publish(rover_command);
+    else
+    {
+        // sleep for 6 seconds
+        rclcpp::sleep_for(std::chrono::seconds(6));
+    }
 
     if (goal_handle->is_canceling() || !rclcpp::ok())
     {
@@ -133,11 +152,13 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         return;
     }
 
-    // If latest IMU msg and TS msg are more than 1 second away from current time, return error
+    // If latest IMU msg and TS msg are more than 1.5 second away from current time, return error
     current_time = this->get_clock()->now();
-    if((current_time - this->last_imu_msg_time_).seconds() > 1.0 || (current_time - this->last_ts_msg_time_).seconds() > 1.0)
+    time_diff_imu = (current_time - this->last_imu_msg_time_).seconds(), time_diff_ts = (current_time - this->last_ts_msg_time_).seconds();
+    if(time_diff_imu > 1.5 || time_diff_ts > 1.5)
     {
-        RCLCPP_INFO(this->get_logger(), "No IMU or TS data found, please check if IMU and TS are publishing");
+        if (time_diff_imu > 1.5) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1.5 second of the final point in calibration");
+        if (time_diff_ts > 1.5) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1.5 second of the final point in calibration, found in %f seconds", time_diff_ts);
         // Set result
         result->success = false;
         goal_handle->abort(result);
@@ -150,12 +171,44 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     auto yaw_final = tf2::getYaw(new_imu_orientation);
     geometry_msgs::msg::Point final_ts_point = this->ts_point_;
 
-    // Calculate yaw offset
-    auto avg_imu_yaw = (yaw_initial + yaw_final) / 2.0;
-    auto yaw_total_station = atan2(final_ts_point.y - init_ts_point.y, final_ts_point.x - init_ts_point.x);
-    this->yaw_offset_ = yaw_total_station - avg_imu_yaw;
+    // if initial and final yaw differ by more than 10 degrees, return error
+    if(abs(yaw_initial - yaw_final) > 10.0 * M_PI / 180.0)
+    {
+        RCLCPP_INFO(this->get_logger(), "Initial and final yaw differ by more than 10 degrees, calibration failed");
+        // Set result
+        result->success = false;
+        goal_handle->abort(result);
+        return;
+    }
 
-    RCLCPP_INFO(this->get_logger(), "Calibration complete, with yaw offset: %f", this->yaw_offset_);
+    // Calculate yaw offset
+    auto avg_imu_yaw = addAngles((yaw_initial+yaw_final) / 2.0, 0);
+    auto yaw_total_station = atan2(final_ts_point.y - init_ts_point.y, final_ts_point.x - init_ts_point.x);
+    double new_yaw_offset = yaw_total_station - avg_imu_yaw;
+    new_yaw_offset = addAngles(new_yaw_offset, 0);
+    if(goal->dont_move_rover == true)
+    {
+        // called from autodig, conservative update (only update if new offset is less than 15 degrees from old offset)
+        if(abs(new_yaw_offset - this->yaw_offset_) > 15.0 * M_PI / 180.0)
+        {
+            RCLCPP_INFO(this->get_logger(), "New yaw offset %f differs from old yaw offset %f by more than 15 degrees, calibration failed", new_yaw_offset, this->yaw_offset_);
+            // Set result
+            result->success = false;
+            goal_handle->abort(result);
+            return;
+        }
+        else
+        {
+            this->yaw_offset_ = new_yaw_offset;
+        }
+    }
+    else 
+    {
+        // called manually, update offset always
+        this->yaw_offset_ = new_yaw_offset;
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Calibration complete, with yaw offset: %f, Avg IMU Yaw: %f, Yaw TS: %f", this->yaw_offset_, avg_imu_yaw, yaw_total_station);
     this->calibration_complete_ = true;
 
     // Set result
@@ -237,7 +290,7 @@ void Localization::pose_callback(const geometry_msgs::msg::PoseWithCovarianceSta
     double yaw, pitch, roll;
     tf2::getEulerYPR(imu_transformed.orientation, yaw, pitch, roll);
     tf2::Quaternion q_map_to_baselink;
-    q_map_to_baselink.setRPY(roll, pitch, yaw+this->yaw_offset_);
+    q_map_to_baselink.setRPY(-roll, pitch, addAngles(yaw, this->yaw_offset_));
 
     // Get position of baselink in map frame 
     // NOTE: 
