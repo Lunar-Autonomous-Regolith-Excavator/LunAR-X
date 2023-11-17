@@ -18,7 +18,7 @@ berm_pts_arr = []
 task_arr = []
 
 # Task types
-task_types = ['EXCAVATION', 'NAVIGATION', 'DUMP']
+task_types = ['NAVIGATION', 'EXCAVATION', 'DUMP']
 
 # Global variables
 dt = 1e-1
@@ -30,7 +30,7 @@ class Robot:
     WIDTH = 70
     LENGTH = 100
     
-    LENGTH_TOOL = 50
+    LENGTH_TOOL = 40
     TOOL_POS = LENGTH/2 + LENGTH_TOOL
     TOOL_RAD = 10
     TOOL_WIDTH = 42
@@ -217,7 +217,7 @@ def overlay_berm(berm, berm_x, berm_y, height_grid, occupancy_grid):
 
 if __name__ == '__main__':
 
-    desired_berm_height = 10 # cms
+    desired_berm_height = 15 # cms
     berm_section_length = 40 # cms
     
     # Set a seed for reproducibility
@@ -242,7 +242,7 @@ if __name__ == '__main__':
     output_points = np.genfromtxt('./dev/output.csv', delimiter=',')
 
     # generate a robot
-    robot = Robot(350, 100, np.deg2rad(90))
+    robot = Robot(175, 163, np.deg2rad(-13.445586))
 
     # # generate a berm and overlay it on the height map
     # berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
@@ -252,16 +252,20 @@ if __name__ == '__main__':
     for out in output_points:
         task, x, y, theta = out
         task = int(task)
+        print(task, x, y, theta)
         # convert to cms
         x *= 100
         y *= 100
         # convert to radians
         theta = np.deg2rad(theta)
-    
-        if task == 0: # excavation
-            dx = 0
-            dy = 150
-            dtheta = 0
+        
+        if task == 0: # navigation
+            dx = x - robot.x
+            dy = y - robot.y
+            dtheta = theta - robot.theta
+            if dx == 0 and dy == 0 and dtheta == 0:
+                continue
+
             for i in range(0, 10):
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())
@@ -274,13 +278,10 @@ if __name__ == '__main__':
 
                 robot.shift(dx * dt, dy * dt, dtheta * dt)
         
-        elif task == 1: # navigation
-            dx = x - robot.x
-            dy = y - robot.y
+        elif task == 1: # excavation
+            dx = x + 150 * np.cos(robot.theta) - robot.x
+            dy = y + 150 * np.sin(robot.theta) - robot.y
             dtheta = theta - robot.theta
-            if dx == 0 and dy == 0 and dtheta == 0:
-                continue
-
             for i in range(0, 10):
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())
