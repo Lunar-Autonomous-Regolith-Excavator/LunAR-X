@@ -5,6 +5,7 @@
 #include "lx_library/lx_utils.hpp"
 #include "lx_msgs/msg/planned_task.hpp"
 #include "lx_msgs/srv/plan.hpp"
+#include "lx_msgs/srv/berm_progress_eval.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
@@ -57,6 +58,7 @@ class TaskPlanner: public rclcpp::Node
         std::vector<int> berm_section_iterations_;
         std::vector<double> berm_section_heights_;
 
+        // Berm variables
         double section_length_;
         double desired_berm_height_;
 
@@ -65,12 +67,16 @@ class TaskPlanner: public rclcpp::Node
         // nav_msgs::msg::OccupancyGrid map_msg_;
         // rclcpp::TimerBase::SharedPtr timer_;
 
+        // Service blocks
+        bool block_till_berm_progress_eval_;
+
         // Subscribers
         
         // Clients
+        rclcpp::Client<lx_msgs::srv::BermProgressEval>::SharedPtr berm_progress_client_;
         
         // Publishers
-        rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher_;
+        // rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher_;
 
         // --------------------------------------
 
@@ -80,9 +86,10 @@ class TaskPlanner: public rclcpp::Node
         * */
         void setupCommunications();
 
-        /*
-        * Put next function here
-        * */
+        bool getBermHeights();
+
+        void bermProgressCallback(rclcpp::Client<lx_msgs::srv::BermProgressEval>::SharedFuture);
+
         void taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> ,
                                       std::shared_ptr<lx_msgs::srv::Plan::Response>);
 
@@ -138,6 +145,9 @@ class TaskPlanner: public rclcpp::Node
 
         // Function to get bounds of rover footprint
         Bounds getBounds(const std::vector<geometry_msgs::msg::Point>& );
+
+        // Function to calculate berm section area
+        double getBermSectionArea(const double& );
 };
 
 #endif
