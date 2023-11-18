@@ -39,9 +39,10 @@ void PointCloudHandler::setupCommunications(){
     // Publishers
     transformed_pointcloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10);
     
-    ground_height_publisher_ = this->create_publisher<std_msgs::msg::Float64>("mapping/ground_height", 10);
+    ground_height_publisher_ = this->create_publisher<std_msgs::msg::Float64>("mapping/pcl_ground_height", 10);
+    
     // Service
-    pcl_ground_height_service_ = this->create_service<lx_msgs::srv::PclGroundHeight>("mapping/pcl_ground_height", 
+    pcl_ground_height_service_ = this->create_service<lx_msgs::srv::PclGroundHeight>("mapping/pcl_ground_height_srv", 
                                                                                         std::bind(&PointCloudHandler::pclGroundHeightCallback, this, std::placeholders::_1, std::placeholders::_2));
     
     // Transform Listener
@@ -124,9 +125,8 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
             avg_z += cropped_cloud->points[i].z;
         }
         avg_z /= cropped_cloud->points.size();
-
         std_msgs::msg::Float64 avg_z_msg;
-        avg_z_msg.data = avg_z;
+        avg_z_msg.data = exp_height_filter_.getValue(avg_z);
         ground_height_publisher_->publish(avg_z_msg);
     }
 
