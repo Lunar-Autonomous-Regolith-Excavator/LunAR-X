@@ -98,6 +98,16 @@ void Localization::append_TS_IMU_Data(std::vector<std::pair<geometry_msgs::msg::
     }
 }
 
+double calculateAverageAngle(const std::vector<double>& angles) {
+    double sumX = 0.0, sumY = 0.0;
+    for (const auto& angle : angles) {
+        sumX += cos(angle);
+        sumY += sin(angle);
+    }
+    double averageRadians = atan2(sumY, sumX);
+    return addAngles(averageRadians, 0);
+}
+
 void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrateImu> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Executing calibrate IMU action");
     const auto goal = goal_handle->get_goal();
@@ -195,7 +205,8 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     for(int i=0; i < ((int)TS_IMU_Data.size()-1); i++)
     {
         // if ith and i+1 th yaw differ by more than 10 degrees, skip this point
-        if (abs(TS_IMU_Data[i].second - TS_IMU_Data[i+1].second) > 10.0 * M_PI / 180.0)
+        double angle_subt = addAngles(TS_IMU_Data[i+1].second, -TS_IMU_Data[i].second);
+        if (abs(angle_subt) > 20.0 * M_PI / 180.0)
         {
             continue;
         }
@@ -219,15 +230,10 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     }
 
     // Compute average yaw offset
-    double new_yaw_offset = 0;
-    for(auto yaw_offset : yaw_offsets)
-    {
-        new_yaw_offset += yaw_offset;
-    }
-    new_yaw_offset = new_yaw_offset / (double) yaw_offsets.size(); // average yaw offset
+    double new_yaw_offset = calculateAverageAngle(yaw_offsets);
 
     // If we are in dont_move_rover mode, and the new offset differs from the old offset by more than 15 degrees, return error
-    if(goal->dont_move_rover == true && abs(new_yaw_offset - this->yaw_offset_) > 80.0 * M_PI / 180.0)
+    if(goal->dont_move_rover == true && abs(addAngles(new_yaw_offset, -this->yaw_offset_)) > 80.0 * M_PI / 180.0)
     {
         RCLCPP_INFO(this->get_logger(), "New yaw offset %f differs from old yaw offset %f by more than 80 degrees, calibration failed", new_yaw_offset, this->yaw_offset_);
         // Set result
