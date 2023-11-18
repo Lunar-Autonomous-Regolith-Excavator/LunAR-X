@@ -25,25 +25,9 @@
 #include <tf2_ros/buffer.h>
 #include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include "lx_library/lx_utils.hpp"
 
 using namespace std;
-
-// Exponential filter class
-class ExpFilter{
-    public:
-        double DECAY_RATE;
-        double prev_output;
-        ExpFilter(double decay_rate = 0.9)
-        {
-            this->DECAY_RATE = decay_rate;
-            this->prev_output = 0.0;
-        }
-        double getValue(double input)
-        {
-            this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
-            return this->prev_output;
-        }
-};
 
 class VisualServoing : public rclcpp::Node
 {

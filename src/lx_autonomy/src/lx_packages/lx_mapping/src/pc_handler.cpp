@@ -38,6 +38,13 @@ void PointCloudHandler::setupCommunications(){
                                                                                         std::bind(&PointCloudHandler::processPointCloud, this, std::placeholders::_1));
     // Publishers
     transformed_pointcloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10);
+    
+    ground_height_publisher_ = this->create_publisher<std_msgs::msg::Float64>("mapping/pcl_ground_height", 10);
+    
+    // Service
+    pcl_ground_height_service_ = this->create_service<lx_msgs::srv::PclGroundHeight>("mapping/pcl_ground_height_srv", 
+                                                                                        std::bind(&PointCloudHandler::pclGroundHeightCallback, this, std::placeholders::_1, std::placeholders::_2));
+    
     // Transform Listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::durationFromSec(100000000));    
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -55,6 +62,11 @@ void PointCloudHandler::pointCloudCallback(const sensor_msgs::msg::PointCloud2::
     pointcloud_thread_.detach();
 }
 
+void PointCloudHandler::pclGroundHeightCallback(const std::shared_ptr<lx_msgs::srv::PclGroundHeight::Request> req,
+                                                const std::shared_ptr<lx_msgs::srv::PclGroundHeight::Response> res){
+    this->need_ground_height_ = req->need_height;
+    res->success = true;
+}
 
 void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
     if(this->cam2map_transform.header.frame_id == ""){
@@ -96,6 +108,27 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::transformPointCloud(*cloud_filtered, *transformed_cloud, afine_transform);
+
+    if(this->need_ground_height_){
+        // crop the point cloud to the desired region (x_min = 0.7, xmax=1.1, y_min=0, y_max=0.5)
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud (new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::CropBox<pcl::PointXYZ> cropFilter;
+        cropFilter.setInputCloud(transformed_cloud);
+        cropFilter.setMax(Eigen::Vector4f(1.1, 0.5, 1000, 1.0));
+        cropFilter.setMin(Eigen::Vector4f(0.7, 0.0, -1000, 1.0));
+        cropFilter.filter(*cropped_cloud);
+
+        // get average z value of cropped point cloud and publish it
+        double avg_z = 0.0;
+        for(size_t i=0; i<cropped_cloud->points.size(); i++){
+            avg_z += cropped_cloud->points[i].z;
+        }
+        avg_z /= cropped_cloud->points.size();
+        std_msgs::msg::Float64 avg_z_msg;
+        avg_z_msg.data = exp_height_filter_.getValue(avg_z);
+        ground_height_publisher_->publish(avg_z_msg);
+    }
 
     if(debug_mode_){
         // find the best fit plane

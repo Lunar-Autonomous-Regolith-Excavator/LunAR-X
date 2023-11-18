@@ -20,6 +20,8 @@
 #include <pcl/common/transforms.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/passthrough.h>
+#include "lx_msgs/srv/pcl_ground_height.hpp"
+#include "lx_library/lx_utils.hpp"
 
 class PointCloudHandler : public rclcpp::Node
 {
@@ -29,6 +31,7 @@ class PointCloudHandler : public rclcpp::Node
         const double MAP_RESOLUTION = 0.05;
         const bool debug_mode_ = false;
         double tool_height_wrt_base_link_;
+        bool need_ground_height_ = false;
         geometry_msgs::msg::TransformStamped cam2map_transform;
         // Transforms
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -39,6 +42,13 @@ class PointCloudHandler : public rclcpp::Node
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr tool_height_subscriber_;
         // Publishers
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr transformed_pointcloud_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr ground_height_publisher_;
+        // Service
+        rclcpp::Service<lx_msgs::srv::PclGroundHeight>::SharedPtr pcl_ground_height_service_;
+        ExpFilter exp_height_filter_;
+
+
+        //
         // --------------------------------------
 
         // Functions ----------------------------
@@ -61,6 +71,10 @@ class PointCloudHandler : public rclcpp::Node
         *
         * */
         void processPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr );
+
+        void pclGroundHeightCallback(const std::shared_ptr<lx_msgs::srv::PclGroundHeight::Request> ,
+                                    const std::shared_ptr<lx_msgs::srv::PclGroundHeight::Response> );
+
 
     public:
         // Functions
