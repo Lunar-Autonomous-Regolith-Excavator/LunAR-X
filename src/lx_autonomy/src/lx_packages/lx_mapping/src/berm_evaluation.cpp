@@ -74,19 +74,6 @@ void BermEvaluation::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr m
 void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::BermProgressEval::Request> req,
                                           const std::shared_ptr<lx_msgs::srv::BermProgressEval::Response> res){
 
-    berm_evaluation_thread_ = std::thread(std::bind(&BermEvaluation::bermEval, this, req, res));
-    berm_evaluation_thread_.detach();
-}
-
-// TODO: make it a service
-void BermEvaluation::saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
-    this->map_ = msg;
-}
-
-
-void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEval::Request> req,
-                                          const std::shared_ptr<lx_msgs::srv::BermProgressEval::Response> res){
-
     if(!req->need_metrics){
         return;
     }
@@ -106,7 +93,7 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
     marker_msg.ns = "berm";
     marker_msg.type = visualization_msgs::msg::Marker::CUBE;
     marker_msg.action = visualization_msgs::msg::Marker::ADD;
-    marker_msg.scale.x = 0.4;
+    marker_msg.scale.x = 0.1;
     marker_msg.scale.y = 0.4;
     marker_msg.color.a = 1.0;
     marker_msg.color.r = 0.0; 
@@ -156,8 +143,6 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
             }
         }
 
-        RCLCPP_INFO(this->get_logger(), "berm_marker_point 1: %f, %f, berm_marker_point 2: %f, %f, midpoint: %f, %f", berm_marker_1_point.x, berm_marker_1_point.y, berm_marker_2_point.x, berm_marker_2_point.y, midpoint.x, midpoint.y);
-
         double mean_ground_height = sum_ground_height/num_points_in_region;
 
         RCLCPP_INFO(this->get_logger(), "Mean ground height: %f", mean_ground_height);
@@ -205,10 +190,8 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
         marker_msg.id = i;
         marker_msg.pose.position.x = midpoint.x;
         marker_msg.pose.position.y = midpoint.y;
-        // marker_msg.pose.position.z = berm_heights[i]*1.5-0.75;
         marker_msg.pose.position.z = berm_height*0.5;
         marker_msg.scale.z = berm_height;
-        // marker_msg.points.push_back(point);
         if(i%2==0){
             marker_msg.color.b = 0.0;
         }
@@ -236,5 +219,9 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
     berm_evaluation_array_publisher_->publish(marker_array_msg);
 
     res->progress = berm_progress_;
+}
 
+// TODO: make it a service
+void BermEvaluation::saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
+    this->map_ = msg;
 }

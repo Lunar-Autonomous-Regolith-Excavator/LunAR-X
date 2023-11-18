@@ -32,7 +32,7 @@ class BermEvaluation : public rclcpp::Node
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_1_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_2_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr berm_evaluation_array_publisher_;
-        std::thread map_update_thread_, berm_evaluation_thread_;
+        std::thread map_update_thread_;
         // Servers
         rclcpp::Service<lx_msgs::srv::BermService>::SharedPtr berm_points_server_;
         rclcpp::Service<lx_msgs::srv::BermProgressEval>::SharedPtr berm_eval_server_;
@@ -69,9 +69,6 @@ class BermEvaluation : public rclcpp::Node
         // visualization_msgs::msg::Marker createPillarMarker(float, float, float, int);
 
         void saveUpdatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr);
-
-        void bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEval::Request> ,
-                                          const std::shared_ptr<lx_msgs::srv::BermProgressEval::Response> );
 
 
     public:
