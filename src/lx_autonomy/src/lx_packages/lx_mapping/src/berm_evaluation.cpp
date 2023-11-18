@@ -134,8 +134,8 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
         berm_marker_2_point.z = 0;
 
         // break the line segment joining the two points into parts of length 0.4
-        double x_diff = berm_marker_2_point.x - berm_marker_1_point.x + 0.00001;
-        double y_diff = berm_marker_2_point.y - berm_marker_1_point.y + 0.00001;
+        double x_diff = berm_marker_2_point.x - berm_marker_1_point.x;
+        double y_diff = berm_marker_2_point.y - berm_marker_1_point.y;
 
         geometry_msgs::msg::Point midpoint;
         midpoint.x = (berm_marker_1_point.x + berm_marker_2_point.x)/2;
@@ -146,39 +146,54 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
         double sum_ground_height = 0;
         int num_points_in_region = 1;
         // loop over the the rectangle region parallel to the line joining the two berm_marker_points 1 and 2 but 0.3 to 0.4 m away from it
-        double m = y_diff/x_diff;
+        double m = y_diff/(x_diff+0.015);
         double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
-        RCLCPP_INFO(this->get_logger(), "x: %f, y: %f, dist: %f", midpoint.x, midpoint.y, abs(m*midpoint.x - midpoint.y + c)/sqrt(pow(m, 2) + 1));
         for(size_t j = 0; j < this->map_->data.size(); j++){
             double x = (j%this->map_->info.width)*this->map_->info.resolution;
             double y = (j/this->map_->info.width)*this->map_->info.resolution;
             double line_dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
-            if(line_dist > 0.3 && line_dist < 0.4 && this->map_->data[j] > 0){
+            if(line_dist > 0.4 && line_dist < 0.5 && this->map_->data[j] > 0){
                 sum_ground_height += this->map_->data[j];
                 num_points_in_region++;
             }
         }
 
+        RCLCPP_INFO(this->get_logger(), "berm_marker_point 1: %f, %f, berm_marker_point 2: %f, %f, midpoint: %f, %f", berm_marker_1_point.x, berm_marker_1_point.y, berm_marker_2_point.x, berm_marker_2_point.y, midpoint.x, midpoint.y);
+
         double mean_ground_height = sum_ground_height/num_points_in_region;
+
+        RCLCPP_INFO(this->get_logger(), "Mean ground height: %f", mean_ground_height);
 
         double max = 0;
         for(size_t j = 0; j < this->map_->data.size(); j++){
             double x = (j%this->map_->info.width)*this->map_->info.resolution;
             double y = (j/this->map_->info.width)*this->map_->info.resolution;
             double dist = sqrt(pow(x - midpoint.x, 2) + pow(y - midpoint.y, 2));
-            if(dist < 0.3){
+            if(dist < 0.4){
                 if(this->map_->data[j] > max){
                     max = this->map_->data[j];
                 }
 
-                // project the point onto the line joining the two berm_marker_points 1 and 2 and find the distance from berm_marker_point 1
-                double x_proj = (m*(y - m*x) + m*m*berm_marker_1_point.x + x)/(m*m + 1);
-                double y_proj = (m*m*(y - m*x) + m*berm_marker_1_point.x + y)/(m*m + 1);
-                double parallel_dist = (x_proj - berm_marker_1_point.x)*sqrt(pow(m, 2) + 1);
-                double perpendicular_dist = (m*x - y + c)/sqrt(pow(m, 2) + 1);
-                int bin = parallel_dist/(this->map_->info.resolution * 1.414);
+                double x_proj, y_proj, parallel_dist, perpendicular_dist, bin;
 
-                if(bin < num_bins_per_section){
+                if(abs(m) > 20){
+                    parallel_dist = x - berm_marker_1_point.x + 0.2;
+                    perpendicular_dist = y - berm_marker_1_point.y;
+                    bin = int(parallel_dist/(this->map_->info.resolution * 1.414));
+                }
+                
+                else{                
+                    // get the point on the line joining the two berm_marker_points 1 and 2 closest to the current point
+                    x_proj = (m*(y - berm_marker_1_point.y) + x + m*m*berm_marker_1_point.x)/(m*m + 1);
+                    y_proj = m*x_proj + c;      
+                    int sign = (y_diff > 0) - (y_diff < 0);
+                    parallel_dist = (y_proj - berm_marker_1_point.y)*m/(m*m + 1)*sign;
+                    perpendicular_dist = (m*x - y + c)/sqrt(pow(m, 2) + 1);
+                    bin = int(parallel_dist/(this->map_->info.resolution * 1.414));
+                }
+
+
+                if(bin < num_bins_per_section && bin >= 0){
                     if(this->map_->data[j] > berm_heights_bins[i*num_bins_per_section + bin]){
                         berm_heights_bins[i*num_bins_per_section + bin] = this->map_->data[j];
                     }
@@ -188,11 +203,7 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
             }
         }
 
-        RCLCPP_INFO(this->get_logger(), "Max value at point %d: %f, %f", (int)i, max, mean_ground_height);
         auto berm_height = (max - mean_ground_height)/ELEVATION_SCALE;
-
-        // print the heights
-        RCLCPP_INFO(this->get_logger(), "Height at point %d: %f, percent: %f", (int)i, berm_height, 100*berm_height/DESIRED_BERM_HEIGHT_M);
 
         marker_msg.id = i;
         marker_msg.pose.position.x = midpoint.x;
