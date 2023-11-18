@@ -253,7 +253,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
                 peak_z[j] = max_z;
             }
         }
-    }
+    } 
 
     // visualization_msgs/MarkerArray.msg make
     visualization_msgs::msg::Marker marker_array_msg;
@@ -668,7 +668,6 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     {
         RCLCPP_INFO(this->get_logger(), "No line coefficients");
     }
-
 
     publishVector(*ground_plane_vec, "groundplane");
     publishVector(*berm_plane_vec, "bermplane");

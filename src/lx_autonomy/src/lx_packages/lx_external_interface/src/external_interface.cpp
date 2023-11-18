@@ -322,7 +322,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     // B-button rising-edge calls service to stop mapping
     if(joy_msg->buttons[int(JoyButtons::B)] && !joy_last_state_.buttons[int(JoyButtons::B)]){
         // Check debounce time
-        if((this->get_clock()->now() - b_debounce_timer_).seconds() > 1.0 && current_rover_op_mode_ == OpModeEnum::TELEOP){
+        if((this->get_clock()->now() - b_debounce_timer_).seconds() > 2.0 && current_rover_op_mode_ == OpModeEnum::TELEOP){
             callStartMappingSwitch(false);
         }
         b_debounce_timer_ = this->get_clock()->now();
@@ -331,7 +331,7 @@ void ExternalInterface::roverControlPublish(const sensor_msgs::msg::Joy::SharedP
     // Y-button rising-edge calls action to calibrate IMU
     if(joy_msg->buttons[int(JoyButtons::Y)] && !joy_last_state_.buttons[int(JoyButtons::Y)]){
         // Check debounce time
-        if((this->get_clock()->now() - y_debounce_timer_).seconds() > 1.0){
+        if((this->get_clock()->now() - y_debounce_timer_).seconds() > 2.0){
             // Check if rover in autonomous mode
             if(current_rover_op_mode_ == OpModeEnum::AUTONOMOUS){
                 // Call action to calibrate IMU

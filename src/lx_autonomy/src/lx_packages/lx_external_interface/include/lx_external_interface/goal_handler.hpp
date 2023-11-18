@@ -32,6 +32,7 @@ class GoalHandler: public rclcpp::Node
         std::thread feasibility_check_thread_;
         // Service Clients
         rclcpp::Client<lx_msgs::srv::BermService>::SharedPtr berm_eval_points_client_;
+        rclcpp::Client<lx_msgs::srv::RequestRoverService>::SharedPtr world_model_points_client_;
         // Action Clients
         rclcpp_action::Client<Operation>::SharedPtr operation_action_client_;
         // Publishers
@@ -116,6 +117,11 @@ class GoalHandler: public rclcpp::Node
         *
         * */
         void bermEvalPointsCB(rclcpp::Client<lx_msgs::srv::BermService>::SharedFuture );
+
+        /*
+        *
+        * */
+        void worldModelPointsCB(rclcpp::Client<lx_msgs::srv::RequestRoverService>::SharedFuture );
 
         /*
         * Visualize feasible berm

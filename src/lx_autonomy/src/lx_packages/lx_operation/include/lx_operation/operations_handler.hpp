@@ -27,6 +27,7 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "lx_msgs/srv/switch.hpp"
 
 class OperationsHandler: public rclcpp::Node
 {
@@ -70,6 +71,7 @@ class OperationsHandler: public rclcpp::Node
         rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr set_params_client_;
         rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr get_params_client_;
         rclcpp::Client<lx_msgs::srv::Plan>::SharedPtr planner_client_;
+        rclcpp::Client<lx_msgs::srv::Switch>::SharedPtr map_switch_client_;
         // Action server
         rclcpp_action::Server<Operation>::SharedPtr operation_action_server_;
         // Action clients
@@ -295,6 +297,16 @@ class OperationsHandler: public rclcpp::Node
         * 
         * */
         bool checkSameBermSegment(lx_msgs::msg::BermSection , lx_msgs::msg::BermSection );
+
+        /*
+        * 
+        * */
+       void callMapSwitch(bool );
+
+        /*
+        * Callback function for map switch service
+        * */
+        void mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture );
         // --------------------------------------
 
     public:
