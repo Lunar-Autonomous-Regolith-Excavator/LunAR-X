@@ -117,8 +117,6 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
     RCLCPP_INFO(this->get_logger(), "Num bins per section: %d", num_bins_per_section);
 
     std::vector<double> berm_heights_bins(requested_berm_points_.size()*num_bins_per_section, 0);
-    std::vector<double> sum_weighted_dist_bins(requested_berm_points_.size()*num_bins_per_section, 0);
-    std::vector<double> sum_heights_bins(requested_berm_points_.size()*num_bins_per_section, 0.0001);
 
     double peakline_length = 0;
     double peakline_error = 0;
@@ -178,12 +176,11 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
 
                 if(abs(m) > 20){
                     parallel_dist = x - berm_marker_1_point.x + 0.2;
-                    perpendicular_dist = y - berm_marker_1_point.y;
+                    perpendicular_dist = x - berm_marker_1_point.x;
                     bin = int(parallel_dist/(this->map_->info.resolution * 1.414));
                 }
                 
                 else{                
-                    // get the point on the line joining the two berm_marker_points 1 and 2 closest to the current point
                     x_proj = (m*(y - berm_marker_1_point.y) + x + m*m*berm_marker_1_point.x)/(m*m + 1);
                     y_proj = m*x_proj + c;      
                     int sign = (y_diff > 0) - (y_diff < 0);
@@ -196,9 +193,9 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
                 if(bin < num_bins_per_section && bin >= 0){
                     if(this->map_->data[j] > berm_heights_bins[i*num_bins_per_section + bin]){
                         berm_heights_bins[i*num_bins_per_section + bin] = this->map_->data[j];
+                        // RCLCPP_INFO(this->get_logger(), "Bin: %f, Perpendicular dist: %f", bin, perpendicular_dist);
+                        peakline_error += pow(perpendicular_dist, 2);
                     }
-                    sum_weighted_dist_bins[i*num_bins_per_section + bin] += this->map_->data[j]*perpendicular_dist;
-                    sum_heights_bins[i*num_bins_per_section + bin] += this->map_->data[j];
                 }
             }
         }
@@ -223,15 +220,13 @@ void BermEvaluation::bermEval(const std::shared_ptr<lx_msgs::srv::BermProgressEv
 
         berm_progress_.heights.push_back(berm_height);
     }
-
     
     for(size_t i = 0; i < berm_heights_bins.size(); i++){
         if(berm_heights_bins[i] >= 0.9*DESIRED_BERM_HEIGHT_M){
             peakline_length += this->map_->info.resolution * 1.414;
         }
-        peakline_error += pow(sum_weighted_dist_bins[i]/sum_heights_bins[i], 2);
     }
-    peakline_error = sqrt(peakline_error)/num_bins_per_section;
+    peakline_error = sqrt(peakline_error)*0.015/peakline_length;
 
     berm_progress_.length = peakline_length;
     berm_progress_.peakline_error = peakline_error;
