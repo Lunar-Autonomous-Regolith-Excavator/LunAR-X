@@ -35,7 +35,8 @@ void GoalHandler::setupCommunications(){
     processed_berm_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/processed_berm", 5);
 
     // Clients
-    berm_eval_points_client_ = this->create_client<lx_msgs::srv::BermService>("/berm_evaluation/requested_points");
+    berm_eval_points_client_ = this->create_client<lx_msgs::srv::BermService>("berm_evaluation/requested_berm_points");
+    world_model_points_client_ = this->create_client<lx_msgs::srv::RequestRoverService>("world_model/requested_points");
     operation_action_client_ = rclcpp_action::create_client<Operation>(this, "operations/berm_build_action");
 
     // Servers
@@ -299,12 +300,15 @@ void GoalHandler::sendMapPoints(std::vector<geometry_msgs::msg::PointStamped> be
     auto berm_eval_request_points = std::make_shared<lx_msgs::srv::BermService::Request>();
     berm_eval_request_points->berm.berm_configuration = berm_eval_points;
 
-    // TODO Send excavation and restricted points to mapping
-    (void)map_excavation_points;
-    (void)map_restricted_points;
+    // Send berm and special zone points to mapping
+    auto world_model_request_points = std::make_shared<lx_msgs::srv::RequestRoverService::Request>();
+    world_model_request_points->berm.berm_configuration = berm_eval_points;
+    world_model_request_points->restricted_zone_coordinates = map_restricted_points;
+    world_model_request_points->excavation_zone_coordinates = map_excavation_points;
 
     // Send request
-    auto future_result = berm_eval_points_client_->async_send_request(berm_eval_request_points , std::bind(&GoalHandler::bermEvalPointsCB, this, std::placeholders::_1));
+    auto future_result_1 = berm_eval_points_client_->async_send_request(berm_eval_request_points , std::bind(&GoalHandler::bermEvalPointsCB, this, std::placeholders::_1));
+    auto future_result_2 = world_model_points_client_->async_send_request(world_model_request_points , std::bind(&GoalHandler::worldModelPointsCB, this, std::placeholders::_1));
 }
 
 void GoalHandler::bermEvalPointsCB(rclcpp::Client<lx_msgs::srv::BermService>::SharedFuture future){
@@ -315,6 +319,21 @@ void GoalHandler::bermEvalPointsCB(rclcpp::Client<lx_msgs::srv::BermService>::Sh
         }
         else{
             RCLCPP_ERROR(this->get_logger(), "Berm evaluation node didnt receive points");
+        }
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
+}
+
+void GoalHandler::worldModelPointsCB(rclcpp::Client<lx_msgs::srv::RequestRoverService>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    if(status == std::future_status::ready){ 
+        if(future.get()->success){
+            RCLCPP_INFO(this->get_logger(), "World model node received points");
+        }
+        else{
+            RCLCPP_ERROR(this->get_logger(), "World model node didnt receive points");
         }
     } 
     else{

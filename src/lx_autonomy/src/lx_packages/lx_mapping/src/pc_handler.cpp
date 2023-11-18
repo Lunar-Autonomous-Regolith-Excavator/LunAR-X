@@ -117,6 +117,7 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
     pcl::PointCloud<pcl::PointXYZ>::Ptr result_cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::CropBox<pcl::PointXYZ> cropFilter;
     cropFilter.setInputCloud(transformed_cloud);
+    
     // TODO: check for z direction
     if(this->tool_height_wrt_base_link_ == 1000.0){
         cropFilter.setMax(Eigen::Vector4f(1000, 1000, 0.28, 1.0));

@@ -36,7 +36,7 @@ include_directories(include)
 add_executable(visual_servoing_node src/visual_servoing_node.cpp src/visual_servoing.cpp)
 ament_target_dependencies(visual_servoing_node pcl_ros rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions visualization_msgs)
 
-add_executable(world_model_node src/world_model_node.cpp src/world_model.cpp)
+add_executable(world_model_node src/world_model_node.cpp src/world_model.cpp src/bayes_filter.cpp include/lx_mapping/bayes_filter.hpp)
 ament_target_dependencies(world_model_node lx_msgs rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions)
 
 add_executable(pc_handler_node src/pc_handler_node.cpp src/pc_handler.cpp)
@@ -45,11 +45,15 @@ ament_target_dependencies(pc_handler_node lx_msgs rclcpp tf2_geometry_msgs lx_ms
 add_executable(pcl_relay_node src/pcl_relay_node.cpp src/pcl_relay.cpp)
 ament_target_dependencies(pcl_relay_node rclcpp sensor_msgs)
 
+add_executable(berm_evaluation_node src/berm_evaluation_node.cpp src/berm_evaluation.cpp)
+ament_target_dependencies(berm_evaluation_node pcl_ros rclcpp tf2_geometry_msgs lx_msgs rclcpp std_msgs sensor_msgs geometry_msgs nav_msgs tf2_ros tf2_eigen tf2 pcl_ros pcl_conversions visualization_msgs)
+
 install(TARGETS 
   pcl_relay_node
   visual_servoing_node
   world_model_node
   pc_handler_node
+  berm_evaluation_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -61,5 +65,6 @@ install(DIRECTORY
 target_link_libraries(visual_servoing_node ${PCL_LIBRARIES})
 target_link_libraries(world_model_node ${PCL_LIBRARIES})
 target_link_libraries(pc_handler_node ${PCL_LIBRARIES})
+target_link_libraries(berm_evaluation_node ${PCL_LIBRARIES})
 
 ament_package()
