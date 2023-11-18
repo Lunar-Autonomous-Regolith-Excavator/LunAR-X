@@ -29,9 +29,9 @@ class BermEvaluation : public rclcpp::Node
         // Subscribers
         rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_subscriber_;
         // Publishers
-        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_1_publisher_;
-        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr berm_marker_2_publisher_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr berm_evaluation_array_publisher_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr peak_points_publisher_;
+
         std::thread map_update_thread_;
         // Servers
         rclcpp::Service<lx_msgs::srv::BermService>::SharedPtr berm_points_server_;
