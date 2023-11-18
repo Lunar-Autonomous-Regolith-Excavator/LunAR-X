@@ -74,12 +74,16 @@ void WorldModel::setupInitialMaps(){
 }
 
 void WorldModel::setupCommunications(){
+    rclcpp::QoS qos(10);  // initialize to default QoS
+    qos.transient_local();
+    qos.reliable();
+    qos.keep_last(1);
 
     // Publishers
     global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/global_map", 10);
     world_model_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/world_model", 10);
     filtered_global_map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/filtered_global_map", 10);
-    traversibility_costmap_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("mapping/traversibility_costmap", 10);
+    traversibility_costmap_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", qos);
 
     // Servers
     map_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/map_switch", 

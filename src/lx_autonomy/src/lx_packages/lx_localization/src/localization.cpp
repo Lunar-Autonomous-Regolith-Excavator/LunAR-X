@@ -227,9 +227,9 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     new_yaw_offset = new_yaw_offset / (double) yaw_offsets.size(); // average yaw offset
 
     // If we are in dont_move_rover mode, and the new offset differs from the old offset by more than 15 degrees, return error
-    if(goal->dont_move_rover == true && abs(new_yaw_offset - this->yaw_offset_) > 15.0 * M_PI / 180.0)
+    if(goal->dont_move_rover == true && abs(new_yaw_offset - this->yaw_offset_) > 80.0 * M_PI / 180.0)
     {
-        RCLCPP_INFO(this->get_logger(), "New yaw offset %f differs from old yaw offset %f by more than 15 degrees, calibration failed", new_yaw_offset, this->yaw_offset_);
+        RCLCPP_INFO(this->get_logger(), "New yaw offset %f differs from old yaw offset %f by more than 80 degrees, calibration failed", new_yaw_offset, this->yaw_offset_);
         // Set result
         result->success = false;
         goal_handle->abort(result);
