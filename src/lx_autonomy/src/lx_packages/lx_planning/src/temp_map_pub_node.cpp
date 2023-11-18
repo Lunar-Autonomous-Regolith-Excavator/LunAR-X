@@ -74,8 +74,8 @@ private:
     // }
 
     // Make top right corner of 1 meter as obstacle
-    for (int j = map_msg.info.height - 1; j > map_msg.info.height - 1 - 20; j--) {
-      for (int i = map_msg.info.width - 1; i > map_msg.info.width - 1 - 20; i--) {
+    for (unsigned int j = map_msg.info.height - 1; j > map_msg.info.height - 1 - 20; j--) {
+      for (unsigned int i = map_msg.info.width - 1; i > map_msg.info.width - 1 - 20; i--) {
         map_data[GETMAXINDEX(i, j, map_msg.info.width)] = 100;
       }
     }
@@ -83,11 +83,11 @@ private:
     map_msg.data = map_data;
 
     // Make the borders of the map occupied
-    for (int i = 0; i < map_msg.info.width; i++) {
+    for (unsigned int i = 0; i < map_msg.info.width; i++) {
       map_msg.data[GETMAXINDEX(i, 0, map_msg.info.width)] = 100;
       map_msg.data[GETMAXINDEX(i, map_msg.info.height - 1, map_msg.info.width)] = 100;
     }
-    for (int i = 0; i < map_msg.info.height; i++) {
+    for (unsigned int i = 0; i < map_msg.info.height; i++) {
       map_msg.data[GETMAXINDEX(0, i, map_msg.info.width)] = 100;
       map_msg.data[GETMAXINDEX(map_msg.info.width - 1, i, map_msg.info.width)] = 100;
     }

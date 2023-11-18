@@ -56,7 +56,7 @@ public:
             auto result = result_future.get();
             // Print out the berm sequence
             std::vector<lx_msgs::msg::PlannedTask> plan = result->plan;
-            for (int i = 0; i < plan.size(); i++) {
+            for (int i = 0; i < static_cast<int>(plan.size()); i++) {
                 // Get yaw from quaternion
                 double yaw = atan2(2.0 * (plan[i].pose.orientation.w * plan[i].pose.orientation.z + plan[i].pose.orientation.x * plan[i].pose.orientation.y),
                                    1.0 - 2.0 * (plan[i].pose.orientation.y * plan[i].pose.orientation.y + plan[i].pose.orientation.z * plan[i].pose.orientation.z));

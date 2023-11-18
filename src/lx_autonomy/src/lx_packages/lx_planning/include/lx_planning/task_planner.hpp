@@ -60,13 +60,10 @@ class TaskPlanner: public rclcpp::Node
         double section_length_;
         double desired_berm_height_;
 
-        // Robot variables
-        double drum_to_base_;
-
         // Map variables
-        std::vector<int8_t> map_data_;
-        nav_msgs::msg::OccupancyGrid map_msg_;
-        rclcpp::TimerBase::SharedPtr timer_;
+        // std::vector<int8_t> map_data_;
+        // nav_msgs::msg::OccupancyGrid map_msg_;
+        // rclcpp::TimerBase::SharedPtr timer_;
 
         // Subscribers
         
@@ -98,13 +95,13 @@ class TaskPlanner: public rclcpp::Node
         int numOfDumps(const int );
         
         // Functions for map publishing
-        void initializeMap();
+        // void initializeMap();
         
-        void publishMap();
+        // void publishMap();
 
-        void updateMap(const geometry_msgs::msg::Point& );
+        // void updateMap(const geometry_msgs::msg::Point& );
 
-        void clearMap();
+        // void clearMap();
 
     public:
 
