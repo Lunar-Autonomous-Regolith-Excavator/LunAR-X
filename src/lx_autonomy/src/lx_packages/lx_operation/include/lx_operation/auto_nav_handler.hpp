@@ -14,6 +14,7 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "nav2_msgs/action/navigate_through_poses.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "lx_msgs/msg/rover_command.hpp"
@@ -36,12 +37,20 @@ class AutoNavHandler: public rclcpp::Node
         // Goal Pose
         geometry_msgs::msg::PoseStamped goal_pose_;
         int next_action_;
+        // Rover Current State
+        nav_msgs::msg::Odometry rover_current_pose_;
+        geometry_msgs::msg::Twist rover_cmd_vel_;
         // Nav2 Action Feedback
-        geometry_msgs::msg::PoseStamped current_pose_;
+        geometry_msgs::msg::PoseStamped nav2_current_pose_;
         builtin_interfaces::msg::Duration navigation_time_;
         builtin_interfaces::msg::Duration estimated_time_remaining_;
         int number_of_recoveries_;
         double distance_remaining_;
+
+        // Subscriber for rover current pose
+        rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr rover_current_pose_sub_;
+        // Subscriber for cmd_vel
+        rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
         // Subscriber for cmd_vel_nav
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_nav_sub_;
         // Publisher for rover auto command
@@ -129,6 +138,11 @@ class AutoNavHandler: public rclcpp::Node
         // Function to remap cmd_vel_nav to rover_cmd
         void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr );
 
+        // Functions for rover state subscriber callbacks
+        void roverCurrentPoseCallback(const nav_msgs::msg::Odometry::SharedPtr );
+
+        void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr );
+
     public:
         // Functions
         /*
@@ -143,7 +157,14 @@ class AutoNavHandler: public rclcpp::Node
 
         // Constants
         static constexpr double MAX_DURATION = 180.0; // seconds
-        static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.7; // meters
+        static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.3; // meters
+
+        // PID Parameters for Yaw Control
+        static constexpr double YAW_TOLERANCE = 2 * M_PI / 180; // radians
+        static constexpr double YAW_KP = 15;
+        static constexpr double YAW_KI = 0.001;
+        static constexpr double YAW_KD = 1;
+        static constexpr double YAW_VEL_MAX = 0.1; // radians per second
 };
 
 #endif

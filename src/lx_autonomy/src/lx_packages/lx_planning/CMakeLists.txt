@@ -24,9 +24,13 @@ ament_target_dependencies(task_planner_node rclcpp lx_msgs lx_library geometry_m
 add_executable(map_pub src/temp_map_pub_node.cpp)
 ament_target_dependencies(map_pub rclcpp nav2_msgs)
 
+add_executable(test_planner src/test_task_planner.cpp)
+ament_target_dependencies(test_planner rclcpp lx_msgs geometry_msgs)
+
 install(TARGETS
   task_planner_node
   map_pub
+  test_planner
   DESTINATION lib/${PROJECT_NAME}
 )
 

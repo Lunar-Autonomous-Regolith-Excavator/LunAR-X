@@ -31,9 +31,9 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
                         std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
-    autodig_pid_outer_.kp = 0.016;
-    autodig_pid_outer_.ki = 0.0000025;
-    autodig_pid_outer_.kd = 0.020;
+    autodig_pid_outer_.kp = 0.013;
+    autodig_pid_outer_.ki = 0.000001;
+    autodig_pid_outer_.kd = 0.02;
 
     autodig_pid_inner_.kp = 20.0;
     autodig_pid_inner_.ki = 0.0001;
@@ -120,6 +120,9 @@ void AutoDigHandler::setupCommunications(){
                         std::bind(&AutoDigHandler::toolInfoCB, this, std::placeholders::_1));
     drum_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/tool_height", 10, 
                         std::bind(&AutoDigHandler::drumHeightCB, this, std::placeholders::_1));
+
+    pcl_ground_height_sub_ = this->create_subscription<std_msgs::msg::Float64>("/mapping/pcl_ground_height", 10, 
+                        std::bind(&AutoDigHandler::pclGroundHeightCB, this, std::placeholders::_1));
     
     // Publishers
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
@@ -133,6 +136,7 @@ void AutoDigHandler::setupCommunications(){
 
     // Service clients
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
+    pcl_ground_height_client_ = this->create_client<lx_msgs::srv::PclGroundHeight>("/mapping/pcl_ground_height_srv");
 
     // Action server
     using namespace std::placeholders;
@@ -143,6 +147,21 @@ void AutoDigHandler::setupCommunications(){
     
     // Action client
     this->calibrate_imu_action_client_ = rclcpp_action::create_client<CalibrateImu>(this, "/lx_localization/calibrate_imu");
+}
+
+void AutoDigHandler::callPclGroundHeightSrv(bool value)
+{
+    // call ground height service
+    auto request = std::make_shared<lx_msgs::srv::PclGroundHeight::Request>();
+    request->need_height = value;
+    auto future_result = pcl_ground_height_client_->async_send_request(request);
+    return;
+}
+
+// callback for pcl_ground_height subscriber
+void AutoDigHandler::pclGroundHeightCB(const std_msgs::msg::Float64::SharedPtr msg)
+{
+    this->curr_ground_height_ = msg->data;
 }
 
 void AutoDigHandler::setupParams(){
@@ -269,14 +288,21 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     // Allow rover to be controlled by inner PID loop
     inner_PID_control_rover_ = true; 
 
+    // Switch setPCLGroundHeight service to true
+    callPclGroundHeightSrv(true);
 
     // Wait for drum height to reach GOTO_TOOL_HEIGHT
-    target_drum_height = GOTO_TOOL_HEIGHT;
+   
     while(rclcpp::ok() && !goal_handle->is_canceling()){
-        if(std::abs(drum_height_-target_drum_height) < 0.02){
+        target_drum_height = GOTO_TOOL_HEIGHT + curr_ground_height_;
+        if(drum_height_-target_drum_height < 0.02)
+        {
             break;
         }
     }
+
+    // Switch setPCLGroundHeight service to false
+    callPclGroundHeightSrv(false);
 
     // call localization calibration action before starting autodig
     if(rclcpp::ok() && !goal_handle->is_canceling()) callLocalizationCalibration();

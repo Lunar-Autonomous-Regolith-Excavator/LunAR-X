@@ -29,9 +29,29 @@ colcon build --packages-select lx_operation && ros2 launch lx_operation operatio
 
 - Start mapping
 colcon build --packages-select lx_mapping && ros2 launch lx_mapping mapping.launch.py
+colcon build --packages-select lx_mapping && ros2 launch lx_mapping mapping.launch.py use_sim_time:=True launch_rviz:=True
+
 
 - Start services
 bash start_vs.sh
 
 - Call AutoDump action
 ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{}"
+
+
+ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{\
+  \"prev_berm_segment\": {\"x\": 5.0, \"y\": 2.0, \"theta\": -1.57},\
+  \"current_berm_segment\": {\"x\": 4.86, \"y\": 1.66, \"theta\": -2.35619},\
+  \"first_op_dump\": false,\
+  \"first_seg_dump\": false\
+}"
+
+
+// Unit test
+ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{\
+  \"first_op_dump\": false,\
+  \"first_seg_dump\": false\
+}"
+
+Test Autodig service call:
+ros2 service call mapping/pcl_ground_height_srv lx_msgs/srv/PclGroundHeight 'need_height: true'

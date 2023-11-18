@@ -18,6 +18,7 @@
 #include "std_msgs/msg/float64.hpp"
 #include "lx_msgs/msg/node_diagnostics.hpp"
 #include "lx_msgs/action/calibrate_imu.hpp"
+#include "lx_msgs/srv/pcl_ground_height.hpp"
 
 class AutoDigHandler: public rclcpp::Node
 {
@@ -34,7 +35,8 @@ class AutoDigHandler: public rclcpp::Node
         double drum_height_ = 0;
         bool inner_PID_control_rover_ = false;
         unsigned int diagnostic_pub_period_ = 1;
-        bool debugging_publish_ = false;
+        bool debugging_publish_ = true;
+        double curr_ground_height_ = 0;
         // Time
         rclcpp::Time tool_info_msg_time_ = rclcpp::Time(0,0,RCL_ROS_TIME);
         rclcpp::TimerBase::SharedPtr rover_command_timer_;
@@ -55,6 +57,7 @@ class AutoDigHandler: public rclcpp::Node
         // Subscribers
         rclcpp::Subscription<lx_msgs::msg::ToolInfo>::SharedPtr tool_info_sub_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_height_sub_;
+        rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr pcl_ground_height_sub_;
         // Publishers
         rclcpp::Publisher<lx_msgs::msg::RoverCommand>::SharedPtr rover_auto_cmd_pub_;
         rclcpp::Publisher<lx_msgs::msg::NodeDiagnostics>::SharedPtr diagnostic_publisher_;
@@ -62,6 +65,10 @@ class AutoDigHandler: public rclcpp::Node
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_current_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_height_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_height_pub_;
+
+        // Service client to PclGroundHeight service
+        rclcpp::Client<lx_msgs::srv::PclGroundHeight>::SharedPtr pcl_ground_height_client_;
+
         // Autodig Control
         pid_struct autodig_pid_outer_,autodig_pid_inner_;
         double prev_error_current = 0, integral_error_current = 0;
@@ -75,8 +82,8 @@ class AutoDigHandler: public rclcpp::Node
         const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
         const double NOMINAL_CURRENT_VALUE_I = 1.2; 
         const double NOMINAL_CURRENT_VALUE_F = 3.2;
-        const double T_END_SECONDS = 60; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
-        const double GOTO_TOOL_HEIGHT = 0.2; // the height the tool goes to before starting excavation
+        const double T_END_SECONDS = 55; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
+        const double GOTO_TOOL_HEIGHT = 0.24; // the height the tool goes to before starting excavation
         const double END_TOOL_HEIGHT = 0.45; // the height the tool goes to after excavation is complete
         
         // --------------------------------------
@@ -168,6 +175,10 @@ class AutoDigHandler: public rclcpp::Node
         * Call IMU calibration action
         * */
         void callLocalizationCalibration();
+
+        void pclGroundHeightCB(const std_msgs::msg::Float64::SharedPtr msg);
+
+        void callPclGroundHeightSrv(bool);
 
     public:
         // Functions

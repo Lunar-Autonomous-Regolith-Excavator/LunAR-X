@@ -27,6 +27,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/BermService.srv"
   "srv/ZoneService.srv"
   "srv/RequestRoverService.srv"
+  "srv/PclGroundHeight.srv"
   "action/Operation.action"
   "action/AutoDig.action"
   "action/AutoDump.action"

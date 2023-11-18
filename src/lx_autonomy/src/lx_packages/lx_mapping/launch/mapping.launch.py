@@ -1,7 +1,10 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+import launch
 
 def generate_launch_description():
+    use_sim_time_param = launch.substitutions.LaunchConfiguration('use_sim_time', default='false')  
+    launch_rviz = launch.substitutions.LaunchConfiguration('launch_rviz', default='false')
     
     pc_handler_node = Node(
             package='lx_mapping',

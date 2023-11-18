@@ -55,12 +55,12 @@ class AutoDumpHandler: public rclcpp::Node
         geometry_msgs::msg::Point visual_servo_error_;
         double drum_height_;
         rclcpp::Time servoing_msg_time= rclcpp::Time(0,0,RCL_ROS_TIME);
+        rclcpp::Time last_drum_height_msg_time = rclcpp::Time(0,0,RCL_ROS_TIME);
         bool visual_servo_switch_ = false;
-        bool first_dump_done = false;
 
         const double DRUM_DUMP_SPEED = 0.8;
         const double DRUM_DUMP_TIME_S = 20;
-        const double END_TOOL_HEIGHT = 0.45;
+        const double END_TOOL_HEIGHT = 0.43;
         const double CLIP_VEL_CMD_VAL = 0.05;
         const double CLIP_HEIGHT_CMD_VAL = 1;
         const double CLIP_YAW_CMD_VAL = 0.05;
@@ -157,7 +157,9 @@ class AutoDumpHandler: public rclcpp::Node
         /*
         * 
         * */
-        bool callVisualServoSwitch(bool );
+        bool callVisualServoSwitch(bool switch_state, 
+                           const lx_msgs::msg::BermSection::SharedPtr current_berm_segment = nullptr,
+                           const lx_msgs::msg::BermSection::SharedPtr prev_berm_segment = nullptr);
 
         /*
         * 

@@ -42,14 +42,18 @@ void VisualServoing::setupCommunications(){
     // Subscribers
     tool_height_subscriber_ = this->create_subscription<std_msgs::msg::Float64>("tool_height", 10, 
                                     std::bind(&VisualServoing::toolHeightCallback, this, std::placeholders::_1));
+    tool_distance_subscriber_ = this->create_subscription<std_msgs::msg::Float64>("tool_distance", 10, 
+                                    std::bind(&VisualServoing::toolDistanceCallback, this, std::placeholders::_1));
     // Publishers
     visual_servo_error_publisher_ = this->create_publisher<geometry_msgs::msg::Point>("mapping/visual_servo_error", 10);
-    peakline_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/peakline_marker", 10);
-    targetpoint_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/targetpoint_marker", 10);
+    peakline_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/C_peakline_marker", 10);
+    targetpoint_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/D_targetpoint_marker", 10);
     if(debug_mode_){
-        peakpoints_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/peakpoints_marker", 10);
-        groundplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/groundplane_marker", 10);
-        bermplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/bermplane_marker", 10);
+        transformed_berm_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/D_transformed_berm_points", 10);
+        projected_point_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/E_projected_point_marker", 10);
+        peakpoints_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/B_peakpoints_marker", 10);
+        groundplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/A_groundplane_marker", 10);
+        bermplane_marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("mapping/A_bermplane_marker", 10);
         groundplane_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/groundplane", 10);
         bermplane_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("mapping/bermplane", 10);
     }  
@@ -57,20 +61,40 @@ void VisualServoing::setupCommunications(){
     // Servers
     visual_servo_switch_server_ = this->create_service<lx_msgs::srv::Switch>("mapping/visual_servo_switch", 
                         std::bind(&VisualServoing::startStopVSCallback, this, std::placeholders::_1, std::placeholders::_2));
+    
+    // TF
+    this->tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    this->tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*this->tf_buffer_, this, true);
 }
 
 void VisualServoing::toolHeightCallback(const std_msgs::msg::Float64::SharedPtr msg){
    tool_height_wrt_base_link_ = msg->data;
 }
 
+void VisualServoing::toolDistanceCallback(const std_msgs::msg::Float64::SharedPtr msg){
+    tool_distance_wrt_base_link_ = msg->data;
+}
+
 void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Switch::Request> req,
                                                 std::shared_ptr<lx_msgs::srv::Switch::Response> res){
-    if(req->switch_state && node_state_ == false){
+    RCLCPP_INFO(this->get_logger(), "Visual Servoing switch requested with state: %d", req->switch_state);
+    if(req->switch_state ==true && node_state_ == false) // Turn on node if its ON requested and its not already ON
+    {
         this->pointcloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("mapping/transformed_pointcloud", 10, 
                                         std::bind(&VisualServoing::pointCloudCallback, this, std::placeholders::_1));
+        this->current_berm_segment = req->current_berm_segment;
+        this->prev_berm_segment = req->prev_berm_segment;
+        // if all values in current_berm_segment are 0, set transform_mode_ to false
+        if(this->current_berm_segment.x == 0 && this->current_berm_segment.y == 0 && this->current_berm_segment.theta == 0){
+            transform_mode_ = false;
+        }
+        else{
+            transform_mode_ = true;
+        }
         node_state_ = true;
     }
-    else{
+    else if (req->switch_state == false && node_state_ == true) // Turn off node if its OFF requested and its not already OFF
+    {
         node_state_ = false;
         this->pointcloud_subscriber_.reset();
     }
@@ -173,7 +197,7 @@ void VisualServoing::publishVector(std::vector<double> v, std::string topic_name
         // green color
         marker_msg.color.g = 1.0;
         marker_msg.color.a = 1.0;
-        marker_msg.points[0].x = DRUM_X_BASELINK_M;
+        marker_msg.points[0].x = tool_distance_wrt_base_link_;
         marker_msg.points[0].y = DRUM_Y_BASELINK_M;
         marker_msg.points[0].z = std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
         targetpoint_marker_publisher_->publish(marker_msg);
@@ -267,7 +291,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         binned_cloud->points.push_back(p);
     }
 
-        // get the distance of the points in binned_cloud from the ground plane
+    // get the distance of the points in binned_cloud from the ground plane
     vector<double> distances;
     double max_distance = -100.0;
     for(long unsigned int i = 0; i < binned_cloud->points.size(); i++){
@@ -281,7 +305,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         }
     }
 
-    // remove points that are not witing PEAK_LINE_DISTANCE_M of the ground plane
+    // remove points that are not withing PEAK_LINE_DISTANCE_M of the ground plane
     pcl::PointCloud<pcl::PointXYZ>::Ptr binned_cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
     for(long unsigned int i=0; i < binned_cloud->points.size(); i++){
         if(abs(distances[i]-max_distance)<PEAK_LINE_DISTANCE_M){
@@ -318,9 +342,9 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     marker_msg.type = visualization_msgs::msg::Marker::LINE_STRIP;
     marker_msg.action = visualization_msgs::msg::Marker::ADD;
     marker_msg.pose.orientation.w = 1.0;
-    marker_msg.scale.x = 0.05;
-    marker_msg.scale.y = 0.05;
-    marker_msg.scale.z = 0.05;
+    marker_msg.scale.x = 0.01;
+    marker_msg.scale.y = 0.01;
+    marker_msg.scale.z = 0.01;
     marker_msg.color.g = 1.0;
     marker_msg.color.a = 1.0;
     geometry_msgs::msg::Point p;
@@ -340,6 +364,54 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         line_coefficients.push_back(coefficients->values[i]);
     }
     return line_coefficients;
+}
+
+vector<geometry_msgs::msg::PoseStamped> VisualServoing::getTransformedBermSegments()
+{
+    // Convert current and previous berm segments to geometry_msgs::msg::PoseStamped 
+    // Transform to base_link frame
+    // Return vector of transformed berm segments
+
+    // Read transform from map to base_link
+    geometry_msgs::msg::TransformStamped transformStamped;
+    try
+    {
+        transformStamped = this->tf_buffer_->lookupTransform("base_link", "map", tf2::TimePointZero, tf2::durationFromSec(0.5));
+    }
+    catch (tf2::TransformException &ex)
+    {
+        RCLCPP_ERROR(this->get_logger(), "%s", ex.what());
+        return {};
+    }
+
+    vector<geometry_msgs::msg::PoseStamped> ans;
+    // transform berm segments
+    tf2::Quaternion q;
+    geometry_msgs::msg::PoseStamped curr_segment_pose;
+    geometry_msgs::msg::PoseStamped prev_segment_pose;
+
+    q.setRPY(0, 0, current_berm_segment.theta);
+    curr_segment_pose.pose.position.x = current_berm_segment.x;
+    curr_segment_pose.pose.position.y = current_berm_segment.y;
+    curr_segment_pose.pose.position.z = 0.3; // for viz
+    curr_segment_pose.pose.orientation.x = q.x(); curr_segment_pose.pose.orientation.y = q.y(); curr_segment_pose.pose.orientation.z = q.z(); curr_segment_pose.pose.orientation.w = q.w();
+
+    q.setRPY(0, 0, prev_berm_segment.theta);
+    prev_segment_pose.pose.position.x = prev_berm_segment.x;
+    prev_segment_pose.pose.position.y = prev_berm_segment.y;
+    prev_segment_pose.pose.position.z = 0.3; // for viz
+    prev_segment_pose.pose.orientation.x = q.x(); prev_segment_pose.pose.orientation.y = q.y(); prev_segment_pose.pose.orientation.z = q.z(); prev_segment_pose.pose.orientation.w = q.w();
+
+    geometry_msgs::msg::PoseStamped transformed_curr_segment_pose;
+    geometry_msgs::msg::PoseStamped transformed_prev_segment_pose;
+
+    tf2::doTransform(curr_segment_pose, transformed_curr_segment_pose, transformStamped);
+    tf2::doTransform(prev_segment_pose, transformed_prev_segment_pose, transformStamped);
+
+    ans.push_back(transformed_curr_segment_pose);
+    ans.push_back(transformed_prev_segment_pose);
+
+    return ans;
 }
 
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
@@ -443,35 +515,159 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     // check if line_coefficients is empty
     if(line_coefficients.size() > 0){
 
-        geometry_msgs::msg::Point error_msg;
+        geometry_msgs::msg::Point error_msg, curr_error;
         std::vector<double> target_point(3,0.0);
-        // find the point on the line given by line_coefficients that is closest to the tool (origin). the coefficients are the form (x0, y0, z0, x1, y1, z1) where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
-        double t = -(line_coefficients[0]*line_coefficients[3] + line_coefficients[1]*line_coefficients[4] + line_coefficients[2]*line_coefficients[5])/(line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
-        target_point[0] = line_coefficients[0] + line_coefficients[3]*t;
-        target_point[1] = line_coefficients[1] + line_coefficients[4]*t;
-        target_point[2] = line_coefficients[2] + line_coefficients[5]*t;
-        publishVector(target_point, "targetpoint");
+        // find the point on the line given by line_coefficients that is closest to the tool (origin). 
+        // The coefficients are the form (x0, y0, z0, x1, y1, z1) where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
+        double t = -(line_coefficients[0]*line_coefficients[3] + line_coefficients[1]*line_coefficients[4] + line_coefficients[2]*line_coefficients[5])/
+                        (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
+        target_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
+        target_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
+        target_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
 
-        error_msg.x = exp_filter_x_.getValue(target_point[0] - DRUM_X_BASELINK_M);
-        // calculate yaw error by projecting the direction vector into the x-y plane
-        double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
-        // shift yaw error to -pi/2 to pi/2
-        if(yaw_error > M_PI/2){
-            yaw_error = yaw_error - M_PI;
+        // Get transformed berm segments
+        vector<geometry_msgs::msg::PoseStamped> transformed_berm_segments = this->getTransformedBermSegments();
+        bool got_transformed_berm_segments = true;
+        if (transformed_berm_segments.size() == 0)
+        {
+            got_transformed_berm_segments = false;
+            RCLCPP_INFO(this->get_logger(), "Visual Servoing could not transform berm segments, resorting to default behavior");
         }
-        else if(yaw_error < -M_PI/2){
-            yaw_error = yaw_error + M_PI;
+        geometry_msgs::msg::PoseStamped curr_segment_pose, prev_segment_pose;
+        double dist_to_curr_segment, dist_to_prev_segment;
+        if(got_transformed_berm_segments == false)
+        {
+            dist_to_prev_segment = 1000; dist_to_curr_segment = 0; //to make sure curr_segment is chosen
         }
-        error_msg.y = exp_filter_y_.getValue(yaw_error);
-        error_msg.z = exp_filter_z_.getValue(target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M);
+        else
+        {
+            curr_segment_pose = transformed_berm_segments[0];
+            prev_segment_pose = transformed_berm_segments[1];
+            dist_to_curr_segment = sqrt(pow(target_point[0] - curr_segment_pose.pose.position.x, 2) + pow(target_point[1] - curr_segment_pose.pose.position.y, 2));
+            dist_to_prev_segment = sqrt(pow(target_point[0] - prev_segment_pose.pose.position.x, 2) + pow(target_point[1] - prev_segment_pose.pose.position.y, 2));
+        }
+
+        if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
+        {
+            RCLCPP_INFO(this->get_logger(), "Servoing to detected berm");
+            // calculate yaw error by projecting the direction vector into the x-y plane
+            double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
+            // shift yaw error to -pi/2 to pi/2
+            if(yaw_error > M_PI/2){
+                yaw_error = yaw_error - M_PI;
+            }
+            else if(yaw_error < -M_PI/2){
+                yaw_error = yaw_error + M_PI;
+            }
+            curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
+            curr_error.y = yaw_error;
+            curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            publishVector(target_point, "targetpoint");
+        }
+        else
+        {
+            RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point");
+            // Detected berm is previous berm
+            // Find closest point on line line_coefficients to the point previous_berm_segment
+            vector<double> dir_vect = { line_coefficients[0] - prev_segment_pose.pose.position.x, 
+                                        line_coefficients[1] - prev_segment_pose.pose.position.y, 
+                                        line_coefficients[2] - prev_segment_pose.pose.position.z };
+
+            double t = -(line_coefficients[3]*dir_vect[0] + line_coefficients[4]*dir_vect[1] + line_coefficients[5]*dir_vect[2])/
+                        (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
+
+            vector<double> closest_point{3, 0.0};
+            closest_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
+            closest_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
+            closest_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
+
+            // get theta of previous berm segment
+            tf2::Quaternion q(prev_segment_pose.pose.orientation.x, prev_segment_pose.pose.orientation.y, prev_segment_pose.pose.orientation.z, prev_segment_pose.pose.orientation.w);
+            double prev_segment_theta = tf2::getYaw(q);
+
+            // get intersection point
+            double SEG_LEN=0.4;
+            vector<double> intersection_point{3, 0.0};
+            intersection_point[0] = closest_point[0] + cos(prev_segment_theta)*SEG_LEN/2.0;
+            intersection_point[1] = closest_point[1] + sin(prev_segment_theta)*SEG_LEN/2.0;
+            intersection_point[2] = closest_point[2];
+
+            // get curr segment theta
+            q = tf2::Quaternion(curr_segment_pose.pose.orientation.x, curr_segment_pose.pose.orientation.y, curr_segment_pose.pose.orientation.z, curr_segment_pose.pose.orientation.w);
+            double curr_segment_theta = tf2::getYaw(q);
+
+            // calculate target point
+            vector<double> projected_point{3, 0.0};
+            projected_point[0] = intersection_point[0] + cos(curr_segment_theta)*SEG_LEN/2.0;
+            projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
+            projected_point[2] = intersection_point[2];
+
+            curr_error.x = - tool_distance_wrt_base_link_;
+            curr_error.y = curr_segment_theta;
+            if (curr_segment_theta > M_PI/2){
+                curr_error.y = curr_error.y - M_PI;
+            }
+            else if (curr_segment_theta < -M_PI/2){
+                curr_error.y = curr_error.y + M_PI;
+            }
+            curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            publishVector(projected_point, "targetpoint");
+            if(debug_mode_)
+            {
+                // projected_point_marker_publisher_ for intersection_point, projected_point and closest_point
+                visualization_msgs::msg::Marker marker_msg;
+                marker_msg.header.frame_id = "base_link";
+                marker_msg.header.stamp = this->get_clock()->now();
+                marker_msg.ns = "visual_servoing";
+                marker_msg.id = 0;
+                marker_msg.type = visualization_msgs::msg::Marker::POINTS;
+                marker_msg.action = visualization_msgs::msg::Marker::ADD;
+                marker_msg.pose.orientation.w = 1.0;
+                marker_msg.scale.x = 0.05;
+                marker_msg.scale.y = 0.05;
+                marker_msg.color.g = 1.0;
+                marker_msg.color.r = 1.0;
+                marker_msg.color.a = 1.0;
+                geometry_msgs::msg::Point p;
+                p.x = intersection_point[0]; p.y = intersection_point[1]; p.z = intersection_point[2];
+                marker_msg.points.push_back(p);
+                p.x = projected_point[0]; p.y = projected_point[1]; p.z = projected_point[2];
+                marker_msg.points.push_back(p);
+                p.x = closest_point[0]; p.y = closest_point[1]; p.z = closest_point[2];
+                marker_msg.points.push_back(p);
+                projected_point_marker_publisher_->publish(marker_msg);
+
+                // transformed_berm_points_publisher_ for prev_segment_pose and curr_segment_pose
+                visualization_msgs::msg::Marker marker_msg2;
+                marker_msg2.header.frame_id = "base_link";
+                marker_msg2.header.stamp = this->get_clock()->now();
+                marker_msg2.ns = "visual_servoing";
+                marker_msg2.id = 0;
+                marker_msg2.type = visualization_msgs::msg::Marker::POINTS;
+                marker_msg2.action = visualization_msgs::msg::Marker::ADD;
+                marker_msg2.pose.orientation.w = 1.0;
+                marker_msg2.scale.x = 0.05;
+                marker_msg2.scale.y = 0.05;
+                marker_msg2.color.b = 1.0;
+                marker_msg2.color.a = 1.0;
+                p.x = prev_segment_pose.pose.position.x; p.y = prev_segment_pose.pose.position.y; p.z = prev_segment_pose.pose.position.z;
+                marker_msg2.points.push_back(p);
+                p.x = curr_segment_pose.pose.position.x; p.y = curr_segment_pose.pose.position.y; p.z = curr_segment_pose.pose.position.z;
+                marker_msg2.points.push_back(p);
+                transformed_berm_points_publisher_->publish(marker_msg2);
+            }
+        }
+
+        // Filter errors 
+        error_msg.x = exp_filter_x_.getValue(curr_error.x);
+        error_msg.y = exp_filter_y_.getValue(curr_error.y);
+        error_msg.z = exp_filter_z_.getValue(curr_error.z);
         visual_servo_error_publisher_->publish(error_msg);
     }
     else
     {
         RCLCPP_INFO(this->get_logger(), "No line coefficients");
     }
-
-    RCLCPP_INFO(this->get_logger(), "cross product: %f %f %f", cross_product[0], cross_product[1], cross_product[2]);
 
     publishVector(*ground_plane_vec, "groundplane");
     publishVector(*berm_plane_vec, "bermplane");

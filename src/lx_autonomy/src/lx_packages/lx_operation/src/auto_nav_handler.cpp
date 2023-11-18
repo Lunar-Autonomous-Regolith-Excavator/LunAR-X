@@ -111,6 +111,12 @@ void AutoNavHandler::setupCommunications(){
     // Subscribers
     this->cmd_vel_nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
         "cmd_vel_nav", 10, std::bind(&AutoNavHandler::cmdVelNavCallback, this, _1));
+
+    this->rover_current_pose_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+        "odometry/ekf_global_node", 10, std::bind(&AutoNavHandler::roverCurrentPoseCallback, this, _1));
+    
+    this->cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
+        "cmd_vel", 10, std::bind(&AutoNavHandler::cmdVelCallback, this, _1));
     
     // Publishers
     this->rover_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("rover_auto_cmd", 10);
@@ -222,20 +228,69 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Autonav failed");
         // Publish 0 rover command to stop rover
-        lx_msgs::msg::RoverCommand rov_cmd;
-        rover_cmd_pub_->publish(rov_cmd);
+        lx_msgs::msg::RoverCommand rover_cmd;
+        rover_cmd_pub_->publish(rover_cmd);
         return;
     }
 
     // Publish 0 rover command to stop rover
-    lx_msgs::msg::RoverCommand rov_cmd;
-    rover_cmd_pub_->publish(rov_cmd);
+    lx_msgs::msg::RoverCommand rover_cmd;
+    rover_cmd_pub_->publish(rover_cmd);
+
+    rclcpp::Rate loop_rate(10);
+    // Yaw PID Control
+    double yaw_error;
+    double yaw_error_integral;
+    double yaw_error_previous;
+    double yaw_vel;
+
+    double goal_yaw = tf2::getYaw(this->goal_pose_.pose.orientation);
+    double current_yaw = tf2::getYaw(this->rover_current_pose_.pose.pose.orientation);
+
+    RCLCPP_INFO(this->get_logger(), "Executing Yaw PID control");
+    
+    while(rclcpp::ok() && !goal_handle->is_canceling())
+    {
+        current_yaw = tf2::getYaw(this->rover_current_pose_.pose.pose.orientation);
+        yaw_error = goal_yaw - current_yaw;
+        yaw_error = fmod((yaw_error + M_PI), (2 * M_PI)) - M_PI;
+        RCLCPP_INFO(this->get_logger(), "Yaw error: %f, Current Yaw: %f, Goal Yaw: %f", yaw_error, current_yaw, goal_yaw);
+        
+        // Break out if yaw error within tolerance
+        if (abs(yaw_error) < this->YAW_TOLERANCE) {
+            RCLCPP_INFO(this->get_logger(), "Yaw within tolerance");
+            break;
+        }
+        // Calculate yaw velocity using PID 
+        yaw_vel = this->YAW_KP * yaw_error + this->YAW_KI * yaw_error_integral + this->YAW_KD * (yaw_error - yaw_error_previous);
+        yaw_vel = std::min(std::max(yaw_vel, -this->YAW_VEL_MAX), this->YAW_VEL_MAX);
+        // Update PID variables
+        yaw_error_previous = yaw_error;
+        yaw_error_integral += yaw_error;
+
+        // Publish to rover
+        rover_cmd.mobility_twist.angular.z = yaw_vel;
+        rover_cmd_pub_->publish(rover_cmd);
+
+        loop_rate.sleep();
+    }
+
+    // Set targets to 0 to stop the rover
+    rover_cmd.mobility_twist.linear.x = 0;
+    rover_cmd.mobility_twist.linear.y = 0;
+    rover_cmd.mobility_twist.angular.z = 0;
+    rover_cmd_pub_->publish(rover_cmd);
 
     // If autonav executed successfully, return goal success
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autonav succeeded");
+    }
+    else {
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Autonav failed");
     }
 }
 
@@ -264,13 +319,13 @@ bool AutoNavHandler::navigateThroughPoses(){
         
         intermediate_pose.pose.position.x += this->INTERMEDIATE_GOAL_DISTANCE * cos(yaw);
         intermediate_pose.pose.position.y += this->INTERMEDIATE_GOAL_DISTANCE * sin(yaw);
-        goal_msg.poses.push_back(intermediate_pose);
+        // goal_msg.poses.push_back(intermediate_pose);
     }
     else if (this->next_action_ == 2) { // Dump pose
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
         intermediate_pose.pose.position.x -= this->INTERMEDIATE_GOAL_DISTANCE * cos(yaw);
         intermediate_pose.pose.position.y -= this->INTERMEDIATE_GOAL_DISTANCE * sin(yaw);
-        goal_msg.poses.push_back(intermediate_pose);
+        // goal_msg.poses.push_back(intermediate_pose);
     }
     else {
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
@@ -336,7 +391,7 @@ void AutoNavHandler::navigateThroughPosesResponseCallback(GoalHandleNavigateThro
 }
 
 void AutoNavHandler::navigateThroughPosesFeedbackCallback(GoalHandleNavigateThroughPoses::SharedPtr, const std::shared_ptr<const NavigateThroughPoses::Feedback> feedback){
-    this->current_pose_ = feedback->current_pose;
+    this->nav2_current_pose_ = feedback->current_pose;
     this->navigation_time_ = feedback->navigation_time;
     this->estimated_time_remaining_ = feedback->estimated_time_remaining;
     this->number_of_recoveries_ = feedback->number_of_recoveries;
@@ -366,9 +421,17 @@ void AutoNavHandler::navigateThroughPosesResultCallback(const GoalHandleNavigate
 }
 
 void AutoNavHandler::cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
-    lx_msgs::msg::RoverCommand rov_cmd;
-    rov_cmd.mobility_twist = *msg;
+    lx_msgs::msg::RoverCommand rover_cmd;
+    rover_cmd.mobility_twist = *msg;
     
     // Publish rover command
-    rover_cmd_pub_->publish(rov_cmd);
+    rover_cmd_pub_->publish(rover_cmd);
+}
+
+void AutoNavHandler::roverCurrentPoseCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+    this->rover_current_pose_ = *msg;
+}
+
+void AutoNavHandler::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+    this->rover_cmd_vel_ = *msg;
 }

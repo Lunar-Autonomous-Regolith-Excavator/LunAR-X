@@ -225,51 +225,82 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     auto feedback = std::make_shared<AutoDump::Feedback>();
     auto result = std::make_shared<AutoDump::Result>();
 
+    RCLCPP_INFO(this->get_logger(), "Got request to dump with First Op Dump: %s", (goal->first_op_dump?"True":"False"));
+
     // Move to targets
     // 3 PIDs for drum height, rover x and rover y
     auto pid_height = PID(tool_height_pid_, -CLIP_HEIGHT_CMD_VAL, CLIP_HEIGHT_CMD_VAL);
     auto pid_x = PID(rover_x_pid_, -CLIP_VEL_CMD_VAL, CLIP_VEL_CMD_VAL);
     auto pid_yaw = PID(rover_yaw_pid_, -CLIP_YAW_CMD_VAL, CLIP_YAW_CMD_VAL);
 
-    // Start Visual Servoing 
-    if(!callVisualServoSwitch(true)){
-        result->success = false;
-        goal_handle->abort(result);
-        RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch on failure");
-        return;
+    bool exec_visual_servoing = true;
+    // Turn off Visual Servoing if goal->first_op_dump is true
+    if(goal->first_op_dump == true){
+        exec_visual_servoing = false;
+    } 
+
+    // Start Visual Servoing if goal->first_op_dump if false
+    if (exec_visual_servoing == true)
+    {
+        // Start Visual Servoing
+        if(!callVisualServoSwitch(true, std::make_shared<lx_msgs::msg::BermSection>(goal->current_berm_segment), 
+                                    std::make_shared<lx_msgs::msg::BermSection>(goal->prev_berm_segment))){
+            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to SWITCH ON visual servoing");
+            exec_visual_servoing = false;
+        }
     }
+
+    // sleep for 1 second to allow visual servoing to start
+    rclcpp::sleep_for(std::chrono::seconds(3));
 
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
+    bool print_once = false;
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Visual servoing");
         rclcpp::Time action_curr_time = this->get_clock()->now();
-
         // Abort action if no tool info message recieved in last 2 seconds
-        if((action_curr_time - servoing_msg_time).seconds() > 2 && first_dump_done == true){
-            result->success = false;
-            goal_handle->abort(result);
-            RCLCPP_ERROR(this->get_logger(), "Autodump failed due to no visual servoing message timeout");
+        if(((action_curr_time - servoing_msg_time).seconds() > 2) && exec_visual_servoing == true)
+        {
+            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Alignment aborted due to no visual servoing message timeout");
             // Stop visual servoing
             if(!callVisualServoSwitch(false)){
-                result->success = false;
-                goal_handle->abort(result);
-                RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch off failure");
+                RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to SWITCH OFF visual servoing");
             }
-            return;
+            exec_visual_servoing = false; // as aborted, set to false
         }
-        // Read errors from visual servoing
-        double dx  = visual_servo_error_.x;
-        double dy = -visual_servo_error_.y;
-        double dz = -visual_servo_error_.z;
 
-        // Control drum height, rover x and rover y
-        if(first_dump_done == false)
+        double dx=0, dy=0, dz=0;
+        // Skip x and y control if first op dump
+        if(exec_visual_servoing == false) // Execute a hard coded dump
         {
+            // If time since drum height message is more than 2 seconds, abort
+            if(((action_curr_time - last_drum_height_msg_time).seconds() > 2))
+            {
+                RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Autodump aborting due to timeout on drum height message");
+                goal_handle->abort(result);
+                return;
+            }
+
+            if(print_once == false) 
+            {
+                RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Executing predefined tool height correction");
+                print_once = true;
+            }
             dx = 0;
             dy = 0;
             dz = drum_height_ - 0.3;
+        }
+        else // Execute visual servoing alignment
+        {
+            if (print_once == false)
+            {
+                RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Executing visual servoing");
+                print_once = true;
+            }
+            dx = visual_servo_error_.x;
+            dy = -visual_servo_error_.y;
+            dz = -visual_servo_error_.z;
         }
         double drum_cmd, x_vel, yaw_vel;
         if(abs(dx) < 0.02){x_vel = 0;}
@@ -287,13 +318,13 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         rover_cmd.mobility_twist.angular.z = yaw_vel;
         this->rover_auto_cmd_pub_->publish(rover_cmd);
         
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum: Error: %f, Command: %f", dz, drum_cmd);
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum: Error: %f, Command: %f", dz, drum_cmd);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
 
         if (abs(dz) < 0.02 && abs(dx) < 0.02 && abs(dy) < 0.03)
         {
-            RCLCPP_INFO(this->get_logger(), "Autodump reached targets");
+            RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Reached targets");
             break;
         }
 
@@ -304,18 +335,38 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     rover_cmd.mobility_twist.linear.x = 0;
     this->rover_auto_cmd_pub_->publish(rover_cmd);
 
-    // Stop Visual Servoing
-    if(!callVisualServoSwitch(false)){
+    if (goal_handle->is_canceling())
+    {
+        RCLCPP_INFO(this->get_logger(), "Autodump canceled");
+        // stop visual servoing
+        if(exec_visual_servoing && !callVisualServoSwitch(false))
+        {
+            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to switch off visual servoing");
+        }
         result->success = false;
-        goal_handle->abort(result);
-        RCLCPP_ERROR(this->get_logger(), "Autodump failed due to visual servoing switch off failure");
+        goal_handle->canceled(result);
         return;
     }
 
-    RCLCPP_INFO(this->get_logger(), "Finished visual servoing");
+    // Stop Visual Servoing
+    if(exec_visual_servoing && !callVisualServoSwitch(false))
+    {
+        RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to switch off visual servoing");
+    }
+
+    // Print message based on whether visual servoing was executed or not
+    if (exec_visual_servoing)
+    {
+        RCLCPP_INFO(this->get_logger(), "Finished visual servoing");
+    }
+    else
+    {
+        RCLCPP_INFO(this->get_logger(), "Finished first op dump");
+    }
 
     // Dump!
     auto dump_start_time = this->get_clock()->now();
+    RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Dumping material");
     while (rclcpp::ok() && !goal_handle->is_canceling())
     {   
         // get time in ms
@@ -326,7 +377,6 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         }
         rover_cmd.drum_speed = DRUM_DUMP_SPEED;
         this->rover_auto_cmd_pub_->publish(rover_cmd);
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Dumping material");
         loop_rate.sleep();
     }
     // Set targets to 0 to stop the rover
@@ -349,7 +399,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         rover_cmd.mobility_twist.linear.x = 0;
         this->rover_auto_cmd_pub_->publish(rover_cmd);
         
-        RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum height: %f, Target: %f, Error: %f, Command: %f", drum_height_, END_TOOL_HEIGHT, drum_height_error, drum_pid_command);
+        // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Drum height: %f, Target: %f, Error: %f, Command: %f", drum_height_, END_TOOL_HEIGHT, drum_height_error, drum_pid_command);
         loop_rate.sleep();
 
         if (drum_height_error > 0.01)
@@ -365,7 +415,6 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     
     // If autodump executed successfully, return goal success
     if (rclcpp::ok() && !goal_handle->is_canceling()) {
-      first_dump_done = true;
       result->success = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Autodump succeeded");
@@ -384,6 +433,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
 
 void AutoDumpHandler::drumHeightCB(const std_msgs::msg::Float64::SharedPtr msg){
     this->drum_height_ = msg->data;
+    last_drum_height_msg_time = this->get_clock()->now();
 }
 
 void AutoDumpHandler::visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg){
@@ -391,9 +441,17 @@ void AutoDumpHandler::visualServoErrorCB(const geometry_msgs::msg::Point::Shared
     this->servoing_msg_time = this->get_clock()->now();
 }
 
-bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state){
+bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state, const lx_msgs::msg::BermSection::SharedPtr current_berm_segment,
+                                            const lx_msgs::msg::BermSection::SharedPtr prev_berm_segment){
     auto switch_request = std::make_shared<lx_msgs::srv::Switch::Request>();
     switch_request->switch_state = request_switch_state;
+    if(current_berm_segment != nullptr){
+        switch_request->current_berm_segment = *current_berm_segment;
+    }
+    if(prev_berm_segment != nullptr){
+        switch_request->prev_berm_segment = *prev_berm_segment;
+    }
+
     while(!visual_servo_client_->wait_for_service(std::chrono::seconds(2))){
         RCLCPP_INFO(this->get_logger(), "Could not contact visual servo switch");
         return false;
@@ -407,10 +465,10 @@ bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state){
     // Wait for visual servoing to start, wait for 3 seconds
     auto start_time = this->get_clock()->now();
     while(!visual_servo_switch_){
-        RCLCPP_WARN(this->get_logger(), "Waiting for visual servoing to start");
+        RCLCPP_WARN(this->get_logger(), "Waiting for visual servoing to switch");
         rclcpp::sleep_for(std::chrono::milliseconds(100));
         if((this->get_clock()->now() - start_time).seconds() > 3){
-            RCLCPP_ERROR(this->get_logger(), "Visual servoing failed to start");
+            RCLCPP_ERROR(this->get_logger(), "Visual servoing failed to switch");
             return false;
         }
     }
@@ -420,10 +478,10 @@ bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state){
 void AutoDumpHandler::visualServoSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
     auto status = future.wait_for(std::chrono::milliseconds(100));
     if (status == std::future_status::ready && future.get()->success){
-        RCLCPP_INFO(this->get_logger(), "Visual servoing started");
+        RCLCPP_INFO(this->get_logger(), "Visual servoing switched");
         visual_servo_switch_ = true;
     } 
     else {
-        RCLCPP_INFO(this->get_logger(), "Visual servoing failed to start");
+        RCLCPP_INFO(this->get_logger(), "Visual servoing failed to switch");
     }
 }
