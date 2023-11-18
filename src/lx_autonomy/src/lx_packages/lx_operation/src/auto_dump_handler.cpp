@@ -250,8 +250,15 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         }
     }
 
-    // sleep for 1 second to allow visual servoing to start
-    rclcpp::sleep_for(std::chrono::seconds(3));
+    // If visual servoing, wait for message for 3 seconds
+    servoing_msg_time = rclcpp::Time(0,0,RCL_ROS_TIME);
+    auto servo_wait_start_time = this->get_clock()->now();
+    while(exec_visual_servoing && (servoing_msg_time.seconds() == 0)){
+        if((this->get_clock()->now() - servo_wait_start_time).seconds() > 3){
+            RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to receive visual servoing message");
+            exec_visual_servoing = false;
+        }
+    }
 
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
@@ -289,7 +296,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
             }
             dx = 0;
             dy = 0;
-            dz = drum_height_ - 0.3;
+            dz = drum_height_ - 0.25;
         }
         else // Execute visual servoing alignment
         {

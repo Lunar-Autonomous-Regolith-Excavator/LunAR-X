@@ -13,14 +13,6 @@ def generate_launch_description():
         emulate_tty=True
     )
 
-    goal_handler_node = Node(
-        package='lx_external_interface',
-        executable='goal_handler_node',
-        name='goal_handler_node',
-        emulate_tty=True
-    )
-
     ld.add_action(external_interface_node)
-    ld.add_action(goal_handler_node)
 
     return ld

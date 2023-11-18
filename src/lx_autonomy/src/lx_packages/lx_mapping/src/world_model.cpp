@@ -119,8 +119,8 @@ void WorldModel::configureMaps(){
     zone_costmap_.header.frame_id = "map";
     zone_costmap_.info.map_load_time = this->get_clock()->now();
     zone_costmap_.info.resolution = 0.05;  // replace with your map resolution
-    zone_costmap_.info.width = 145;       // replace with your map width
-    zone_costmap_.info.height = 140;      // replace with your map height
+    zone_costmap_.info.width = 135;       // replace with your map width
+    zone_costmap_.info.height = 135;      // replace with your map height
     zone_costmap_.info.origin.position.x = 0.1;  // replace with your map origin x
     zone_costmap_.info.origin.position.y = 0.1;  // replace with your map origin y
     // zone_costmap_.info.origin.position.x = -13;  // replace with your map origin x
@@ -333,7 +333,7 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
             double y2 = berm_zone_coordinates[j+1].point.y;
             double dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
             double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-            if(dist < 0.3 && dist1 < 0.35){
+            if(dist < 0.2 && dist1 < 0.2){
                 berm_costmap_.data[i] = 100;
                 break;
             }
@@ -341,7 +341,7 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
         double x1 = berm_zone_coordinates.back().point.x;
         double y1 = berm_zone_coordinates.back().point.y;
         double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-        if(dist1 < 0.35){
+        if(dist1 < 0.2){
             berm_costmap_.data[i] = 100;
         }
     }

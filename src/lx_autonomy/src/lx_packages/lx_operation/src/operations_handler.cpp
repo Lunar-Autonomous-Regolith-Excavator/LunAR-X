@@ -260,52 +260,61 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     auto feedback = std::make_shared<Operation::Feedback>();
     auto result = std::make_shared<Operation::Result>();
 
-    // Set task mode as IDLE
-    switchRoverTaskMode(TaskModeEnum::IDLE);
+    if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
+        RCLCPP_ERROR(this->get_logger(), "Rover locked - Operations goal failed");
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
+        return;
+    }
+    else{
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
 
-    // for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
-        // Call planner to plan full path
-        // Get task queue from planner
-        task_queue_ = getPlan();
+        // for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
+            // Call planner to plan full path
+            // Get task queue from planner
+            task_queue_ = getPlan();
 
-        // if(task_queue_.empty()){
-        //     RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
-        //     // If planner returns empty plan, either berm is built, or planner failed
-        //     break;
-        // }
+            // if(task_queue_.empty()){
+            //     RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
+            //     // If planner returns empty plan, either berm is built, or planner failed
+            //     break;
+            // }
 
-        // Copy for visualization
-        task_queue_copy_ = task_queue_;
+            // Copy for visualization
+            task_queue_copy_ = task_queue_;
 
-        // Visualize dump sequence
-        visualizationUpdate();
+            // Visualize dump sequence
+            visualizationUpdate();
 
-        // TODO Only keep first N tasks in queue
+            // TODO Only keep first N tasks in queue
 
-        // Execute task queue
-        if(!executeTaskQueue()){
-            // If any task fails, return goal failure
-            result->success = false;
-            goal_handle->abort(result);
-            RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
-            return;
-        }
-        // If all tasks successful, continue next loop iteration
-    // } 
+            // Execute task queue
+            if(!executeTaskQueue()){
+                // If any task fails, return goal failure
+                result->success = false;
+                goal_handle->abort(result);
+                RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
+                return;
+            }
+            // If all tasks successful, continue next loop iteration
+        // } 
 
-    switchRoverTaskMode(TaskModeEnum::IDLE);
+        switchRoverTaskMode(TaskModeEnum::IDLE);
 
-    // Stop mapping service
-    callMapSwitch(false);
+        // Stop mapping service
+        callMapSwitch(false);
 
-    // Call berm evaluation service
-    callBermEval();
+        // Call berm evaluation service
+        callBermEval();
+    }
     
     // If berm is built, return goal success
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Operations goal succeeded");
+      RCLCPP_INFO(this->get_logger(), "Operations goal finished");
     }
 }
 
@@ -387,6 +396,8 @@ void OperationsHandler::plannerClientCB(rclcpp::Client<lx_msgs::srv::Plan>::Shar
 }
 
 bool OperationsHandler::executeTaskQueue(){
+    // Print size of task queue
+    RCLCPP_INFO(this->get_logger(), "Task queue size: %ld", task_queue_.size());
     // Execute task queue
     while(!task_queue_.empty()){
         // Check if rover locked
