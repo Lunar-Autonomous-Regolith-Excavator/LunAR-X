@@ -79,13 +79,14 @@ void TaskPlanner::setupCommunications(){
     // Subscribers
 
     // Publishers
-    rclcpp::QoS qos(10);  // initialize to default
-    qos.transient_local();
-    qos.reliable();
-    qos.keep_last(1);
-    map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("map", qos);
+    // rclcpp::QoS qos(10);  // initialize to default
+    // qos.transient_local();
+    // qos.reliable();
+    // qos.keep_last(1);
+    // map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("map", qos);
 
     // Clients
+    this->berm_progress_client_ = this->create_client<lx_msgs::srv::BermProgressEval>("berm_evaluation/berm_progress");
 
     // Servers
 
@@ -94,6 +95,59 @@ void TaskPlanner::setupCommunications(){
                                         std::bind(&TaskPlanner::taskPlannerCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     
+}
+
+bool TaskPlanner::getBermHeights() {
+    // Create request for berm progress evaluation
+    auto req = std::make_shared<lx_msgs::srv::BermProgressEval::Request>();
+    req->need_metrics = true;
+
+    // Wait for service to be available
+    if (!this->berm_progress_client_->wait_for_service(std::chrono::seconds(1))) {
+        RCLCPP_ERROR(this->get_logger(), "Berm progress evaluation service not available");
+        return false;
+    }
+
+    this->block_till_berm_progress_eval_ = true;
+
+    auto result_future = this->berm_progress_client_->async_send_request(req, std::bind(&TaskPlanner::bermProgressCallback, this, std::placeholders::_1));
+
+    // Block till berm progress evaluation is done
+    rclcpp::Rate loop_rate(2);
+    rclcpp::Time start_time = this->get_clock()->now();
+    while (this->block_till_berm_progress_eval_ && rclcpp::ok() && (this->get_clock()->now() - start_time) < rclcpp::Duration(1, 0)) {
+        loop_rate.sleep();
+    }
+
+    if (this->block_till_berm_progress_eval_) {
+        RCLCPP_ERROR(this->get_logger(), "Berm progress evaluation service timed out");
+        return false;
+    }
+
+    return true;
+}
+
+void TaskPlanner::bermProgressCallback(rclcpp::Client<lx_msgs::srv::BermProgressEval>::SharedFuture future) {
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+
+    block_till_berm_progress_eval_ = false;
+    
+    if (status == std::future_status::ready) {
+        // Get response
+        auto response = future.get();
+
+        // Get berm heights
+        std::vector<float> berm_heights = response->progress.heights;
+        if (berm_heights.size() != this->berm_sequence_.size()) {
+            RCLCPP_ERROR(this->get_logger(), "Number of berm heights not equal to number of berm sections");
+            return;
+        }
+
+        // Update berm heights
+        for (int i = 0; i < static_cast<int>(berm_heights.size()); i++) {
+            this->berm_section_heights_[i] = static_cast<double>(berm_heights[i]);
+        }
+    }
 }
 
 void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> req, std::shared_ptr<lx_msgs::srv::Plan::Response> res) {
@@ -108,6 +162,27 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     // Find berm sequence if not already found
     if (req->new_plan || this->berm_sequence_.size() == 0) {
         if (!findBermSequence(berm_points)) {
+            return;
+        }
+    }
+
+    if (!req->new_plan) {
+        // Get berm heights
+        if (!getBermHeights()) {
+            return;
+        }
+
+        // Check if berm is done
+        bool berm_done = true;
+        for (int i = 0; i < static_cast<int>(this->berm_section_heights_.size()); i++) {
+            if (this->berm_section_heights_[i] < this->desired_berm_height_) {
+                berm_done = false;
+                break;
+            }
+        }
+
+        if (berm_done) {
+            res->done = true;
             return;
         }
     }
@@ -128,7 +203,9 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         
         // Update the berm section iterations if not a new plan
         if (!req->new_plan) {
-            berm_section_iterations_[i] = numOfDumps(i);
+            // berm_section_iterations_[i] = numOfDumps(i);
+            int num_dumps = numOfDumps(i);
+            RCLCPP_INFO(this->get_logger(), "For section %d, updated height: %f, num_dumps: %d", i, berm_section_heights_[i], num_dumps);
         }
         // Find the number of iterations and 
         int num_iterations = berm_section_iterations_[i];
@@ -172,6 +249,7 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
     navigation_task.pose = end_pose;
     res->plan.push_back(navigation_task);
+    res->done = false;
 }
 
 bool TaskPlanner::findBermSequence(const std::vector<geometry_msgs::msg::Point> &berm_points) {
@@ -272,27 +350,25 @@ geometry_msgs::msg::Pose TaskPlanner::findDumpPose(const BermSection &berm_secti
     return dump_pose;
 }
 
-int TaskPlanner::numOfDumps(int berm_section_index) {
+double TaskPlanner::getBermSectionArea(const double &section_height) {
+    return (pow(section_height, 2) / tan(ANGLE_OF_REPOSE * M_PI / 180));
+}
+
+int TaskPlanner::numOfDumps(int idx) {
     // Estimate volume (area) of berm section
-    double section_height = berm_section_heights_[berm_section_index];
-    double est_section_width = 2 * section_height / tan(ANGLE_OF_REPOSE * M_PI / 180);
-    double est_cross_section_area = 0.5 * est_section_width * section_length_;
+    double est_cross_section_area = getBermSectionArea(berm_section_heights_[idx]);
 
     // Estimate volume (area) of desired berm section
-    double desired_section_height = desired_berm_height_;
-    double est_desired_section_width = 2 * desired_section_height / tan(ANGLE_OF_REPOSE * M_PI / 180);
-    double est_desired_cross_section_area = 0.5 * est_desired_section_width * section_length_;
+    double est_desired_cross_section_area = getBermSectionArea(desired_berm_height_);
 
     // Estimate volume (area) of each dump
-    double dump_height = TaskPlanner::INIT_BERM_HEIGHT;
-    double est_dump_width = 2 * dump_height / tan(ANGLE_OF_REPOSE * M_PI / 180);
-    double est_dump_cross_section_area = 0.5 * est_dump_width * section_length_;
+    double single_dump_area = getBermSectionArea(this->INIT_BERM_HEIGHT);
 
     // Volume to be dumped
     double volume_to_be_dumped = std::max(est_desired_cross_section_area - est_cross_section_area, 0.0);
 
     // Number of dumps
-    int num_dumps = static_cast<int>(std::round(volume_to_be_dumped / est_dump_cross_section_area));
+    int num_dumps = static_cast<int>(std::round(volume_to_be_dumped / single_dump_area));
 
     return num_dumps;
 }

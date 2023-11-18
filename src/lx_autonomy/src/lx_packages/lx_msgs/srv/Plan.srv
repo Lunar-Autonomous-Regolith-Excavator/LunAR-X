@@ -4,3 +4,4 @@ float32 section_length
 bool new_plan
 ---
 PlannedTask[] plan
+bool done
