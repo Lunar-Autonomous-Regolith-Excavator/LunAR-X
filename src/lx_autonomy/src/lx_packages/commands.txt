@@ -52,3 +52,6 @@ ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{\
   \"first_op_dump\": false,\
   \"first_seg_dump\": false\
 }"
+
+Test Autodig service call:
+ros2 service call mapping/pcl_ground_height_srv lx_msgs/srv/PclGroundHeight 'need_height: true'

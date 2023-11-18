@@ -43,6 +43,7 @@ class PointCloudHandler : public rclcpp::Node
         // Publishers
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr transformed_pointcloud_publisher_;
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr ground_height_publisher_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_pointcloud_publisher_;
         // Service
         rclcpp::Service<lx_msgs::srv::PclGroundHeight>::SharedPtr pcl_ground_height_service_;
         ExpFilter exp_height_filter_;

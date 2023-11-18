@@ -83,7 +83,7 @@ class AutoDigHandler: public rclcpp::Node
         const double NOMINAL_CURRENT_VALUE_I = 1.2; 
         const double NOMINAL_CURRENT_VALUE_F = 3.2;
         const double T_END_SECONDS = 55; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
-        const double GOTO_TOOL_HEIGHT = 0.2; // the height the tool goes to before starting excavation
+        const double GOTO_TOOL_HEIGHT = 0.24; // the height the tool goes to before starting excavation
         const double END_TOOL_HEIGHT = 0.45; // the height the tool goes to after excavation is complete
         
         // --------------------------------------

@@ -31,7 +31,7 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
                         std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
-    autodig_pid_outer_.kp = 0.014;
+    autodig_pid_outer_.kp = 0.013;
     autodig_pid_outer_.ki = 0.000001;
     autodig_pid_outer_.kd = 0.02;
 
@@ -292,9 +292,10 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
     callPclGroundHeightSrv(true);
 
     // Wait for drum height to reach GOTO_TOOL_HEIGHT
-    target_drum_height = GOTO_TOOL_HEIGHT;
+   
     while(rclcpp::ok() && !goal_handle->is_canceling()){
-        if(std::abs(drum_height_- curr_ground_height_ - target_drum_height) < 0.02)
+        target_drum_height = GOTO_TOOL_HEIGHT + curr_ground_height_;
+        if(drum_height_-target_drum_height < 0.02)
         {
             break;
         }
