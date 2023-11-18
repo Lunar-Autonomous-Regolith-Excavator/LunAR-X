@@ -413,17 +413,17 @@ bool OperationsHandler::executeTaskQueue(){
                     // Stop mapping service
                     callMapSwitch(false);
                     // Call autodig action
-                    // if(!callAutoDig(current_task)){
-                    //     return false;
-                    // }
+                    if(!callAutoDig(current_task)){
+                        return false;
+                    }
                     break;
                 case TaskTypeEnum::AUTODUMP:
                     // Stop mapping service
                     callMapSwitch(false);
                     // Call autodump action
-                    // if(!callAutoDump(current_task)){
-                    //     return false;
-                    // }
+                    if(!callAutoDump(current_task)){
+                        return false;
+                    }
                     break;
                 default:
                     RCLCPP_ERROR(this->get_logger(), "Invalid task type");
