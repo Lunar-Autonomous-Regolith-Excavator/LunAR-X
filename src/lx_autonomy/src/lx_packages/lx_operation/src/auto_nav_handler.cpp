@@ -112,7 +112,7 @@ void AutoNavHandler::setupCommunications(){
     this->cmd_vel_nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
         "cmd_vel_nav", 10, std::bind(&AutoNavHandler::cmdVelNavCallback, this, _1));
 
-    this->rover_current_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+    this->rover_current_pose_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "odometry/ekf_global_node", 10, std::bind(&AutoNavHandler::roverCurrentPoseCallback, this, _1));
     
     this->cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -244,11 +244,17 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     double yaw_error_previous;
     double yaw_vel;
 
+    double goal_yaw = tf2::getYaw(this->goal_pose_.pose.orientation);
+    double current_yaw = tf2::getYaw(this->rover_current_pose_.pose.pose.orientation);
+
     RCLCPP_INFO(this->get_logger(), "Executing Yaw PID control");
     
     while(rclcpp::ok() && !goal_handle->is_canceling())
-    {        
-        yaw_error = tf2::getYaw(this->goal_pose_.pose.orientation) - tf2::getYaw(this->current_pose_.pose.orientation);
+    {
+        current_yaw = tf2::getYaw(this->rover_current_pose_.pose.pose.orientation);
+        yaw_error = goal_yaw - current_yaw;
+        yaw_error = fmod((yaw_error + M_PI), (2 * M_PI)) - M_PI;
+        RCLCPP_INFO(this->get_logger(), "Yaw error: %f, Current Yaw: %f, Goal Yaw: %f", yaw_error, current_yaw, goal_yaw);
         
         // Break out if yaw error within tolerance
         if (abs(yaw_error) < this->YAW_TOLERANCE) {
@@ -256,7 +262,7 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
             break;
         }
         // Calculate yaw velocity using PID 
-        yaw_vel = this->YAW_KP * yaw_error + this->YAW_KI * this->yaw_error_integral + this->YAW_KD * (yaw_error - yaw_error_previous);
+        yaw_vel = this->YAW_KP * yaw_error + this->YAW_KI * yaw_error_integral + this->YAW_KD * (yaw_error - yaw_error_previous);
         yaw_vel = std::min(std::max(yaw_vel, -this->YAW_VEL_MAX), this->YAW_VEL_MAX);
         // Update PID variables
         yaw_error_previous = yaw_error;
@@ -270,7 +276,9 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     }
 
     // Set targets to 0 to stop the rover
-    lx_msgs::msg::RoverCommand rover_cmd;
+    rover_cmd.mobility_twist.linear.x = 0;
+    rover_cmd.mobility_twist.linear.y = 0;
+    rover_cmd.mobility_twist.angular.z = 0;
     rover_cmd_pub_->publish(rover_cmd);
 
     // If autonav executed successfully, return goal success
@@ -311,13 +319,13 @@ bool AutoNavHandler::navigateThroughPoses(){
         
         intermediate_pose.pose.position.x += this->INTERMEDIATE_GOAL_DISTANCE * cos(yaw);
         intermediate_pose.pose.position.y += this->INTERMEDIATE_GOAL_DISTANCE * sin(yaw);
-        goal_msg.poses.push_back(intermediate_pose);
+        // goal_msg.poses.push_back(intermediate_pose);
     }
     else if (this->next_action_ == 2) { // Dump pose
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
         intermediate_pose.pose.position.x -= this->INTERMEDIATE_GOAL_DISTANCE * cos(yaw);
         intermediate_pose.pose.position.y -= this->INTERMEDIATE_GOAL_DISTANCE * sin(yaw);
-        goal_msg.poses.push_back(intermediate_pose);
+        // goal_msg.poses.push_back(intermediate_pose);
     }
     else {
         goal_msg.behavior_tree = "/home/ubuntu/lx_station_ws/src/lx_nav2/config/navtodump.xml";
@@ -420,10 +428,10 @@ void AutoNavHandler::cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPt
     rover_cmd_pub_->publish(rover_cmd);
 }
 
-void AutoNavHandler::roverCurrentPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
-    this->current_pose_ = *msg;
+void AutoNavHandler::roverCurrentPoseCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+    this->rover_current_pose_ = *msg;
 }
 
 void AutoNavHandler::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
-    this->cmd_vel_ = *msg;
+    this->rover_cmd_vel_ = *msg;
 }

@@ -227,7 +227,7 @@ void CommandMux::roverTeleopCallBack(const lx_msgs::msg::RoverCommand::SharedPtr
 
 void CommandMux::teleopPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rover_teleop_msg){
     // If current op_mode is teleop & task_mode is not idle
-    if(current_rover_op_mode_ == OpModeEnum::TELEOP && current_rover_task_mode_ != TaskModeEnum::IDLE){
+    if(current_rover_op_mode_ == OpModeEnum::TELEOP/* && current_rover_task_mode_ != TaskModeEnum::IDLE*/){
         // Pass through teleop command
         sendCmdToHardware(rover_teleop_msg);
     } 

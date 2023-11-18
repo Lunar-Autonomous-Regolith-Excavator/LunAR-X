@@ -55,8 +55,8 @@ class VisualServoing : public rclcpp::Node
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
         const int NUM_BINS = 100; // number of bins in each dim the ROI
-        const double MIN_PLANE_ANGLE_DEG = 12.0; // minimum angle of the plane wrt the ground plane
-        const double PEAK_LINE_DISTANCE_M = 0.07; // min dist between ground plane and peak line points
+        const double MIN_PLANE_ANGLE_DEG = 10.0; // minimum angle of the plane wrt the ground plane
+        const double PEAK_LINE_DISTANCE_M = 0.06; // min dist between ground plane and peak line points
         // const double DRUM_X_BASELINK_M = 0.9; // higher value -> rover stops more towards the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
         const double DRUM_Z_BASELINK_M = -0.3; // more negative-> higher drum
