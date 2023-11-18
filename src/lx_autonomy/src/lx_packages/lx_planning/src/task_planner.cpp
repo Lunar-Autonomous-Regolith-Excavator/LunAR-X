@@ -42,7 +42,7 @@ std::vector<geometry_msgs::msg::Point> TaskPlanner::getRoverFootprint(const geom
     double yaw = tf2::getYaw(q);
 
     // Rotate and translate footprint
-    for (int i = 0; i < footprint.size(); i++) {
+    for (int i = 0; i < static_cast<int>(footprint.size()); i++) {
         double x = footprint[i].x;
         double y = footprint[i].y;
         footprint[i].x = x * cos(yaw) - y * sin(yaw) + pose.position.x;
@@ -55,7 +55,7 @@ std::vector<geometry_msgs::msg::Point> TaskPlanner::getRoverFootprint(const geom
 Bounds TaskPlanner::getBounds(const std::vector<geometry_msgs::msg::Point>& points) {
     Bounds bounds;
 
-    for (int i = 0; i < points.size(); i++) {
+    for (int i = 0; i < static_cast<int>(points.size()); i++) {
         bounds.x_min = std::min(bounds.x_min, points[i].x);
         bounds.x_max = std::max(bounds.x_max, points[i].x);
         bounds.y_min = std::min(bounds.y_min, points[i].y);
@@ -113,7 +113,7 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
     }
 
     // Loop through the berm sections
-    for (int i = 0; i < this->berm_sequence_.size(); i++) {
+    for (int i = 0; i < static_cast<int>(this->berm_sequence_.size()); i++) {
         // Get the berm section
         BermSection berm_section = this->berm_sequence_[i];
 
@@ -181,7 +181,7 @@ bool TaskPlanner::findBermSequence(const std::vector<geometry_msgs::msg::Point> 
     
     try {
         // Loop through the points
-        for (int i = 0; i < berm_points.size() - 1; i++){
+        for (int i = 0; i < static_cast<int>(berm_points.size()) - 1; i++){
             // Berm end points
             geometry_msgs::msg::Point point_1 = berm_points[i];
             geometry_msgs::msg::Point point_2 = berm_points[i + 1];
@@ -299,47 +299,47 @@ int TaskPlanner::numOfDumps(int berm_section_index) {
 
 // Functions to publish map for costmap
 // Required for Nav2 hybrid A* planner
-void TaskPlanner::initializeMap() {    
-    map_msg_.header.frame_id = "map";
-    map_msg_.info.resolution = TaskPlanner::MAP_RESOLUTION;
-    map_msg_.info.width = (int)(TaskPlanner::MAP_WIDTH / TaskPlanner::MAP_RESOLUTION);
-    map_msg_.info.height = (int)(TaskPlanner::MAP_HEIGHT / TaskPlanner::MAP_RESOLUTION);
-    map_msg_.info.origin.position.x = TaskPlanner::MAP_ORIGIN_X;
-    map_msg_.info.origin.position.y = TaskPlanner::MAP_ORIGIN_Y;
-    map_msg_.info.origin.position.z = 0.0;
-    map_msg_.info.origin.orientation.x = 0.0;
-    map_msg_.info.origin.orientation.y = 0.0;
-    map_msg_.info.origin.orientation.z = 0.0;
-    map_msg_.info.origin.orientation.w = 1.0;
+// void TaskPlanner::initializeMap() {    
+//     map_msg_.header.frame_id = "map";
+//     map_msg_.info.resolution = TaskPlanner::MAP_RESOLUTION;
+//     map_msg_.info.width = (int)(TaskPlanner::MAP_WIDTH / TaskPlanner::MAP_RESOLUTION);
+//     map_msg_.info.height = (int)(TaskPlanner::MAP_HEIGHT / TaskPlanner::MAP_RESOLUTION);
+//     map_msg_.info.origin.position.x = TaskPlanner::MAP_ORIGIN_X;
+//     map_msg_.info.origin.position.y = TaskPlanner::MAP_ORIGIN_Y;
+//     map_msg_.info.origin.position.z = 0.0;
+//     map_msg_.info.origin.orientation.x = 0.0;
+//     map_msg_.info.origin.orientation.y = 0.0;
+//     map_msg_.info.origin.orientation.z = 0.0;
+//     map_msg_.info.origin.orientation.w = 1.0;
 
-    // Set up map
-    map_data_.resize(map_msg_.info.width * map_msg_.info.height, 0);
-    // Make the borders of the map occupied
-    for (int i = 0; i < map_msg_.info.width; i++) {
-      map_msg_.data[GETMAXINDEX(i, 0, map_msg_.info.width)] = 100;
-      map_msg_.data[GETMAXINDEX(i, map_msg_.info.height - 1, map_msg_.info.width)] = 100;
-    }
-    for (int i = 0; i < map_msg_.info.height; i++) {
-      map_msg_.data[GETMAXINDEX(0, i, map_msg_.info.width)] = 100;
-      map_msg_.data[GETMAXINDEX(map_msg_.info.width - 1, i, map_msg_.info.width)] = 100;
-    }
+//     // Set up map
+//     map_data_.resize(map_msg_.info.width * map_msg_.info.height, 0);
+//     // Make the borders of the map occupied
+//     for (int i = 0; i < map_msg_.info.width; i++) {
+//       map_msg_.data[GETMAXINDEX(i, 0, map_msg_.info.width)] = 100;
+//       map_msg_.data[GETMAXINDEX(i, map_msg_.info.height - 1, map_msg_.info.width)] = 100;
+//     }
+//     for (int i = 0; i < map_msg_.info.height; i++) {
+//       map_msg_.data[GETMAXINDEX(0, i, map_msg_.info.width)] = 100;
+//       map_msg_.data[GETMAXINDEX(map_msg_.info.width - 1, i, map_msg_.info.width)] = 100;
+//     }
 
-    // Set up a timer to periodically publish map data
-    timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&TaskPlanner::publishMap, this));
-}
+//     // Set up a timer to periodically publish map data
+//     timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&TaskPlanner::publishMap, this));
+// }
 
-void TaskPlanner::publishMap() {
-    map_msg_.header.stamp = this->get_clock()->now();
-    map_msg_.info.map_load_time = this->get_clock()->now();
-    map_msg_.data = map_data_;
-    map_publisher_->publish(map_msg_);
-}
+// void TaskPlanner::publishMap() {
+//     map_msg_.header.stamp = this->get_clock()->now();
+//     map_msg_.info.map_load_time = this->get_clock()->now();
+//     map_msg_.data = map_data_;
+//     map_publisher_->publish(map_msg_);
+// }
 
-void TaskPlanner::updateMap(const geometry_msgs::msg::Point &berm_point) {
-    // TODO
-    return;
-}
+// void TaskPlanner::updateMap(const geometry_msgs::msg::Point &berm_point) {
+//     // TODO
+//     return;
+// }
 
-void TaskPlanner::clearMap() {
-    return;
-}
+// void TaskPlanner::clearMap() {
+//     return;
+// }
