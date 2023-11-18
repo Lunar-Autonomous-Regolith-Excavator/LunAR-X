@@ -79,8 +79,27 @@ double addAngles(double angle1, double angle2)
     return sum;
 }
 
+void Localization::append_TS_IMU_Data(std::vector<std::pair<geometry_msgs::msg::Point, double>> & TS_IMU_Data, int itr)
+{
+    auto current_time = this->get_clock()->now();
+    double time_diff_imu = (current_time - this->last_imu_msg_time_).seconds(), time_diff_ts = (current_time - this->last_ts_msg_time_).seconds();
+    if(time_diff_imu > 1.5 || time_diff_ts > 1.5)
+    {
+        if (time_diff_imu > 1.5) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1.5 second of the initial point in calibration, at itr: %d", itr);
+        if (time_diff_ts > 1.5) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1.5 second of the initial point in calibration, found in %f seconds", time_diff_ts);
+    }
+    else
+    {
+        // Get latest IMU yaw in base_link frame and rover pose
+        geometry_msgs::msg::Quaternion imu_orientation = this->imu_orientation_;
+        tf2::doTransform(imu_orientation, imu_orientation, this->eigen_transform_imu_baselink_);
+        auto imu_yaw = tf2::getYaw(imu_orientation);
+        TS_IMU_Data.push_back(std::make_pair(this->ts_point_, imu_yaw));
+    }
+}
+
 void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrateImu> goal_handle){
-    RCLCPP_INFO(this->get_logger(), "Executing calibrate imu action");
+    RCLCPP_INFO(this->get_logger(), "Executing calibrate IMU action");
     const auto goal = goal_handle->get_goal();
     auto feedback = std::make_shared<CalibrateImu::Feedback>();
     auto result = std::make_shared<CalibrateImu::Result>();
@@ -90,59 +109,68 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
     {
         this->get_transforms();
     }
-
-    // If latest IMU msg and TS msg are more than 1.5 second away from current time, return error
-    auto current_time = this->get_clock()->now();
-    double time_diff_imu = (current_time - this->last_imu_msg_time_).seconds(), time_diff_ts = (current_time - this->last_ts_msg_time_).seconds();
-    if(time_diff_imu > 1.5 || time_diff_ts > 1.5)
+    
+    // Check if we have transforms
+    if(this->got_transforms_ == false)
     {
-        if (time_diff_imu > 1.5) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1.5 second of the initial point in calibration");
-        if (time_diff_ts > 1.5) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1.5 second of the initial point in calibration, found in %f seconds", time_diff_ts);
+        RCLCPP_INFO(this->get_logger(), "No transforms found, please check if base_link to total_station_prism and base_link to vectornav are published");
         // Set result
         result->success = false;
         goal_handle->abort(result);
         return;
     }
 
-    // Get latest IMU yaw in base_link frame and rover pose
-    geometry_msgs::msg::Quaternion imu_orientation = this->imu_orientation_;
-    tf2::doTransform(imu_orientation, imu_orientation, this->eigen_transform_imu_baselink_);
-    auto yaw_initial = tf2::getYaw(imu_orientation);
-    geometry_msgs::msg::Point init_ts_point = this->ts_point_;
+    std::vector<std::pair<geometry_msgs::msg::Point, double>> TS_IMU_Data;
 
-    // Move the rover ahead for 5 seconds if dont_move_rover is false
-    if(goal->dont_move_rover == false)
+    // Extract the movement time, with default value of 6.5 seconds
+    double move_time = goal->time;
+    if(goal->dont_move_rover == false) move_time = 6.5; // for manual call
+
+    // Fill in TS_IMU_Data every 2 seconds for the next goal->time_s seconds
+    // Move the rover if dont_move_rover is false
+    int itr = 0;
+    auto start_time = this->get_clock()->now();
+    RCLCPP_INFO(this->get_logger(), "Starting calibration");
+    
+    lx_msgs::msg::RoverCommand rover_command;
+    rclcpp::Rate loop_rate(1);
+
+    while(rclcpp::ok() && !goal_handle->is_canceling())
     {
-        auto start_time = this->get_clock()->now();
-        RCLCPP_INFO(this->get_logger(), "Starting calibration movement");
-        lx_msgs::msg::RoverCommand rover_command;
-        rclcpp::Rate loop_rate(10);
-        while(rclcpp::ok() && !goal_handle->is_canceling())
+        // Check if 5 seconds have passed
+        auto current_time = this->get_clock()->now();
+        auto time_diff = current_time - start_time;
+        
+        if(time_diff.seconds() >= move_time)
         {
-            // Check if 5 seconds have passed
-            auto current_time = this->get_clock()->now();
-            auto time_diff = current_time - start_time;
-            if(time_diff.seconds() >= 5.0)
-            {
-                RCLCPP_INFO(this->get_logger(), "Calibration movement complete");
-                break;
-            }
-
+            RCLCPP_INFO(this->get_logger(), "Calibration movement complete");
+            break;
+        }
+        
+        // Move rover if dont_move_rover is false
+        if (goal->dont_move_rover == false)
+        {
             // Publish rover command
             rover_command.mobility_twist.linear.x = 0.1;
             rover_command_pub_->publish(rover_command);
-            loop_rate.sleep();
         }
-        // Stop the rover
+        
+        // Try to record TS and IMU data every 2 seconds
+        if (itr++ % 3 == 0) {
+            append_TS_IMU_Data(TS_IMU_Data, itr);
+        }
+
+        loop_rate.sleep();
+    }
+    
+    // Stop the rover
+    if (goal->dont_move_rover == false)
+    {
         rover_command.mobility_twist.linear.x = 0.0;
         rover_command_pub_->publish(rover_command);
     }
-    else
-    {
-        // sleep for 6 seconds
-        rclcpp::sleep_for(std::chrono::seconds(6));
-    }
 
+    // Return if goal is cancelled or node is shutting down
     if (goal_handle->is_canceling() || !rclcpp::ok())
     {
         RCLCPP_INFO(this->get_logger(), "Calibrate imu action cancelled");
@@ -152,63 +180,76 @@ void Localization::executeCalibrateIMU(const std::shared_ptr<GoalHandleCalibrate
         return;
     }
 
-    // If latest IMU msg and TS msg are more than 1.5 second away from current time, return error
-    current_time = this->get_clock()->now();
-    time_diff_imu = (current_time - this->last_imu_msg_time_).seconds(), time_diff_ts = (current_time - this->last_ts_msg_time_).seconds();
-    if(time_diff_imu > 1.5 || time_diff_ts > 1.5)
+    // If no points could be recorded, return error
+    if(TS_IMU_Data.size() == 0)
     {
-        if (time_diff_imu > 1.5) RCLCPP_INFO(this->get_logger(), "No IMU data found in the last 1.5 second of the final point in calibration");
-        if (time_diff_ts > 1.5) RCLCPP_INFO(this->get_logger(), "No TS data found in the last 1.5 second of the final point in calibration, found in %f seconds", time_diff_ts);
+        RCLCPP_INFO(this->get_logger(), "No data recorded, aborting calibration");
         // Set result
         result->success = false;
         goal_handle->abort(result);
         return;
     }
 
-    // Record final yaw (in base_link frame) and rover pose
-    geometry_msgs::msg::Quaternion new_imu_orientation = this->imu_orientation_;
-    tf2::doTransform(new_imu_orientation, new_imu_orientation, this->eigen_transform_imu_baselink_);
-    auto yaw_final = tf2::getYaw(new_imu_orientation);
-    geometry_msgs::msg::Point final_ts_point = this->ts_point_;
-
-    // if initial and final yaw differ by more than 10 degrees, return error
-    if(abs(yaw_initial - yaw_final) > 10.0 * M_PI / 180.0)
+    // Compute all yaw offsets
+    std::vector<double> yaw_offsets;
+    for(int i=0; i < ((int)TS_IMU_Data.size()-1); i++)
     {
-        RCLCPP_INFO(this->get_logger(), "Initial and final yaw differ by more than 10 degrees, calibration failed");
+        // if ith and i+1 th yaw differ by more than 10 degrees, skip this point
+        if (abs(TS_IMU_Data[i].second - TS_IMU_Data[i+1].second) > 10.0 * M_PI / 180.0)
+        {
+            continue;
+        }
+
+        // Calculate yaw offset
+        auto avg_imu_yaw = addAngles((TS_IMU_Data[i].second + TS_IMU_Data[i+1].second) / 2.0, 0);
+        auto yaw_total_station = atan2(TS_IMU_Data[i+1].first.y - TS_IMU_Data[i].first.y, TS_IMU_Data[i+1].first.x - TS_IMU_Data[i].first.x);
+        double yaw_offset = yaw_total_station - avg_imu_yaw;
+        yaw_offset = addAngles(yaw_offset, 0);
+        yaw_offsets.push_back(yaw_offset);
+    }
+
+    // If no yaw offsets could be calculated, return error
+    if(yaw_offsets.size() == 0)
+    {
+        RCLCPP_INFO(this->get_logger(), "No yaw offsets could be calculated, aborting calibration");
         // Set result
         result->success = false;
         goal_handle->abort(result);
         return;
     }
 
-    // Calculate yaw offset
-    auto avg_imu_yaw = addAngles((yaw_initial+yaw_final) / 2.0, 0);
-    auto yaw_total_station = atan2(final_ts_point.y - init_ts_point.y, final_ts_point.x - init_ts_point.x);
-    double new_yaw_offset = yaw_total_station - avg_imu_yaw;
-    new_yaw_offset = addAngles(new_yaw_offset, 0);
-    if(goal->dont_move_rover == true)
+    // Compute average yaw offset
+    double new_yaw_offset = 0;
+    for(auto yaw_offset : yaw_offsets)
     {
-        // called from autodig, conservative update (only update if new offset is less than 15 degrees from old offset)
-        if(abs(new_yaw_offset - this->yaw_offset_) > 15.0 * M_PI / 180.0)
-        {
-            RCLCPP_INFO(this->get_logger(), "New yaw offset %f differs from old yaw offset %f by more than 15 degrees, calibration failed", new_yaw_offset, this->yaw_offset_);
-            // Set result
-            result->success = false;
-            goal_handle->abort(result);
-            return;
-        }
-        else
-        {
-            this->yaw_offset_ = new_yaw_offset;
-        }
+        new_yaw_offset += yaw_offset;
     }
-    else 
+    new_yaw_offset = new_yaw_offset / (double) yaw_offsets.size(); // average yaw offset
+
+    // If we are in dont_move_rover mode, and the new offset differs from the old offset by more than 15 degrees, return error
+    if(goal->dont_move_rover == true && abs(new_yaw_offset - this->yaw_offset_) > 15.0 * M_PI / 180.0)
     {
-        // called manually, update offset always
-        this->yaw_offset_ = new_yaw_offset;
+        RCLCPP_INFO(this->get_logger(), "New yaw offset %f differs from old yaw offset %f by more than 15 degrees, calibration failed", new_yaw_offset, this->yaw_offset_);
+        // Set result
+        result->success = false;
+        goal_handle->abort(result);
+        return;
     }
 
-    RCLCPP_INFO(this->get_logger(), "Calibration complete, with yaw offset: %f, Avg IMU Yaw: %f, Yaw TS: %f", this->yaw_offset_, avg_imu_yaw, yaw_total_station);
+    // Update yaw offset
+    this->yaw_offset_ = new_yaw_offset;
+
+    // Print yaw offset
+    RCLCPP_INFO(this->get_logger(), "Calibration complete, with avg yaw offset %f", this->yaw_offset_); 
+    std::stringstream ss;
+    ss << "Yaw offsets: ";
+    for(auto yaw_offset : yaw_offsets)
+    {
+        ss << yaw_offset << ", ";
+    }
+    RCLCPP_INFO_STREAM(this->get_logger(), ss.str());
+
+    // Set calibration complete flag
     this->calibration_complete_ = true;
 
     // Set result
