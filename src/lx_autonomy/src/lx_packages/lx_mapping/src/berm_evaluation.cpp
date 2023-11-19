@@ -101,7 +101,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     visualization_msgs::msg::Marker peak_points_marker;
     peak_points_marker.header.frame_id = "map";
     peak_points_marker.header.stamp = this->now();
-    peak_points_marker.ns = "berm";
+    peak_points_marker.ns = "berm_peak_points";
     peak_points_marker.type = visualization_msgs::msg::Marker::POINTS;
     peak_points_marker.action = visualization_msgs::msg::Marker::ADD;
     peak_points_marker.scale.x = 0.05;
