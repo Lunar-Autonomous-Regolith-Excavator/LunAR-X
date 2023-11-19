@@ -162,7 +162,7 @@ class ArucoNode(rclpy.node.Node):
         self.destroy_subscription(self.info_sub)\
             
     def get_distance(self, tool_height):
-        return -0.891 * tool_height**2 + 5.9e-1 * tool_height + 0.807 - 0.09
+        return -0.891 * tool_height**2 + 5.9e-1 * tool_height + 0.807 - 0.07
 
     def image_callback(self, img_msg):
         if self.info_msg is None:

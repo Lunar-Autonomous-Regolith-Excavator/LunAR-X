@@ -221,6 +221,9 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Update new goal
     this->goal_pose_ = goal->goal;
     this->next_action_ = goal->next;
+
+    // Print goal
+    RCLCPP_INFO(this->get_logger(), "Goal pose: %f %f %f", this->goal_pose_.pose.position.x, this->goal_pose_.pose.position.y, tf2::getYaw(this->goal_pose_.pose.orientation));
     
     // Navigate to goal pose
     if (!this->navigateThroughPoses()) {
