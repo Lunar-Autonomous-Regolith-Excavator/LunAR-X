@@ -253,7 +253,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
                 peak_z[j] = max_z;
             }
         }
-    }
+    } 
 
     // visualization_msgs/MarkerArray.msg make
     visualization_msgs::msg::Marker marker_array_msg;
@@ -291,7 +291,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         binned_cloud->points.push_back(p);
     }
 
-        // get the distance of the points in binned_cloud from the ground plane
+    // get the distance of the points in binned_cloud from the ground plane
     vector<double> distances;
     double max_distance = -100.0;
     for(long unsigned int i = 0; i < binned_cloud->points.size(); i++){
@@ -305,7 +305,7 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
         }
     }
 
-    // remove points that are not witing PEAK_LINE_DISTANCE_M of the ground plane
+    // remove points that are not withing PEAK_LINE_DISTANCE_M of the ground plane
     pcl::PointCloud<pcl::PointXYZ>::Ptr binned_cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
     for(long unsigned int i=0; i < binned_cloud->points.size(); i++){
         if(abs(distances[i]-max_distance)<PEAK_LINE_DISTANCE_M){
@@ -668,7 +668,6 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     {
         RCLCPP_INFO(this->get_logger(), "No line coefficients");
     }
-
 
     publishVector(*ground_plane_vec, "groundplane");
     publishVector(*berm_plane_vec, "bermplane");

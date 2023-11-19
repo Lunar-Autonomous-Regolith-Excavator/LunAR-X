@@ -46,6 +46,23 @@ enum class TaskTypeEnum : int {
                             AUTODUMP = 2
                           };
 
+// Exponential filter class
+class ExpFilter{
+    public:
+        double DECAY_RATE;
+        double prev_output;
+        ExpFilter(double decay_rate = 0.9)
+        {
+            this->DECAY_RATE = decay_rate;
+            this->prev_output = 0.0;
+        }
+        double getValue(double input)
+        {
+            this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
+            return this->prev_output;
+        }
+};
+
 void placeHolderFunction();
 
 #endif

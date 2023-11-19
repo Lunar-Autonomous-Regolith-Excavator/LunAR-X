@@ -25,25 +25,9 @@
 #include <tf2_ros/buffer.h>
 #include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include "lx_library/lx_utils.hpp"
 
 using namespace std;
-
-// Exponential filter class
-class ExpFilter{
-    public:
-        double DECAY_RATE;
-        double prev_output;
-        ExpFilter(double decay_rate = 0.9)
-        {
-            this->DECAY_RATE = decay_rate;
-            this->prev_output = 0.0;
-        }
-        double getValue(double input)
-        {
-            this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
-            return this->prev_output;
-        }
-};
 
 class VisualServoing : public rclcpp::Node
 {
@@ -52,14 +36,14 @@ class VisualServoing : public rclcpp::Node
         bool debug_mode_;
         bool transform_mode_; // if true, then projects the berm points to the current_berm_segmen t
         double tool_height_wrt_base_link_, tool_distance_wrt_base_link_;
-        const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 2.0; // region of interest in x direction
+        const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 1.5; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
         const int NUM_BINS = 100; // number of bins in each dim the ROI
         const double MIN_PLANE_ANGLE_DEG = 10.0; // minimum angle of the plane wrt the ground plane
-        const double PEAK_LINE_DISTANCE_M = 0.05; // max dist between two points in the peak line
+        const double PEAK_LINE_DISTANCE_M = 0.06; // min dist between ground plane and peak line points
         // const double DRUM_X_BASELINK_M = 0.9; // higher value -> rover stops more towards the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
-        const double DRUM_Z_BASELINK_M = -0.3; // more negative-> higher drum
+        const double DRUM_Z_BASELINK_M = -0.32; // more negative-> higher drum
         bool node_state_ = false; // state of the node
         lx_msgs::msg::BermSection current_berm_segment, prev_berm_segment;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};

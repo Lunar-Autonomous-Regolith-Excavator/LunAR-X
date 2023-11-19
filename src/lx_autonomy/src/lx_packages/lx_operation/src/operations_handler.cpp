@@ -108,12 +108,16 @@ void OperationsHandler::setupCommunications(){
     // Publishers
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
     plan_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/operations", 10);
+    progress_viz_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("lx_visualization/progress", 10);
     // Service servers
 
     // Service clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("lx_param_server_node/set_parameters");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");
     planner_client_ = this->create_client<lx_msgs::srv::Plan>("/plan_operation");
+    map_switch_client_ = this->create_client<lx_msgs::srv::Switch>("/mapping/map_switch");
+    berm_eval_client_ = this->create_client<lx_msgs::srv::BermProgressEval>("/berm_evaluation/berm_progress");
+
     // Action server
     using namespace std::placeholders;
     this->operation_action_server_ = rclcpp_action::create_server<Operation>(this, "operations/berm_build_action",
@@ -256,46 +260,61 @@ void OperationsHandler::executeOperation(const std::shared_ptr<GoalHandleOperati
     auto feedback = std::make_shared<Operation::Feedback>();
     auto result = std::make_shared<Operation::Result>();
 
-    // Set task mode as IDLE
-    switchRoverTaskMode(TaskModeEnum::IDLE);
+    if(rover_soft_lock_.mobility_lock || rover_soft_lock_.actuation_lock){
+        RCLCPP_ERROR(this->get_logger(), "Rover locked - Operations goal failed");
+        result->success = false;
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
+        return;
+    }
+    else{
+        // Set task mode as IDLE
+        switchRoverTaskMode(TaskModeEnum::IDLE);
 
-    // for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
-        // Call planner to plan full path
-        // Get task queue from planner
-        task_queue_ = getPlan();
+        // for(int iter = 0; iter < MAX_PLAN_ITERS; iter++){
+            // Call planner to plan full path
+            // Get task queue from planner
+            task_queue_ = getPlan();
 
-        // if(task_queue_.empty()){
-        //     RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
-        //     // If planner returns empty plan, either berm is built, or planner failed
-        //     break;
-        // }
+            // if(task_queue_.empty()){
+            //     RCLCPP_WARN(this->get_logger(), "Planner returned empty plan");
+            //     // If planner returns empty plan, either berm is built, or planner failed
+            //     break;
+            // }
 
-        // Copy for visualization
-        task_queue_copy_ = task_queue_;
+            // Copy for visualization
+            task_queue_copy_ = task_queue_;
 
-        // Visualize dump sequence
-        visualizationUpdate();
+            // Visualize dump sequence
+            visualizationUpdate();
 
-        // TODO Only keep first N tasks in queue
+            // TODO Only keep first N tasks in queue
 
-        // Execute task queue
-        if(!executeTaskQueue()){
-            // If any task fails, return goal failure
-            result->success = false;
-            goal_handle->abort(result);
-            RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
-            return;
-        }
-        // If all tasks successful, continue next loop iteration
-    // } 
+            // Execute task queue
+            if(!executeTaskQueue()){
+                // If any task fails, return goal failure
+                result->success = false;
+                goal_handle->abort(result);
+                RCLCPP_ERROR(this->get_logger(), "Operations goal failed");
+                return;
+            }
+            // If all tasks successful, continue next loop iteration
+        // } 
 
-    switchRoverTaskMode(TaskModeEnum::IDLE);
+        switchRoverTaskMode(TaskModeEnum::IDLE);
+
+        // Stop mapping service
+        callMapSwitch(false);
+
+        // Call berm evaluation service
+        callBermEval();
+    }
     
     // If berm is built, return goal success
     if (rclcpp::ok()) {
       result->success = true;
       goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Operations goal succeeded");
+      RCLCPP_INFO(this->get_logger(), "Operations goal finished");
     }
 }
 
@@ -377,6 +396,8 @@ void OperationsHandler::plannerClientCB(rclcpp::Client<lx_msgs::srv::Plan>::Shar
 }
 
 bool OperationsHandler::executeTaskQueue(){
+    // Print size of task queue
+    RCLCPP_INFO(this->get_logger(), "Task queue size: %ld", task_queue_.size());
     // Execute task queue
     while(!task_queue_.empty()){
         // Check if rover locked
@@ -400,16 +421,25 @@ bool OperationsHandler::executeTaskQueue(){
             // Execute task based on type
             switch(current_task.getType()){
                 case TaskTypeEnum::AUTONAV:
+                    // Start mapping service
+                    callMapSwitch(true);
+                    // Call autonav action
                     if(!callAutoNav(current_task)){
                         return false;
                     }
                     break;
                 case TaskTypeEnum::AUTODIG:
+                    // Stop mapping service
+                    callMapSwitch(false);
+                    // Call autodig action
                     if(!callAutoDig(current_task)){
                         return false;
                     }
                     break;
                 case TaskTypeEnum::AUTODUMP:
+                    // Stop mapping service
+                    callMapSwitch(false);
+                    // Call autodump action
                     if(!callAutoDump(current_task)){
                         return false;
                     }
@@ -946,4 +976,91 @@ bool OperationsHandler::checkSameBermSegment(lx_msgs::msg::BermSection berm_segm
         return true;
     }
     return false;
+}
+
+void OperationsHandler::callMapSwitch(bool state){
+    // Call start mapping switch service
+    while(!map_switch_client_->wait_for_service(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
+    }
+
+    auto set_request = std::make_shared<lx_msgs::srv::Switch::Request>();
+
+    set_request->switch_state = state;
+
+    RCLCPP_INFO(this->get_logger(), "Calling start mapping service");
+
+    auto future_result = map_switch_client_->async_send_request(set_request, std::bind(&OperationsHandler::mapSwitchCB, this, std::placeholders::_1));
+}
+
+void OperationsHandler::mapSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    if(status == std::future_status::ready){ 
+        if(future.get()->success){
+            RCLCPP_INFO(this->get_logger(), "Map status switched");
+        }
+        else{
+            RCLCPP_WARN(this->get_logger(), "Map switch server returned 'unsuccesful'");
+        }
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
+}
+
+void OperationsHandler::callBermEval(){
+    // Call berm evaluation service
+    while(!berm_eval_client_->wait_for_service(std::chrono::seconds(1))){
+        RCLCPP_WARN(this->get_logger(), "Waiting for params server to be up...");
+    }
+
+    auto set_request = std::make_shared<lx_msgs::srv::BermProgressEval::Request>();
+
+    set_request->need_metrics = true;
+
+    RCLCPP_INFO(this->get_logger(), "Calling berm evaluation service");
+
+    auto future_result = berm_eval_client_->async_send_request(set_request, std::bind(&OperationsHandler::bermEvalCB, this, std::placeholders::_1));
+}
+
+void OperationsHandler::bermEvalCB(rclcpp::Client<lx_msgs::srv::BermProgressEval>::SharedFuture future){
+    auto status = future.wait_for(std::chrono::milliseconds(100));
+    if(status == std::future_status::ready){ 
+        lx_msgs::msg::BermProgress berm_progress = future.get()->progress;
+        RCLCPP_INFO(this->get_logger(), "Berm evaluation service returned");
+
+        // Rviz text marker for berm progress
+        auto berm_progress_marker = visualization_msgs::msg::Marker();
+        berm_progress_marker.header.frame_id = "map";
+        berm_progress_marker.header.stamp = this->get_clock()->now();
+        berm_progress_marker.ns = "berm_progress_text";
+        berm_progress_marker.id = 0;
+        berm_progress_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+        berm_progress_marker.action = visualization_msgs::msg::Marker::ADD;
+        berm_progress_marker.scale.z = 0.2;
+        berm_progress_marker.color.r = 0.0;
+        berm_progress_marker.color.g = 0.0;
+        berm_progress_marker.color.b = 1.0;
+        berm_progress_marker.color.a = 1.0;
+        berm_progress_marker.lifetime = rclcpp::Duration(0, 0);
+        berm_progress_marker.pose.position.x = 3.75;
+        berm_progress_marker.pose.position.y = 3.5;
+        berm_progress_marker.pose.position.z = 0.2;
+        berm_progress_marker.pose.orientation.x = 0.0;
+        berm_progress_marker.pose.orientation.y = 0.0;
+
+        // Create text
+        std::string berm_progress_text = "Berm Progress: \n";
+        for(auto& height_point: berm_progress.heights){
+            berm_progress_text += std::to_string(height_point) + "\n";
+        }
+        berm_progress_marker.text = berm_progress_text;
+
+        // Publish marker
+        progress_viz_publisher_->publish(berm_progress_marker);
+
+    } 
+    else{
+        RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
 }

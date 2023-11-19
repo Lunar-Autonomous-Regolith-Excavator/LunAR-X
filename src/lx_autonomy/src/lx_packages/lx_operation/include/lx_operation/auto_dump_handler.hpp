@@ -60,7 +60,7 @@ class AutoDumpHandler: public rclcpp::Node
 
         const double DRUM_DUMP_SPEED = 0.8;
         const double DRUM_DUMP_TIME_S = 20;
-        const double END_TOOL_HEIGHT = 0.45;
+        const double END_TOOL_HEIGHT = 0.43;
         const double CLIP_VEL_CMD_VAL = 0.05;
         const double CLIP_HEIGHT_CMD_VAL = 1;
         const double CLIP_YAW_CMD_VAL = 0.05;
