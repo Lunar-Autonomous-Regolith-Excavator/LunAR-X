@@ -113,7 +113,7 @@ class TaskPlanner: public rclcpp::Node
         static constexpr double ROVER_WIDTH = 0.7;                  // m (actual width is 0.67 m)
         static constexpr double ROVER_LENGTH = 1.0;                 // m (actual length is 0.988 m)
         static constexpr double MAX_TOOL_DISTANCE_FROM_BASE = 1.0;  // m (conservative estimate for collision)
-        static constexpr double TOOL_DISTANCE_TO_DUMP = 0.9;        // m
+        static constexpr double TOOL_DISTANCE_TO_DUMP = 0.85;        // m
 
         // Map parameters
         static constexpr double MAP_WIDTH = 7.25;

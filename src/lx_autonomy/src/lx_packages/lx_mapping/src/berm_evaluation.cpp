@@ -72,7 +72,7 @@ void BermEvaluation::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr m
 void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::BermProgressEval::Request> req,
                                           const std::shared_ptr<lx_msgs::srv::BermProgressEval::Response> res){
 
-    if(!req->need_metrics){
+    if(!req->need_metrics || requested_berm_points_.size() == 0 || this->map_ == nullptr){
         return;
     }
 

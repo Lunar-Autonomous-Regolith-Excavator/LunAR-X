@@ -224,12 +224,18 @@ geometry_msgs::msg::Pose TaskPlanner::findExcavationPose(const BermSection &berm
     Bounds bounds = getBounds(footprint);
 
     // Set excavation pose
-    excavation_pose.position.x = (excavation_pose.position.x - bounds.x_min) + 1.25;
+    excavation_pose.position.x = (excavation_pose.position.x - bounds.x_min) + 0.9;
     excavation_pose.position.y = tan(excavation_angle) * (1.25 - bounds.x_min) + excavation_pose.position.y;
     // Add random offset to y position to prevent excavation in same place
     double rand_01 = (double)rand() / (double)RAND_MAX;
-    double random_offset = (2*(rand_01 - 0.5)) * 0.2; // -0.1 to 0.1
+    double rand_m11 = rand_01 * 2 - 1;
+    // clip to -1 to -0.5 and 0.5 to 1
+    if(rand_m11 < 0 && rand_m11 > -0.5) rand_m11 = -0.5;
+    if(rand_m11 > 0 && rand_m11 < 0.5) rand_m11 = 0.5;
+
+    double random_offset = rand_m11* 0.4; // -0.4 to -0.2 and 0.2 to 0.4
     excavation_pose.position.y += random_offset * cos(excavation_angle);
+    RCLCPP_INFO(this->get_logger(), "Random offset: %f", random_offset);
     // Clip y position to be within bounds
     excavation_pose.position.y = std::max(1.5, std::min(4.5, excavation_pose.position.y));
     // Set orientation
