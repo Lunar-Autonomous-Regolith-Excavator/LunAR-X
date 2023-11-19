@@ -144,7 +144,17 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             // Add excavation task to the plan
             lx_msgs::msg::PlannedTask excavation_task;
             excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
-            excavation_task.pose = excavation_pose;
+            // Randomize excavation pose
+            double min_offset = 0.1; // 10 cm
+            double max_offset = 0.4; // 40 cm
+            double random_offset = (double)rand() / (double)RAND_MAX; // 0 to 1
+            random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
+            if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
+            geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
+            rand_excavation_pose.position.y += random_offset * cos(excavation_angle);
+            RCLCPP_INFO(this->get_logger(), "Random offset: %f", random_offset);
+
+            excavation_task.pose = rand_excavation_pose;
             res->plan.push_back(excavation_task);
 
             // Add navigation task for dump pose to the plan
@@ -226,16 +236,6 @@ geometry_msgs::msg::Pose TaskPlanner::findExcavationPose(const BermSection &berm
     // Set excavation pose
     excavation_pose.position.x = (excavation_pose.position.x - bounds.x_min) + 0.9;
     excavation_pose.position.y = tan(excavation_angle) * (1.25 - bounds.x_min) + excavation_pose.position.y;
-    // Add random offset to y position to prevent excavation in same place
-    double rand_01 = (double)rand() / (double)RAND_MAX;
-    double rand_m11 = rand_01 * 2 - 1;
-    // clip to -1 to -0.5 and 0.5 to 1
-    if(rand_m11 < 0 && rand_m11 > -0.5) rand_m11 = -0.5;
-    if(rand_m11 > 0 && rand_m11 < 0.5) rand_m11 = 0.5;
-
-    double random_offset = rand_m11* 0.4; // -0.4 to -0.2 and 0.2 to 0.4
-    excavation_pose.position.y += random_offset * cos(excavation_angle);
-    RCLCPP_INFO(this->get_logger(), "Random offset: %f", random_offset);
     // Clip y position to be within bounds
     excavation_pose.position.y = std::max(1.5, std::min(4.5, excavation_pose.position.y));
     // Set orientation
