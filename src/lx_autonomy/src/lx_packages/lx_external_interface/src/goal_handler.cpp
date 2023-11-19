@@ -139,48 +139,29 @@ bool GoalHandler::isBetween(double val, double a, double b) {
 geometry_msgs::msg::PointStamped GoalHandler::findIntersectionPoints(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, const geometry_msgs::msg::PointStamped& p3, double d) {
     geometry_msgs::msg::PointStamped result;
 
-    // Calculate the equation of the line in the form Ax + By + C = 0
-    double A = p2.point.y - p1.point.y;
-    double B = p1.point.x - p2.point.x;
-    double C = p2.point.x * p1.point.y - p1.point.x * p2.point.y;
+    double dx = p2.point.x - p1.point.x;
+    double dy = p2.point.y - p1.point.y;
+    double dpx = p1.point.x - p3.point.x;
+    double dpy = p1.point.y - p3.point.y;
 
-    // Calculate the coefficients for the quadratic equation for y
-    double ay = B * B + A * A;
-    double by = 2 * B * C + 2 * A * B * p3.point.x - 2 * A * A * p3.point.y;
-    double cy = C * C + 2 * A * C * p3.point.x + A * A * p3.point.x * p3.point.x - A * A * d * d + A * A * p3.point.y * p3.point.y;
-
-    double ax = A * A + B * B;
-    double bx = 2 * A * C + 2 * A * B * p3.point.y - 2 * B * B * p3.point.x;
-    double cx = C * C + 2 * B * C * p3.point.y + B * B * p3.point.y * p3.point.y - B * B * d * d + B * B * p3.point.x * p3.point.x;
+    double A = dx * dx + dy * dy;
+    double B = 2 * (dx * dpx + dy * dpy);
+    double C = (dpx * dpx + dpy * dpy) - d * d;
 
     // Calculate the discriminant
-    double discriminanty = by * by - 4 * ay * cy;
-    double discriminantx = bx * bx - 4 * ax * cx;
-    double a, b, c, discriminant, x1, x2, y1, y2;
-    (void)c;
-    if ((discriminantx == 0 && bx == 0) || discriminanty > 0) {
-        a = ay, b = by, c = cy, discriminant = discriminanty;
-        
-        // Calculate the y-coordinates of the intersection points
-        y1 = (-b + sqrt(discriminant)) / (2 * a);
-        y2 = (-b - sqrt(discriminant)) / (2 * a);
+    double discriminant {B * B - 4 * A * C};
 
-        // Calculate the x-coordinates of the intersection points
-        x1 = (-C - B * y1) / A;
-        x2 = (-C - B * y2) / A;
-    }
+    double t1 = (-B + sqrt(discriminant)) / (2 * A);
+    double t2 = (-B - sqrt(discriminant)) / (2 * A);
 
-    if ((discriminanty == 0 && by == 0) || discriminantx > 0) {
-        a = ax, b = bx, c = cx, discriminant = discriminantx;
+    // Calculate the x-coordinates of the intersection points
+    double x1 = p1.point.x + t1 * dx;
+    double x2 = p1.point.x + t2 * dx;
 
-        // Calculate the x-coordinates of the intersection points
-        x1 = (-b + sqrt(discriminant)) / (2 * a);
-        x2 = (-b - sqrt(discriminant)) / (2 * a);
-
-        // Calculate the y-coordinates of the intersection points
-        y1 = (-C - A * x1) / B;
-        y2 = (-C - A * x2) / B;
-    } 
+    // Calculate the y-coordinates of the intersection points
+    double y1 = p1.point.y + t1 * dy;
+    double y2 = p1.point.y + t2 * dy;
+ 
     // Check if the intersection points lie on the line segment joining p1 and p2
     if (isBetween(x1, p1.point.x, p2.point.x) && isBetween(y1, p1.point.y, p2.point.y)) {
         result.point.x = x1;
@@ -206,7 +187,7 @@ void GoalHandler::checkBermFeasibility(){
         std::vector<geometry_msgs::msg::PointStamped> points = getPointsAtFixedDistance(first_point, user_requested_berm_points_[i+1], INTERPOLATION_DIST);
         processed_berm_points_.insert(processed_berm_points_.end(),points.begin(),points.end());
         if (i == user_requested_berm_points_.size()-2) break;
-        geometry_msgs::msg::PointStamped line_end = points.back();
+        geometry_msgs::msg::PointStamped line_end = processed_berm_points_.back();
         if (line_end.point.x == user_requested_berm_points_[i+1].point.x && line_end.point.y == user_requested_berm_points_[i+1].point.y) {
             first_point = user_requested_berm_points_[i+1];
         }
