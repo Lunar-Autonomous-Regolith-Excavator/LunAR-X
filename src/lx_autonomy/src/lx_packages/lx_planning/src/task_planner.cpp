@@ -151,7 +151,8 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
             if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
             geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
-            rand_excavation_pose.position.y += random_offset * cos(excavation_angle);
+            rand_excavation_pose.position.y += random_offset * cos(berm_section.angle + M_PI / 2);
+            rand_excavation_pose.position.y = std::max(1.5, std::min(4.5, rand_excavation_pose.position.y));
             RCLCPP_INFO(this->get_logger(), "Random offset: %f", random_offset);
 
             excavation_task.pose = rand_excavation_pose;
