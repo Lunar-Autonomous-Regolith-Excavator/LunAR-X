@@ -144,7 +144,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
         double sum_ground_height = 0;
         int num_points_in_region = 1;
         // loop over the the rectangle region parallel to the line joining the two berm_marker_points 1 and 2 but 0.3 to 0.4 m away from it
-        double m = y_diff/(x_diff+0.015);
+        double m = y_diff/(x_diff+this->map_->info.resolution);
         double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
         for(size_t j = 0; j < this->map_->data.size(); j++){
             double x = (j%this->map_->info.width)*this->map_->info.resolution;
@@ -161,14 +161,19 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
         RCLCPP_INFO(this->get_logger(), "Mean ground height: %f", mean_ground_height);
 
         double max = -100;
+        std::vector<int> elevations;
+
         for(size_t j = 0; j < this->map_->data.size(); j++){
             double x = (j%this->map_->info.width)*this->map_->info.resolution;
             double y = int(j/this->map_->info.width)*this->map_->info.resolution;
             double dist = sqrt(pow(x - midpoint.x, 2) + pow(y - midpoint.y, 2));
+
+            // find the tenth percentile of the elevation of the points in the region 0.3m away from the midpoint of the line joining the two berm_marker_points
             if(dist < 0.3){
                 if(this->map_->data[j] > max){
                     max = this->map_->data[j];
                 }
+                elevations.push_back(this->map_->data[j]);
 
                 double x_proj, y_proj, parallel_dist, perpendicular_dist, bin;
 
@@ -199,7 +204,13 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
             }
         }
 
-        auto berm_height = (max - mean_ground_height)/ELEVATION_SCALE;
+        double berm_height = 0;
+        if(elevations.size() > 0){
+            int top_percentile_pt = 0.95*elevations.size();
+            std::nth_element(elevations.begin(), elevations.begin() + top_percentile_pt, elevations.end());
+            berm_height = (elevations[top_percentile_pt]-mean_ground_height)/ELEVATION_SCALE;
+        }
+
         RCLCPP_INFO(this->get_logger(), "Berm height in section %d: %f", (int)i, berm_height);
 
         marker_msg.id = i;
@@ -224,7 +235,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
             peakline_length += this->map_->info.resolution * 1.414;
         }
     }
-    peakline_error = sqrt(peakline_error)*0.015/(peakline_length+0.0001);
+    peakline_error = sqrt(peakline_error)*this->map_->info.resolution /(peakline_length+0.0001);
 
     berm_progress_.length = peakline_length;
     berm_progress_.peakline_error = peakline_error;
@@ -235,7 +246,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     for(size_t i = 0; i < peak_points.size(); i++){
         peak_points_marker.points.push_back(peak_points[i]);
     }
-
+    
     berm_evaluation_array_publisher_->publish(marker_array_msg);
     peak_points_publisher_->publish(peak_points_marker);
 
