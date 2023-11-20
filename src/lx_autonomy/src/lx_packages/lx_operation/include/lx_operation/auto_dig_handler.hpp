@@ -35,7 +35,7 @@ class AutoDigHandler: public rclcpp::Node
         double drum_height_ = 0;
         bool inner_PID_control_rover_ = false;
         unsigned int diagnostic_pub_period_ = 1;
-        bool debugging_publish_ = true;
+        bool debugging_publish_ = false;
         double curr_ground_height_ = 0;
         // Time
         rclcpp::Time tool_info_msg_time_ = rclcpp::Time(0,0,RCL_ROS_TIME);

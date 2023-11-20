@@ -22,7 +22,7 @@
 VisualServoing::VisualServoing() : Node("visual_servoing_node")
 {   
     // Set false for dry runs, set true for commands and to publish debug data
-    debug_mode_ = true;
+    debug_mode_ = false;
 
     // Setup Communications
     setupCommunications();
