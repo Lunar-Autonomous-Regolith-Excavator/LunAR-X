@@ -31,7 +31,7 @@ void TaskPlanner::setupCommunications(){
 
     // Action servers
     using namespace std::placeholders;
-    this->taskplanner_action_server_ = rclcpp_action::create_server<TaskPlannerAction>(this, "plan_task",
+    this->taskplanner_action_server_ = rclcpp_action::create_server<PlanTask>(this, "plan_task",
                                             std::bind(&TaskPlanner::handle_goal, this, _1, _2),
                                             std::bind(&TaskPlanner::handle_cancel, this, _1),
                                             std::bind(&TaskPlanner::handle_accepted, this, _1));
@@ -39,7 +39,7 @@ void TaskPlanner::setupCommunications(){
     
 }
 
-rclcpp_action::GoalResponse TaskPlanner::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const TaskPlannerAction::Goal> goal){
+rclcpp_action::GoalResponse TaskPlanner::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const PlanTask::Goal> goal){
     RCLCPP_INFO(this->get_logger(), "Received task planner request");
     (void)uuid;
     (void)goal;
@@ -48,7 +48,7 @@ rclcpp_action::GoalResponse TaskPlanner::handle_goal(const rclcpp_action::GoalUU
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse TaskPlanner::handle_cancel(const std::shared_ptr<GoalHandleTaskPlanner> goal_handle){
+rclcpp_action::CancelResponse TaskPlanner::handle_cancel(const std::shared_ptr<GoalHandlePlanTask> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Received request to cancel planner");
     (void)goal_handle;
     
@@ -56,14 +56,14 @@ rclcpp_action::CancelResponse TaskPlanner::handle_cancel(const std::shared_ptr<G
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void TaskPlanner::handle_accepted(const std::shared_ptr<GoalHandleTaskPlanner> goal_handle){
+void TaskPlanner::handle_accepted(const std::shared_ptr<GoalHandlePlanTask> goal_handle){
     using namespace std::placeholders;
     
     // Start thread to execute action and detach
     std::thread{std::bind(&TaskPlanner::findBermSequence, this, _1), goal_handle}.detach();
 }
 
-bool TaskPlanner::findBermSequence(const std::shared_ptr<GoalHandleTaskPlanner> goal_handle) {
+void TaskPlanner::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> goal_handle) {
     // Clear class variables
     this->berm_inputs_.clear();
     this->berm_section_iterations_.clear();
@@ -73,19 +73,19 @@ bool TaskPlanner::findBermSequence(const std::shared_ptr<GoalHandleTaskPlanner> 
 
     // Get goal, feedback and result
     const auto goal = goal_handle->get_goal();
-    auto feedback = std::make_shared<TaskPlannerAction::Feedback>();
-    auto result = std::make_shared<TaskPlannerAction::Result>();
+    auto feedback = std::make_shared<PlanTask::Feedback>();
+    auto result = std::make_shared<PlanTask::Result>();
 
     // Update new goal
     this->section_length_ = goal->section_length;
-    this->desired_berm_height_ = goal->desired_berm_height;
+    this->desired_berm_height_ = goal->berm_height;
     this->map_ = goal->map;
     
     // Loop through the berm inputs
-    for (int i = 0; i < static_cast<int>(goal->berm_points.size()) - 1; i++){
+    for (int i = 0; i < static_cast<int>(goal->berm_input.size()) - 1; i++){
         // Berm end points
-        geometry_msgs::msg::Point point_1 = goal->berm_points[i];
-        geometry_msgs::msg::Point point_2 = goal->berm_points[i + 1];
+        geometry_msgs::msg::Point point_1 = goal->berm_input[i];
+        geometry_msgs::msg::Point point_2 = goal->berm_input[i + 1];
 
         // Calculate center and angle of berm section
         Pose2D berm_section;
@@ -114,24 +114,22 @@ bool TaskPlanner::findBermSequence(const std::shared_ptr<GoalHandleTaskPlanner> 
     berm_section_heights_.resize(this->berm_inputs_.size(), 0.0);
 
     // CODE HERE
-
-    return true;
 }
 
-std::vector<Pose2D> TaskPlanner::getDumpPoses(const BermSection &berm_section) {
+std::vector<Pose2D> TaskPlanner::getDumpPoses(const Pose2D &berm_section) {
     Pose2D dump_pose_1, dump_pose_2;
     std::vector<Pose2D> dump_poses;
 
     // Calculate dump poses on either side of the berm section with TOOL_DISTANCE_TO_DUMP from the berm section center
-    double angle_1 = berm_section.angle + M_PI / 2;
-    dump_pose_1.x = berm_section.center.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_1);
-    dump_pose_1.y = berm_section.center.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_1);
+    double angle_1 = berm_section.theta + M_PI / 2;
+    dump_pose_1.x = berm_section.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_1);
+    dump_pose_1.y = berm_section.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_1);
     dump_pose_1.theta = angle_1 - M_PI;
     dump_poses.push_back(dump_pose_1);
 
-    double angle_2 = berm_section.angle - M_PI / 2;
-    dump_pose_2.x = berm_section.center.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_2);
-    dump_pose_2.y = berm_section.center.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_2);
+    double angle_2 = berm_section.theta - M_PI / 2;
+    dump_pose_2.x = berm_section.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_2);
+    dump_pose_2.y = berm_section.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_2);
     dump_pose_2.theta = angle_2 - M_PI;
     dump_poses.push_back(dump_pose_2);
 
@@ -160,8 +158,8 @@ std::vector<geometry_msgs::msg::Point> TaskPlanner::getRoverFootprint(const Pose
     for (int i = 0; i < static_cast<int>(footprint.size()); i++) {
         double x = footprint[i].x;
         double y = footprint[i].y;
-        footprint[i].x = x * cos(pose.theta) - y * sin(pose.theta) + pose.position.x;
-        footprint[i].y = x * sin(pose.theta) + y * cos(pose.theta) + pose.position.y;
+        footprint[i].x = x * cos(pose.theta) - y * sin(pose.theta) + pose.x;
+        footprint[i].y = x * sin(pose.theta) + y * cos(pose.theta) + pose.y;
     }
 
     return footprint;

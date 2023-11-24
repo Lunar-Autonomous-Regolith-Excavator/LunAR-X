@@ -34,6 +34,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/AutoDump.action"
   "action/AutoNav.action"
   "action/CalibrateImu.action"
+  "action/PlanTask.action"
   DEPENDENCIES std_msgs geometry_msgs action_msgs builtin_interfaces nav_msgs
 )
 

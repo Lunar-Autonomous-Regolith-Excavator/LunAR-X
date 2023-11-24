@@ -90,7 +90,7 @@ class TaskPlanner: public rclcpp::Node
 
         geometry_msgs::msg::Pose findExcavationPose(const BermSection& );
         
-        geometry_msgs::msg::Pose getDumpPoses(const BermSection&, const geometry_msgs::msg::Pose& );
+        geometry_msgs::msg::Pose findDumpPose(const BermSection&, const geometry_msgs::msg::Pose& );
 
         int numOfDumps(const int );
         

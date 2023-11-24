@@ -5,7 +5,7 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "lx_msgs/msg/planned_task.hpp"
-#include "lx_msgs/srv/plan.hpp"
+#include "lx_msgs/action/plan_task.hpp"
 #include "rcl_interfaces/srv/get_parameters.hpp"
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
@@ -42,6 +42,8 @@ struct Pose2D {
     double y;
     double theta;
 
+    Pose2D() {}
+
     Pose2D(double x, double y, double theta) {
         this->x = x;
         this->y = y;
@@ -53,8 +55,8 @@ class TaskPlanner: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        using TaskPlannerAction = lx_msgs::action::TaskPlanner;
-        using GoalHandleTaskPlanner = rclcpp_action::ServerGoalHandle<TaskPlannerAction>;
+        using PlanTask = lx_msgs::action::PlanTask;
+        using GoalHandlePlanTask = rclcpp_action::ServerGoalHandle<PlanTask>;
 
         // Task planner variables
         std::vector<Pose2D> berm_inputs_;
@@ -66,7 +68,7 @@ class TaskPlanner: public rclcpp::Node
         nav_msgs::msg::OccupancyGrid map_;
 
         // Servers
-        rclcpp_action::Server<TaskPlannerAction>::SharedPtr taskplanner_action_server_;
+        rclcpp_action::Server<PlanTask>::SharedPtr taskplanner_action_server_;
 
         // --------------------------------------
 
@@ -79,7 +81,7 @@ class TaskPlanner: public rclcpp::Node
         /*
         * Put next function here
         * */
-        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& , std::shared_ptr<const TaskPlannerAction::Goal> );
+        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& , std::shared_ptr<const PlanTask::Goal> );
 
         /*
         * Argument(s):
@@ -87,7 +89,7 @@ class TaskPlanner: public rclcpp::Node
         * 
         * Handle action cancel request
         * */
-        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleTaskPlanner> );
+        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandlePlanTask> );
 
         /*
         * Argument(s):
@@ -95,11 +97,11 @@ class TaskPlanner: public rclcpp::Node
         * 
         * Handle action accepted
         * */
-        void handle_accepted(const std::shared_ptr<GoalHandleTaskPlanner> );
+        void handle_accepted(const std::shared_ptr<GoalHandlePlanTask> );
 
-        void findBermSequence(const std::shared_ptr<GoalHandleTaskPlanner> );
+        void findBermSequence(const std::shared_ptr<GoalHandlePlanTask> );
         
-        std::vector<Pose2D> TaskPlanner::getDumpPoses(const BermSection& );
+        std::vector<Pose2D> getDumpPoses(const Pose2D& );
 
         int numOfDumps(const int );
 
@@ -127,7 +129,7 @@ class TaskPlanner: public rclcpp::Node
         ~TaskPlanner(){};
 
         // Function to get rover footprint
-        std::vector<geometry_msgs::msg::Point> getRoverFootprint(const geometry_msgs::msg::Pose& );
+        std::vector<geometry_msgs::msg::Point> getRoverFootprint(const Pose2D& );
 
         // Function to get bounds of rover footprint
         Bounds getBounds(const std::vector<geometry_msgs::msg::Point>& );

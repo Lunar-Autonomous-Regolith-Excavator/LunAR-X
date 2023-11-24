@@ -127,27 +127,26 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         int num_iterations = berm_section_iterations_[i];
 
         for (int j = 0; j < num_iterations; j++){
-            // Add navigation task for excavation pose to the plan
-            lx_msgs::msg::PlannedTask navigation_task;
-            navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
-            navigation_task.pose = excavation_pose;
-            // Don't add navigation task for first excavation pose
-            if (!(i == 0 && j == 0)) res->plan.push_back(navigation_task);
-
-            // Add excavation task to the plan
-            lx_msgs::msg::PlannedTask excavation_task;
-            excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
             // Randomize excavation pose
-            double min_offset = 0.1; // 10 cm
-            double max_offset = 0.4; // 40 cm
+            double min_offset = 0.1;
+            double max_offset = 0.4;
             double random_offset = (double)rand() / (double)RAND_MAX; // 0 to 1
             random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
             if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
             geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
             rand_excavation_pose.position.y += random_offset * cos(berm_section.angle + M_PI / 2);
             rand_excavation_pose.position.y = std::max(1.5, std::min(4.5, rand_excavation_pose.position.y));
-            RCLCPP_INFO(this->get_logger(), "Random offset: %f", random_offset);
 
+            // Add navigation task for excavation pose to the plan
+            lx_msgs::msg::PlannedTask navigation_task;
+            navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
+            navigation_task.pose = rand_excavation_pose;
+            // Don't add navigation task for first excavation pose
+            if (!(i == 0 && j == 0)) res->plan.push_back(navigation_task);
+
+            // Add excavation task to the plan
+            lx_msgs::msg::PlannedTask excavation_task;
+            excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
             excavation_task.pose = rand_excavation_pose;
             res->plan.push_back(excavation_task);
 
@@ -215,29 +214,6 @@ bool TaskPlanner::findBermSequence(const std::vector<geometry_msgs::msg::Point> 
     return true;
 }
 
-std::vector<Pose2D> TaskPlanner::getDumpPoses(const BermSection &berm_section) {
-    Pose2D dump_pose_1, dump_pose_2;
-    std::vector<Pose2D> dump_poses;
-
-    // Calculate dump poses on either side of the berm section with TOOL_DISTANCE_TO_DUMP from the berm section center
-    double angle_1 = berm_section.angle + M_PI / 2;
-    dump_pose_1.x = berm_section.center.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_1);
-    dump_pose_1.y = berm_section.center.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_1);
-    dump_pose_1.theta = angle_1 - M_PI;
-    dump_poses.push_back(dump_pose_1);
-
-    double angle_2 = berm_section.angle - M_PI / 2;
-    dump_pose_2.x = berm_section.center.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_2);
-    dump_pose_2.y = berm_section.center.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_2);
-    dump_pose_2.theta = angle_2 - M_PI;
-    dump_poses.push_back(dump_pose_2);
-
-    return dump_poses;
-}
-
-/********************************************************************************************************/
-/********************************************************************************************************/
-/********************************************************************************************************/
 geometry_msgs::msg::Pose TaskPlanner::findExcavationPose(const BermSection &berm_section) {
     geometry_msgs::msg::Pose excavation_pose;
     excavation_pose.position.x = berm_section.center.x;
