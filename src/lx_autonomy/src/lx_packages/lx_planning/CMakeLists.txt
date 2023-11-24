@@ -21,6 +21,9 @@ include_directories(include)
 add_executable(task_planner_node src/task_planner_node.cpp src/task_planner.cpp)
 ament_target_dependencies(task_planner_node rclcpp lx_msgs lx_library geometry_msgs tf2_geometry_msgs nav_msgs)
 
+add_executable(task_optimizer_node src/task_optimizer_node.cpp src/task_optimizer.cpp)
+ament_target_dependencies(task_optimizer_node rclcpp lx_msgs lx_library geometry_msgs tf2_geometry_msgs nav_msgs)
+
 add_executable(map_pub src/temp_map_pub_node.cpp)
 ament_target_dependencies(map_pub rclcpp nav2_msgs)
 
@@ -29,6 +32,7 @@ ament_target_dependencies(test_planner rclcpp lx_msgs geometry_msgs)
 
 install(TARGETS
   task_planner_node
+  task_optimizer_node
   map_pub
   test_planner
   DESTINATION lib/${PROJECT_NAME}

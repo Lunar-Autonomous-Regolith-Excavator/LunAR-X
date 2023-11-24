@@ -2,6 +2,7 @@
 #define TASK_PLANNER_H
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 #include "lx_library/lx_utils.hpp"
 #include "lx_msgs/msg/planned_task.hpp"
 #include "lx_msgs/srv/plan.hpp"
@@ -20,17 +21,7 @@
 #include <cmath>
 #include <limits>
 
-#define GETMAXINDEX(x, y, width) (y * width + x)
-
-struct BermSection {
-    geometry_msgs::msg::Point center;
-    double angle;
-
-    BermSection(geometry_msgs::msg::Point center, double angle){
-        this->center = center;
-        this->angle = angle;
-    }
-};
+#define GETMAPINDEX(x, y, width) (y * width + x)
 
 struct Bounds {
     double x_min;
@@ -46,31 +37,36 @@ struct Bounds {
     }
 };
 
+struct Pose2D {
+    double x;
+    double y;
+    double theta;
+
+    Pose2D(double x, double y, double theta) {
+        this->x = x;
+        this->y = y;
+        this->theta = theta;
+    }
+};
+
 class TaskPlanner: public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        rclcpp::Service <lx_msgs::srv::Plan>::SharedPtr plan_service_server_;
+        using TaskPlannerAction = lx_msgs::action::TaskPlanner;
+        using GoalHandleTaskPlanner = rclcpp_action::ServerGoalHandle<TaskPlannerAction>;
 
         // Task planner variables
-        std::vector<BermSection> berm_sequence_;
+        std::vector<Pose2D> berm_inputs_;
+        std::vector<Pose2D> excavation_poses_;
         std::vector<int> berm_section_iterations_;
         std::vector<double> berm_section_heights_;
-
         double section_length_;
         double desired_berm_height_;
+        nav_msgs::msg::OccupancyGrid map_;
 
-        // Map variables
-        // std::vector<int8_t> map_data_;
-        // nav_msgs::msg::OccupancyGrid map_msg_;
-        // rclcpp::TimerBase::SharedPtr timer_;
-
-        // Subscribers
-        
-        // Clients
-        
-        // Publishers
-        rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher_;
+        // Servers
+        rclcpp_action::Server<TaskPlannerAction>::SharedPtr taskplanner_action_server_;
 
         // --------------------------------------
 
@@ -83,25 +79,29 @@ class TaskPlanner: public rclcpp::Node
         /*
         * Put next function here
         * */
-        void taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> ,
-                                      std::shared_ptr<lx_msgs::srv::Plan::Response>);
+        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& , std::shared_ptr<const TaskPlannerAction::Goal> );
 
-        bool findBermSequence(const std::vector<geometry_msgs::msg::Point>& );
+        /*
+        * Argument(s):
+        *   - Goal handle shared pointer
+        * 
+        * Handle action cancel request
+        * */
+        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleTaskPlanner> );
 
-        geometry_msgs::msg::Pose findExcavationPose(const BermSection& );
+        /*
+        * Argument(s):
+        *   - Goal handle shared pointer
+        * 
+        * Handle action accepted
+        * */
+        void handle_accepted(const std::shared_ptr<GoalHandleTaskPlanner> );
+
+        void findBermSequence(const std::shared_ptr<GoalHandleTaskPlanner> );
         
-        geometry_msgs::msg::Pose getDumpPoses(const BermSection&, const geometry_msgs::msg::Pose& );
+        std::vector<Pose2D> TaskPlanner::getDumpPoses(const BermSection& );
 
         int numOfDumps(const int );
-        
-        // Functions for map publishing
-        // void initializeMap();
-        
-        // void publishMap();
-
-        // void updateMap(const geometry_msgs::msg::Point& );
-
-        // void clearMap();
 
     public:
 
@@ -114,13 +114,6 @@ class TaskPlanner: public rclcpp::Node
         static constexpr double ROVER_LENGTH = 1.0;                 // m (actual length is 0.988 m)
         static constexpr double MAX_TOOL_DISTANCE_FROM_BASE = 1.0;  // m (conservative estimate for collision)
         static constexpr double TOOL_DISTANCE_TO_DUMP = 0.85;        // m
-
-        // Map parameters
-        static constexpr double MAP_WIDTH = 7.25;
-        static constexpr double MAP_HEIGHT = 7.00;
-        static constexpr double MAP_RESOLUTION = 0.05;
-        static constexpr double MAP_ORIGIN_X = 0.1;
-        static constexpr double MAP_ORIGIN_Y = 0.1;
 
         // Functions
         /*

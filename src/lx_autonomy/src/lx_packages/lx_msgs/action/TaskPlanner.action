@@ -1,0 +1,8 @@
+geometry_msgs/Point[] berm_input
+geometry_msgs/Point[] excavation_input
+float32 berm_height
+float32 section_length
+nav_msgs/OccupancyGrid map
+---
+PlannedTask[] plan
+---

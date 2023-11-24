@@ -78,13 +78,6 @@ TaskPlanner::TaskPlanner(): Node("task_planner_node"){
 void TaskPlanner::setupCommunications(){
     // Subscribers
 
-    // Publishers
-    rclcpp::QoS qos(10);  // initialize to default
-    qos.transient_local();
-    qos.reliable();
-    qos.keep_last(1);
-    map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("map", qos);
-
     // Clients
 
     // Servers
@@ -134,26 +127,27 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         int num_iterations = berm_section_iterations_[i];
 
         for (int j = 0; j < num_iterations; j++){
-            // Randomize excavation pose
-            double min_offset = 0.1;
-            double max_offset = 0.4;
-            double random_offset = (double)rand() / (double)RAND_MAX; // 0 to 1
-            random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
-            if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
-            geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
-            rand_excavation_pose.position.y += random_offset * cos(berm_section.angle + M_PI / 2);
-            rand_excavation_pose.position.y = std::max(1.5, std::min(4.5, rand_excavation_pose.position.y));
-
             // Add navigation task for excavation pose to the plan
             lx_msgs::msg::PlannedTask navigation_task;
             navigation_task.task_type = int(TaskTypeEnum::AUTONAV);
-            navigation_task.pose = rand_excavation_pose;
+            navigation_task.pose = excavation_pose;
             // Don't add navigation task for first excavation pose
             if (!(i == 0 && j == 0)) res->plan.push_back(navigation_task);
 
             // Add excavation task to the plan
             lx_msgs::msg::PlannedTask excavation_task;
             excavation_task.task_type = int(TaskTypeEnum::AUTODIG);
+            // Randomize excavation pose
+            double min_offset = 0.1; // 10 cm
+            double max_offset = 0.4; // 40 cm
+            double random_offset = (double)rand() / (double)RAND_MAX; // 0 to 1
+            random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
+            if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
+            geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
+            rand_excavation_pose.position.y += random_offset * cos(berm_section.angle + M_PI / 2);
+            rand_excavation_pose.position.y = std::max(1.5, std::min(4.5, rand_excavation_pose.position.y));
+            RCLCPP_INFO(this->get_logger(), "Random offset: %f", random_offset);
+
             excavation_task.pose = rand_excavation_pose;
             res->plan.push_back(excavation_task);
 
@@ -221,6 +215,29 @@ bool TaskPlanner::findBermSequence(const std::vector<geometry_msgs::msg::Point> 
     return true;
 }
 
+std::vector<Pose2D> TaskPlanner::getDumpPoses(const BermSection &berm_section) {
+    Pose2D dump_pose_1, dump_pose_2;
+    std::vector<Pose2D> dump_poses;
+
+    // Calculate dump poses on either side of the berm section with TOOL_DISTANCE_TO_DUMP from the berm section center
+    double angle_1 = berm_section.angle + M_PI / 2;
+    dump_pose_1.x = berm_section.center.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_1);
+    dump_pose_1.y = berm_section.center.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_1);
+    dump_pose_1.theta = angle_1 - M_PI;
+    dump_poses.push_back(dump_pose_1);
+
+    double angle_2 = berm_section.angle - M_PI / 2;
+    dump_pose_2.x = berm_section.center.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle_2);
+    dump_pose_2.y = berm_section.center.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle_2);
+    dump_pose_2.theta = angle_2 - M_PI;
+    dump_poses.push_back(dump_pose_2);
+
+    return dump_poses;
+}
+
+/********************************************************************************************************/
+/********************************************************************************************************/
+/********************************************************************************************************/
 geometry_msgs::msg::Pose TaskPlanner::findExcavationPose(const BermSection &berm_section) {
     geometry_msgs::msg::Pose excavation_pose;
     excavation_pose.position.x = berm_section.center.x;
@@ -302,50 +319,3 @@ int TaskPlanner::numOfDumps(int berm_section_index) {
 
     return num_dumps;
 }
-
-// Functions to publish map for costmap
-// Required for Nav2 hybrid A* planner
-// void TaskPlanner::initializeMap() {    
-//     map_msg_.header.frame_id = "map";
-//     map_msg_.info.resolution = TaskPlanner::MAP_RESOLUTION;
-//     map_msg_.info.width = (int)(TaskPlanner::MAP_WIDTH / TaskPlanner::MAP_RESOLUTION);
-//     map_msg_.info.height = (int)(TaskPlanner::MAP_HEIGHT / TaskPlanner::MAP_RESOLUTION);
-//     map_msg_.info.origin.position.x = TaskPlanner::MAP_ORIGIN_X;
-//     map_msg_.info.origin.position.y = TaskPlanner::MAP_ORIGIN_Y;
-//     map_msg_.info.origin.position.z = 0.0;
-//     map_msg_.info.origin.orientation.x = 0.0;
-//     map_msg_.info.origin.orientation.y = 0.0;
-//     map_msg_.info.origin.orientation.z = 0.0;
-//     map_msg_.info.origin.orientation.w = 1.0;
-
-//     // Set up map
-//     map_data_.resize(map_msg_.info.width * map_msg_.info.height, 0);
-//     // Make the borders of the map occupied
-//     for (int i = 0; i < map_msg_.info.width; i++) {
-//       map_msg_.data[GETMAXINDEX(i, 0, map_msg_.info.width)] = 100;
-//       map_msg_.data[GETMAXINDEX(i, map_msg_.info.height - 1, map_msg_.info.width)] = 100;
-//     }
-//     for (int i = 0; i < map_msg_.info.height; i++) {
-//       map_msg_.data[GETMAXINDEX(0, i, map_msg_.info.width)] = 100;
-//       map_msg_.data[GETMAXINDEX(map_msg_.info.width - 1, i, map_msg_.info.width)] = 100;
-//     }
-
-//     // Set up a timer to periodically publish map data
-//     timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&TaskPlanner::publishMap, this));
-// }
-
-// void TaskPlanner::publishMap() {
-//     map_msg_.header.stamp = this->get_clock()->now();
-//     map_msg_.info.map_load_time = this->get_clock()->now();
-//     map_msg_.data = map_data_;
-//     map_publisher_->publish(map_msg_);
-// }
-
-// void TaskPlanner::updateMap(const geometry_msgs::msg::Point &berm_point) {
-//     // TODO
-//     return;
-// }
-
-// void TaskPlanner::clearMap() {
-//     return;
-// }
