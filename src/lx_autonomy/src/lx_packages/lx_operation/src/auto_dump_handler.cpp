@@ -263,6 +263,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
     bool print_once = false;
+    int reached_target_count = 0;
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
         rclcpp::Time action_curr_time = this->get_clock()->now();
@@ -329,7 +330,11 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
         // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
 
-        if (abs(dz) < 0.02 && abs(dx) < 0.02 && abs(dy) < 0.03)
+        if (abs(dz) < 0.02 && abs(dx) < 0.02 && abs(dy) < 0.03) reached_target_count++;  
+        else reached_target_count = 0;
+
+        // If reached target 5 consecutive times, break
+        if(reached_target_count > 5)
         {
             RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Reached targets");
             break;
