@@ -82,41 +82,44 @@ struct compare_pair
 // Struct for storing a state
 struct TaskState
 {
-    vector<bool> visited_berms;
+    vector<int> visited_berm_count;
     vector<bool> visited_excavations;
-    int current_robot_pose; // with respect to the excavation poses
+    int current_exc_site; // with respect to the excavation poses
+    int num_dumps_per_segment;
 
     // Default constructor
-    TaskState(int D, int E)
+    TaskState(int D, int E, int num_dumps_per_segment)
     {
         // use D and E from OptimalSequencePlanner class
-        visited_berms = vector<bool>(D, false);
-        visited_excavations = vector<bool>(E, false);
-        current_robot_pose = 0;
+        this->visited_berm_count = vector<int>(D, 0);
+        this->visited_excavations = vector<bool>(E, false);
+        this->current_exc_site = 0;
+        this->num_dumps_per_segment = num_dumps_per_segment;
     }
 
     // Constructor with arguments
-    TaskState(const vector<bool>& visited_berms, const vector<bool>& visited_excavations, int current_robot_pose)
+    TaskState(vector<int> visited_berm_count, vector<bool> visited_excavations, int current_exc_site, int num_dumps_per_segment)
     {
-        this->visited_berms = visited_berms;
+        this->visited_berm_count = visited_berm_count;
         this->visited_excavations = visited_excavations;
-        this->current_robot_pose = current_robot_pose;
+        this->current_exc_site = current_exc_site;
+        this->num_dumps_per_segment = num_dumps_per_segment;
     }
 
     // Equality operator (only check for visited berms and current robot pose, ignore visited excavations)
     bool operator==(const TaskState& other) const
     {
-        return (visited_berms == other.visited_berms && current_robot_pose == other.current_robot_pose);
+        return (visited_berm_count == other.visited_berm_count && current_exc_site == other.current_exc_site);
     }
 
     // Print function
     void print()
     {
         cout<<"-------State: "<<endl;
-        cout<<"Visited Berms: ";
-        for(u_int i=0; i<visited_berms.size(); i++)
+        cout<<"Visited Berm Counts: ";
+        for(u_int i=0; i<visited_berm_count.size(); i++)
         {
-            cout<<visited_berms[i]<<" ";
+            cout<<visited_berm_count[i]<<" ";
         }
         cout<<endl;
         cout<<"Visited Excavations: ";
@@ -125,7 +128,7 @@ struct TaskState
             cout<<visited_excavations[i]<<" ";
         }
         cout<<endl;
-        cout<<"Current Robot Pose: "<<current_robot_pose<<endl;
+        cout<<"Current Robot Pose: "<<current_exc_site<<endl;
         cout<<"-------"<<endl;
     }
 };
@@ -136,10 +139,10 @@ struct StateHasher
     {
         std::size_t hash = 0;
         // Iterate over the elements of the set and combine their hashes
-        for (const auto& element : state.visited_berms) {
+        for (const auto& element : state.visited_berm_count){
             hash += std::hash<bool>{}(element);
         }
-        hash += std::hash<int>{}(state.current_robot_pose);
+        hash += std::hash<int>{}(state.current_exc_site);
         return hash;
     }
 };
@@ -215,7 +218,7 @@ public:
         return false;
     }
 
-    bool check_if_obstacle(const Point2D& point, const vector<Pose2D>& berm_inputs, const vector<bool>& visited_berms, const u_int8_t* map, const int collision_thresh)
+    bool check_if_obstacle(const Point2D& point, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const u_int8_t* map, const int collision_thresh)
     {   
         // If already computed, return value
         if (is_obstacle[point.x][point.y] != -1) return is_obstacle[point.x][point.y];
@@ -230,7 +233,7 @@ public:
 
         // Check if it is a berm obstacle
         for (u_int i = 0; i < berm_inputs.size(); i++){
-            if (visited_berms[i]) continue;
+            if (visited_berm_counts[i] == 0) continue;
             Pose2D berm_input = berm_inputs[i];
             double distance = sqrt(pow((point.x*resolution - berm_input.x), 2) + pow((point.y*resolution - berm_input.y), 2));
             if (distance < BERM_AVOID_DIST_M) 
@@ -250,7 +253,7 @@ public:
     }
 
     //TODO: collision checker with respect to the berms built till now
-    double get_plan_cost(const Point2D& start, const Point2D& goal, const vector<Pose2D>& berm_inputs, const vector<bool>& visited_berms, const u_int8_t* map, const int collision_thresh)
+    double get_plan_cost(const Point2D& start, const Point2D& goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const u_int8_t* map, const int collision_thresh)
     {
         //insert start node with distance 0
         pq.push({0, start});
@@ -275,7 +278,7 @@ public:
                 if(isvalid(v, x_size, y_size) && vis[v.x][v.y] == false)
                 {
                     // Check if neighbor is an obstacle
-                    if (check_if_obstacle(v, berm_inputs, visited_berms, map, collision_thresh)) continue;
+                    if (check_if_obstacle(v, berm_inputs, visited_berm_counts, map, collision_thresh)) continue;
                     
                     double v_g = cost[u.x][u.y] + movecost[dir];
 
@@ -323,10 +326,10 @@ public:
     // Functions
     bool checkIfGoal(const TaskState& state)
     {
-        // Check if all berms have been visited
-        for(bool berm_visited: state.visited_berms)
+        // Check if all berms have visited num_dumps_per_segment times
+        for(u_int i=0; i<state.visited_berm_count.size(); i++)
         {
-            if(berm_visited==false) return false;
+            if(state.visited_berm_count[i]<state.num_dumps_per_segment) return false;
         }
         return true;
     }
@@ -343,7 +346,7 @@ public:
         return dump_pose;
     }
 
-    double get_astar_cost(Pose2D start, Pose2D goal, const vector<Pose2D>& berm_inputs, const vector<bool>& visited_berms)
+    double get_astar_cost(Pose2D start, Pose2D goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
     {
         double resolution = map->info.resolution; // meters per pixel
         Astar2D astar(map->info.width, map->info.height, resolution);
@@ -357,56 +360,104 @@ public:
     {
         // Returns next state and cost of transition
         TaskState new_state = state;
-        new_state.visited_berms[dj] = true;
+        new_state.visited_berm_count[dj] += 1;
         new_state.visited_excavations[ek] = true;
-        new_state.current_robot_pose = ek;
+        new_state.current_exc_site = ek;
+        new_state.num_dumps_per_segment = state.num_dumps_per_segment;
         return new_state;
     }
 
     double get_next_state_cost(const TaskState& state, int dj, int pj, int ek)
     {
         // Compute excavation cost
-        Pose2D robot_start_pose = excavation_poses->at(state.current_robot_pose);
+        Pose2D robot_start_pose = excavation_poses->at(state.current_exc_site);
         Pose2D robot_excavation_end_pose = Pose2D(robot_start_pose.x + EXCAVATION_DIST_M*cos(robot_start_pose.theta), 
                                                   robot_start_pose.y + EXCAVATION_DIST_M*sin(robot_start_pose.theta), 
                                                   robot_start_pose.theta);
         double excavation_cost = EXCAVATION_DIST_M;
 
         // Compute dump cost to move from robot_excavation_end_pose to berm_input[dj] at pose pj
-        vector<bool> visited_berms = state.visited_berms; visited_berms[dj] = true;
+        vector<int> visited_berm_counts = state.visited_berm_count; visited_berm_counts[dj] += 1;
         Pose2D robot_dump_pose = getDumpPose(berm_inputs->at(dj), pj);
-        double dump_cost = get_astar_cost(robot_excavation_end_pose, robot_dump_pose, *berm_inputs, visited_berms);
+        double dump_cost = get_astar_cost(robot_excavation_end_pose, robot_dump_pose, *berm_inputs, visited_berm_counts);
 
         // Compute reset cost to move from robot_dump_pose to excavation_poses[ek]
         Pose2D robot_end_pose = excavation_poses->at(ek);
-        double reset_cost = get_astar_cost(robot_dump_pose, robot_end_pose, *berm_inputs, visited_berms);
+        double reset_cost = get_astar_cost(robot_dump_pose, robot_end_pose, *berm_inputs, visited_berm_counts);
         double total_cost = excavation_cost + dump_cost + reset_cost;
 
         return total_cost;
     }
 
-    OptimalSequencePlanner(const nav_msgs::msg::OccupancyGrid& map, const vector<Pose2D>& berm_inputs, const vector<Pose2D>& excavation_poses, Pose2D robot_start_pose)
+    OptimalSequencePlanner(const nav_msgs::msg::OccupancyGrid& map, const vector<Pose2D>& berm_inputs, const vector<Pose2D>& excavation_poses, int num_dumps_per_segment)
     {
+        // Assumes that the robot starts from excavation_poses[0]
         this->map = make_shared<nav_msgs::msg::OccupancyGrid>(map);
         this->berm_inputs = make_shared<vector<Pose2D>>(berm_inputs);
         this->excavation_poses = make_shared<vector<Pose2D>>(excavation_poses);
-        this->robot_start_pose = robot_start_pose;
         this->D = berm_inputs.size();
         this->E = excavation_poses.size();
 
         this->D = berm_inputs.size();
         this->E = excavation_poses.size();
-
         // Push initial state to queue
-        TaskState initial_state(D, E);
+        TaskState initial_state(D, E, num_dumps_per_segment);
         initial_state.visited_excavations[0] = true;
-        initial_state.current_robot_pose = 0;
+        initial_state.current_exc_site = 0;
         states.push_back(initial_state);
         parents.push_back(-1);
         g_values.push_back(0);
         visited_states.push_back(true);
         state_to_idx[initial_state] = 0;
         pq.push({0, 0});
+    }
+
+    void update_neighbor(int u, int dj, int pj, int ej)
+    {
+        // Function adds neighbor to search if it is not already visited or if it has a lower g value
+
+        // Get next state
+        auto new_state = get_next_state(states[u], dj, ej);
+
+        // see if new_state was already reached before (new_state_idx = -1 otherwise)
+        int new_state_idx = -1;
+        if(state_to_idx.find(new_state)!=state_to_idx.end()) new_state_idx = state_to_idx[new_state];
+        
+        // If new state is already closed, continue
+        if(new_state_idx!=-1 && visited_states[new_state_idx]==true) return;
+
+        double g_val = g_values[u]+get_next_state_cost(states[u], dj, pj, ej);
+        // If state not in search, add it
+        if(new_state_idx==-1)
+        {
+            // Heuristics 
+            double h_val = 0;
+
+            // Add state to search
+            states.push_back(new_state);
+            parents.push_back(u);
+            actions_taken.push_back(Action(dj, pj, ej));
+            g_values.push_back(g_val);
+            visited_states.push_back(false);
+            state_to_idx[new_state] = states.size()-1;
+            pq.push(make_pair(g_val+h_val, states.size()-1));
+        }
+        else
+        {
+            // If we reach a state with lower g value, update it
+            if (g_val < g_values[new_state_idx])
+            {
+                // Heuristics 
+                double h_val = 0;
+
+                // If we reach a state with lower g value, update it
+                g_values[new_state_idx] = g_val;
+                parents[new_state_idx] = u;
+                actions_taken[new_state_idx] = Action(dj, pj, ej);
+                pq.push(make_pair(g_val+h_val, new_state_idx));
+            }
+        }
+      
     }
 
     void get_plan()
@@ -434,62 +485,53 @@ public:
             visited_states[u] = true;
             itr++;
 
-            // expand all possible states from u
-            for(int dj=0; dj<D; dj++) // iterate over all berms
+            // Check if there is an incomplete berm
+            int incomplete_berm_idx = -1;
+            for(u_int i=0; i<states[u].visited_berm_count.size(); i++)
             {
-                if(states[u].visited_berms[dj]==true) continue;  // if dj has been visited, continue
+                if(states[u].visited_berm_count[i]!=states[u].num_dumps_per_segment)
+                {
+                    if(incomplete_berm_idx!=-1)
+                    {
+                        cout<<"ERROR: More than one incomplete berm"<<endl;
+                    }
+                    incomplete_berm_idx = i;
+                }
+            }
+
+            vector<int> possible_dj;
+            // If there is an incomplete berm, complete it
+            if(incomplete_berm_idx!=-1)
+            {
+                possible_dj.push_back(incomplete_berm_idx);
+            }
+            else
+            {
+                // Push all non started berms to possible_dj
+                for(u_int i=0; i<states[u].visited_berm_count.size(); i++)
+                {
+                    if(states[u].visited_berm_count[i]==0)
+                    {
+                        possible_dj.push_back(i);
+                    }
+                }
+            }
+
+            // expand all possible states from u
+            for(int dj: possible_dj)
+            {
                 for(int ej = 0; ej<E; ej++) // iterate over all excavations
                 {   
                     if(states[u].visited_excavations[ej]==true) continue; // if ej has been visited, continue
-
                     // iterate through all dump poses for dj
-                    for(int pj = 0; pj<1; pj++) 
+                    for(int pj = 0; pj<2; pj++) 
                     {
-                        // Get next state
-                        auto new_state = get_next_state(states[u], dj, ej);
-
-                        // see if new_state was already reached before (new_state_idx = -1 otherwise)
-                        int new_state_idx = -1;
-                        if(state_to_idx.find(new_state)!=state_to_idx.end()) new_state_idx = state_to_idx[new_state];
-                        
-                        // If new state is already closed, continue
-                        if(new_state_idx!=-1 && visited_states[new_state_idx]==true) continue;
-
-                        double g_val = g_values[u]+get_next_state_cost(states[u], dj, pj, ej);
-                        // If state not in search, add it
-                        if(new_state_idx==-1)
-                        {
-                            // Heuristics 
-                            double h_val = 0;
-
-                            // Add state to search
-                            states.push_back(new_state);
-                            parents.push_back(u);
-                            actions_taken.push_back(Action(dj, pj, ej));
-                            g_values.push_back(g_val);
-                            visited_states.push_back(false);
-                            state_to_idx[new_state] = states.size()-1;
-                            pq.push(make_pair(g_val+h_val, states.size()-1));
-                        }
-                        else
-                        {
-                            // If we reach a state with lower g value, update it
-                            if (g_val < g_values[new_state_idx])
-                            {
-                                // Heuristics 
-                                double h_val = 0;
-
-                                // If we reach a state with lower g value, update it
-                                g_values[new_state_idx] = g_val;
-                                parents[new_state_idx] = u;
-                                actions_taken[new_state_idx] = Action(dj, pj, ej);
-                                pq.push(make_pair(g_val+h_val, new_state_idx));
-                            }
-                        }
+                        update_neighbor(u, dj, pj, ej);
                     }
                 }                
-            } // end of for loop for expanding states
-        } // end of while loop
+            }
+        }
+
         if (goal_idx == -100) 
         {
             cout<<"No path found"<<endl;
@@ -510,9 +552,7 @@ public:
         cout<<"Optimal Path is: "<<endl;
         for(u_int i=0; i<path.size(); i++)
         {
-            cout<<"State: "<<endl;
             states[path[i]].print();
-            cout<<"Action: "<<endl;
             actions_taken[path[i]].print();
             cout<<"************"<<endl;
         }

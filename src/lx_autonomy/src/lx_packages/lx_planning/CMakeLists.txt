@@ -7,7 +7,9 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
 find_package(lx_msgs REQUIRED)
 find_package(lx_library REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -29,6 +31,13 @@ ament_target_dependencies(map_pub rclcpp nav2_msgs)
 
 add_executable(test_planner src/test_task_planner.cpp)
 ament_target_dependencies(test_planner rclcpp lx_msgs geometry_msgs)
+
+# Install python executables
+ament_python_install_package(${PROJECT_NAME})
+install(PROGRAMS
+  src/call_task_optimizer.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(TARGETS
   task_planner_node

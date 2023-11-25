@@ -81,7 +81,7 @@ void TaskOptimizer::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> g
     this->desired_berm_height_ = goal->berm_height;
     this->map_ = goal->map;
     
-    // Loop through the berm inputs
+    // Compute berm_section and excavation_poses as vectors of Pose2D
     for (int i = 0; i < static_cast<int>(goal->berm_input.size()) - 1; i++){
         // Berm end points
         geometry_msgs::msg::Point point_1 = goal->berm_input[i];
@@ -103,17 +103,19 @@ void TaskOptimizer::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> g
         geometry_msgs::msg::Point point = goal->excavation_input[i];
 
         // Add to excavation sequence
-        this->excavation_poses_.push_back(Pose2D(point.x, point.y, 0.0));
+        this->excavation_poses_.push_back(Pose2D(point.x, point.y, point.z));
     }
 
-    // DON'T EDIT THESE
     // Calculate number of iterations for each berm section
-    int num_iterations = static_cast<int>(std::round(std::pow(desired_berm_height_ / INIT_BERM_HEIGHT, 2)));
-    berm_section_iterations_.resize(this->berm_inputs_.size(), num_iterations);
+    int num_dumps_per_segment = static_cast<int>(std::round(std::pow(desired_berm_height_ / INIT_BERM_HEIGHT, 2)));
+    berm_section_iterations_.resize(this->berm_inputs_.size(), num_dumps_per_segment);
+
     // Set berm heights to zero
     berm_section_heights_.resize(this->berm_inputs_.size(), 0.0);
 
-    // CODE HERE
+    // Call optimization function
+    OptimalSequencePlanner optimal_sequence_planner = OptimalSequencePlanner(this->map_, this->berm_inputs_, this->excavation_poses_, num_dumps_per_segment);
+    optimal_sequence_planner.get_plan();
 }
 
 std::vector<Pose2D> TaskOptimizer::getDumpPoses(const Pose2D &berm_section) {
