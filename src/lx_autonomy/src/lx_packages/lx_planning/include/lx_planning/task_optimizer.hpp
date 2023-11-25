@@ -224,7 +224,7 @@ public:
         if (is_obstacle[point.x][point.y] != -1) return is_obstacle[point.x][point.y];
 
         // Check if it is a map obstacle
-        bool result = map[GETMAPINDEX(point.x, point.y, x_size)] > collision_thresh;
+        bool result = map[GETMAPINDEX(point.x, point.y, x_size)] < collision_thresh;
         if(result == true)
         {
             is_obstacle[point.x][point.y] = result;
@@ -258,6 +258,8 @@ public:
         //insert start node with distance 0
         pq.push({0, start});
         cost[start.x][start.y] = 0;
+        vis[start.x][start.y] = true;
+        parent[start.x][start.y] = -1;
 
         while(!pq.empty())
         {
@@ -276,7 +278,7 @@ public:
                 Point2D v = {u.x + dX[dir], u.y + dY[dir]};
                 // if neighbor is valid and not visited
                 if(isvalid(v, x_size, y_size) && vis[v.x][v.y] == false)
-                {
+                {                    
                     // Check if neighbor is an obstacle
                     if (check_if_obstacle(v, berm_inputs, visited_berm_counts, map, collision_thresh)) continue;
                     
@@ -306,7 +308,7 @@ public:
     // number of dump locations and excavation locations
     int D, E;
     Pose2D robot_start_pose;
-    bool DEBUG = true;
+    bool DEBUG = false;
     double EXCAVATION_DIST_M = 1.5; 
     const double TOOL_DISTANCE_TO_DUMP = 0.85;
 
@@ -350,10 +352,10 @@ public:
     {
         double resolution = map->info.resolution; // meters per pixel
         Astar2D astar(map->info.width, map->info.height, resolution);
-        Point2D start_grid = {(int) round(start.x*resolution), (int) round(start.y*resolution)};
-        Point2D goal_grid = {(int) round(goal.x*resolution), (int) round(goal.y*resolution)};
+        Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
+        Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
         double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map->data.data()), 50);
-        return move_cost;
+        return move_cost*resolution;
     }
 
     TaskState get_next_state(const TaskState& state, int dj, int ek)
@@ -407,7 +409,8 @@ public:
         states.push_back(initial_state);
         parents.push_back(-1);
         g_values.push_back(0);
-        visited_states.push_back(true);
+        visited_states.push_back(false);
+        actions_taken.push_back(Action(-1, -1, -1));
         state_to_idx[initial_state] = 0;
         pq.push({0, 0});
     }
@@ -415,7 +418,6 @@ public:
     void update_neighbor(int u, int dj, int pj, int ej)
     {
         // Function adds neighbor to search if it is not already visited or if it has a lower g value
-
         // Get next state
         auto new_state = get_next_state(states[u], dj, ej);
 
@@ -427,11 +429,18 @@ public:
         if(new_state_idx!=-1 && visited_states[new_state_idx]==true) return;
 
         double g_val = g_values[u]+get_next_state_cost(states[u], dj, pj, ej);
+
         // If state not in search, add it
         if(new_state_idx==-1)
         {
             // Heuristics 
             double h_val = 0;
+            if (DEBUG)
+            {
+                cout<<"adding new state: "<<states.size()<<endl;
+                cout<<"g_val: "<<g_val<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
+                new_state.print();
+            }
 
             // Add state to search
             states.push_back(new_state);
@@ -455,6 +464,12 @@ public:
                 parents[new_state_idx] = u;
                 actions_taken[new_state_idx] = Action(dj, pj, ej);
                 pq.push(make_pair(g_val+h_val, new_state_idx));
+                if(DEBUG)
+                {
+                    cout<<"updating state: "<<new_state_idx<<endl;
+                    cout<<"g_val: "<<g_val<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
+                    new_state.print();
+                }
             }
         }
       
@@ -468,7 +483,14 @@ public:
         {
             // pop topmost element
             int u = pq.top().second;
+            if(DEBUG) cout<<"*************Iteration: "<<itr<<endl;
             if(DEBUG) cout<<"PQ SIZE: "<<pq.size()<<endl;
+
+            if(DEBUG)
+            {
+                cout<<"Popped: "<<u<<endl;
+                states[u].print();
+            }
             
             pq.pop();
 
@@ -480,7 +502,6 @@ public:
                 goal_idx = u;
                 break;
             }
-
             if(visited_states[u]==true) continue;
             visited_states[u] = true;
             itr++;
@@ -489,7 +510,7 @@ public:
             int incomplete_berm_idx = -1;
             for(u_int i=0; i<states[u].visited_berm_count.size(); i++)
             {
-                if(states[u].visited_berm_count[i]!=states[u].num_dumps_per_segment)
+                if(states[u].visited_berm_count[i]<states[u].num_dumps_per_segment && states[u].visited_berm_count[i]>0)
                 {
                     if(incomplete_berm_idx!=-1)
                     {
@@ -526,10 +547,12 @@ public:
                     // iterate through all dump poses for dj
                     for(int pj = 0; pj<2; pj++) 
                     {
+                        // cout<<"Updating neighbor"<<" u: "<<u<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
                         update_neighbor(u, dj, pj, ej);
                     }
                 }                
             }
+            if(DEBUG) cout<<"##################"<<endl;
         }
 
         if (goal_idx == -100) 
@@ -549,14 +572,15 @@ public:
         reverse(path.begin(), path.end());
        
         // Print path with actions taken
-        cout<<"Optimal Path is: "<<endl;
+        cout<<"\n\nOptimal Path is: "<<endl;
         for(u_int i=0; i<path.size(); i++)
-        {
+        {   
+            cout<<"\n************ Node IDX: "<<path[i]<<endl;
+            cout<<"Cost: "<<g_values[path[i]]<<endl;
             states[path[i]].print();
-            actions_taken[path[i]].print();
+            if (i<path.size()-1) actions_taken[path[i+1]].print();
             cout<<"************"<<endl;
         }
-        cout<<endl;
     }
 };
 
