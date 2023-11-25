@@ -14,15 +14,15 @@
 #include "lx_planning/task_optimizer.hpp"
 
 
-TaskPlanner::TaskPlanner(): Node("task_planner_node"){
+TaskOptimizer::TaskOptimizer(): Node("task_optimizer"){
     
     // Set up subscriptions, publishers, servers & clients
     setupCommunications();
 
-    RCLCPP_INFO(this->get_logger(), "Task Planner initialized");
+    RCLCPP_INFO(this->get_logger(), "Task Optimizer initialized");
 }
 
-void TaskPlanner::setupCommunications(){
+void TaskOptimizer::setupCommunications(){
     // Subscribers
 
     // Clients
@@ -32,14 +32,14 @@ void TaskPlanner::setupCommunications(){
     // Action servers
     using namespace std::placeholders;
     this->taskplanner_action_server_ = rclcpp_action::create_server<PlanTask>(this, "plan_task",
-                                            std::bind(&TaskPlanner::handle_goal, this, _1, _2),
-                                            std::bind(&TaskPlanner::handle_cancel, this, _1),
-                                            std::bind(&TaskPlanner::handle_accepted, this, _1));
+                                            std::bind(&TaskOptimizer::handle_goal, this, _1, _2),
+                                            std::bind(&TaskOptimizer::handle_cancel, this, _1),
+                                            std::bind(&TaskOptimizer::handle_accepted, this, _1));
 
     
 }
 
-rclcpp_action::GoalResponse TaskPlanner::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const PlanTask::Goal> goal){
+rclcpp_action::GoalResponse TaskOptimizer::handle_goal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const PlanTask::Goal> goal){
     RCLCPP_INFO(this->get_logger(), "Received task planner request");
     (void)uuid;
     (void)goal;
@@ -48,7 +48,7 @@ rclcpp_action::GoalResponse TaskPlanner::handle_goal(const rclcpp_action::GoalUU
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse TaskPlanner::handle_cancel(const std::shared_ptr<GoalHandlePlanTask> goal_handle){
+rclcpp_action::CancelResponse TaskOptimizer::handle_cancel(const std::shared_ptr<GoalHandlePlanTask> goal_handle){
     RCLCPP_INFO(this->get_logger(), "Received request to cancel planner");
     (void)goal_handle;
     
@@ -56,14 +56,14 @@ rclcpp_action::CancelResponse TaskPlanner::handle_cancel(const std::shared_ptr<G
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void TaskPlanner::handle_accepted(const std::shared_ptr<GoalHandlePlanTask> goal_handle){
+void TaskOptimizer::handle_accepted(const std::shared_ptr<GoalHandlePlanTask> goal_handle){
     using namespace std::placeholders;
     
     // Start thread to execute action and detach
-    std::thread{std::bind(&TaskPlanner::findBermSequence, this, _1), goal_handle}.detach();
+    std::thread{std::bind(&TaskOptimizer::findBermSequence, this, _1), goal_handle}.detach();
 }
 
-void TaskPlanner::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> goal_handle) {
+void TaskOptimizer::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> goal_handle) {
     // Clear class variables
     this->berm_inputs_.clear();
     this->berm_section_iterations_.clear();
@@ -116,7 +116,7 @@ void TaskPlanner::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> goa
     // CODE HERE
 }
 
-std::vector<Pose2D> TaskPlanner::getDumpPoses(const Pose2D &berm_section) {
+std::vector<Pose2D> TaskOptimizer::getDumpPoses(const Pose2D &berm_section) {
     Pose2D dump_pose_1, dump_pose_2;
     std::vector<Pose2D> dump_poses;
 
@@ -138,7 +138,7 @@ std::vector<Pose2D> TaskPlanner::getDumpPoses(const Pose2D &berm_section) {
 
 /********************************************************************************************************/
 // UTILITIES
-std::vector<geometry_msgs::msg::Point> TaskPlanner::getRoverFootprint(const Pose2D& pose) {
+std::vector<geometry_msgs::msg::Point> TaskOptimizer::getRoverFootprint(const Pose2D& pose) {
     // Generate footprint of the rover
     std::vector<geometry_msgs::msg::Point> footprint;
     geometry_msgs::msg::Point point;
@@ -165,7 +165,7 @@ std::vector<geometry_msgs::msg::Point> TaskPlanner::getRoverFootprint(const Pose
     return footprint;
 }
 
-Bounds TaskPlanner::getBounds(const std::vector<geometry_msgs::msg::Point>& points) {
+Bounds TaskOptimizer::getBounds(const std::vector<geometry_msgs::msg::Point>& points) {
     Bounds bounds;
 
     for (int i = 0; i < static_cast<int>(points.size()); i++) {
