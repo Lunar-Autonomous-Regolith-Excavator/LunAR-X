@@ -3,6 +3,7 @@
  *    - /rover_hw_cmd: [lx_msgs::msg::RoverCommand] Twist command for Husky, float64 [-1 to 1] for linear actuator, float64 [rad/sec] for drum]
  *    - /drum_raw_current: drum_current_read
  *    - /drum_raw_position: drum_ticks
+ *    - /actuator_raw_current: acc_current_read
  * Publishers:
  *    - /cmd_vel: [geometry_msgs::msg::Twist] Husky A200 command
  *    - /drum_cmd: [std_msgs::msg::Int32] Drum PWM command [-255 to 255]
@@ -33,6 +34,8 @@ HardwareMux::HardwareMux(): Node("hardware_mux_node")
         "drum_raw_current", 10, std::bind(&HardwareMux::drumCurrentCB, this, std::placeholders::_1));
     drum_raw_position_sub_ = this->create_subscription<std_msgs::msg::Float64>(
         "drum_raw_position", 10, std::bind(&HardwareMux::drumPositionCB, this, std::placeholders::_1));
+    acc_raw_current_sub_ = this->create_subscription<std_msgs::msg::Float64>(
+        "actuator_raw_current", 10, std::bind(&HardwareMux::accCurrentCB, this, std::placeholders::_1));
    
     // Create publishers
     husky_node_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
@@ -80,6 +83,15 @@ void HardwareMux::drumCurrentCB(const std_msgs::msg::Float64::SharedPtr msg)
     double drum_current = drum_current_scale*msg->data + drum_current_offset;
     filtered_drum_current = 0.9*filtered_drum_current + 0.1*drum_current;
     this->tool_info_msg.drum_current = filtered_drum_current;
+    tool_info_msg_time = std::chrono::system_clock::now();
+}
+
+void HardwareMux::accCurrentCB(const std_msgs::msg::Float64::SharedPtr msg)
+{
+    // Publish Actuator Current
+    double acc_current = acc_current_scale*msg->data + acc_current_offset;
+    filtered_acc_current = 0.9*filtered_acc_current + 0.1*acc_current;
+    this->tool_info_msg.acc_current = filtered_acc_current;
     tool_info_msg_time = std::chrono::system_clock::now();
 }
 

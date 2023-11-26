@@ -17,6 +17,7 @@ class HardwareMux: public rclcpp::Node
         // Publishers and Subscribers
         rclcpp::Subscription<lx_msgs::msg::RoverCommand>::SharedPtr rover_hw_cmd_sub_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_raw_current_sub_;
+        rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr acc_raw_current_sub_;
         rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr drum_raw_position_sub_;
 
         rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr husky_node_pub_;
@@ -39,6 +40,7 @@ class HardwareMux: public rclcpp::Node
         // Callbacks
         void roverHardwareCmdCB(const lx_msgs::msg::RoverCommand::SharedPtr msg);
         void drumCurrentCB(const std_msgs::msg::Float64::SharedPtr msg);
+        void accCurrentCB(const std_msgs::msg::Float64::SharedPtr msg);
         void drumPositionCB(const std_msgs::msg::Float64::SharedPtr msg);
         void controlPublishCB();
         void roverLockCB();
@@ -63,9 +65,12 @@ class HardwareMux: public rclcpp::Node
         double drum_rps_scale = 1; // Scale for drum dticks/dt to rad/s
         double drum_current_scale = -0.039; // Scale for drum current analogRead to Amps
         double drum_current_offset = 20.085; // Offset for drum calibration
+        double acc_current_scale = -0.039; // Scale for acc current analogRead to Amps
+        double acc_current_offset = 20.085; // Offset for acc calibration
 
         //Filter Variables
         double filtered_drum_current = 0;
+        double filtered_acc_current = 0;
         
     public:
         // Functions

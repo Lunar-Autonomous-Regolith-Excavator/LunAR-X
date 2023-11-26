@@ -90,6 +90,8 @@ std_msgs::Float64 drum_raw_current_msg;
 ros::Publisher drum_raw_current("/drum_raw_current", &drum_raw_current_msg);
 std_msgs::Float64 drum_raw_position_msg;
 ros::Publisher drum_raw_position("/drum_raw_position", &drum_raw_position_msg);
+std::msgs::Float64 actuator_raw_current_msg;
+ros::Publisher actuator_raw_current("/actuator_raw_current", &actuator_raw_current_msg);
 
 void setup()
 {
@@ -97,6 +99,7 @@ void setup()
     nh.initNode();
     nh.advertise(drum_raw_current); // Initialize publisher
     nh.advertise(drum_raw_position); // Initialize publisher
+    nh.advertise(actuator_raw_current); // Initialize publisher
     nh.subscribe(drum_sub); // Initialize subscriber 1
     nh.subscribe(tool_sub); // Initialize subscriber 2
 
@@ -132,7 +135,7 @@ void setup()
       nh.spinOnce(); // Spin node 
       delay(50);
     }
-    nh.loginfo("Setup Completed");
+    nh.loginfo("Mega Setup Completed");
     node_started = true;
 }
 bool fwd_done = false;
@@ -211,8 +214,10 @@ void loop()
     //Publish Feedback from Encoders and Current Sensors using tool_raw_cmd_pub
     drum_raw_position_msg.data = drum_ticks;
     drum_raw_current_msg.data= analogRead(CURR_SENS_DRUM);
+    actuator_raw_current_msg.data= analogRead(CURR_SENS_ACC);
     drum_raw_current.publish(&drum_raw_current_msg);
     drum_raw_position.publish(&drum_raw_position_msg);
+    actuator_raw_current.publish(&actuator_raw_current_msg);
     // nh.loginfo( (String("Current Commands: ")+ String(acc_pwm)+ " "+String(drum_pwm)).c_str() );
     // nh.loginfo( (String("Current Readings: Drum Ticks")+ String(drum_ticks)+ " Acc ticks "+String(acc_ticks)).c_str() );
 
