@@ -402,7 +402,7 @@ void GoalHandler::visualizeFeasibleBerm(){
         berm_text_marker.color.g = 0.0;
         berm_text_marker.color.b = 1.0;
         berm_text_marker.color.a = 1.0;
-        berm_text_marker.text = "Processed_Berm";
+        // berm_text_marker.text = "Processed_Berm";
         // Add marker to message
         // processed_points_viz_message.markers.push_back(berm_text_marker);
 
