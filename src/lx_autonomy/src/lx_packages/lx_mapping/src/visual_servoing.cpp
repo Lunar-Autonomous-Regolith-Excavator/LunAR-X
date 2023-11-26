@@ -422,7 +422,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_minus_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
-    fitBestPlane(input_cloud, 100, 0.02, 1, inliers_1, coefficients_1);
+    fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
     // delete inliers from cloud
     pcl::ExtractIndices<pcl::PointXYZ> extract;
     extract.setInputCloud(input_cloud);
@@ -437,7 +437,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     }
     pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
-    fitBestPlane(cloud_minus_plane1, 100, 0.02, 2, inliers_2, coefficients_2);
+    fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
 
     std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
     std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
