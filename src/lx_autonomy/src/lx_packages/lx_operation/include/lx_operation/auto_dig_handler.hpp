@@ -16,6 +16,7 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "geometry_msgs/msg/point.hpp"
 #include "lx_msgs/msg/node_diagnostics.hpp"
 #include "lx_msgs/action/calibrate_imu.hpp"
 #include "lx_msgs/srv/pcl_ground_height.hpp"
@@ -65,6 +66,7 @@ class AutoDigHandler: public rclcpp::Node
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_current_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_desired_height_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr drum_current_height_pub_;
+        rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr weight_estimate_pub_;
 
         // Service client to PclGroundHeight service
         rclcpp::Client<lx_msgs::srv::PclGroundHeight>::SharedPtr pcl_ground_height_client_;
