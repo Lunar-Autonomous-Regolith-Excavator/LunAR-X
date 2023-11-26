@@ -331,9 +331,9 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
             double y1 = berm_zone_coordinates[j].point.y;
             double x2 = berm_zone_coordinates[j+1].point.x;
             double y2 = berm_zone_coordinates[j+1].point.y;
-            double dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
-            double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-            if(dist < 0.2 && dist1 < 0.2){
+            double line_dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
+            double point_dist = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
+            if(line_dist < 0.2 && point_dist < 0.4){
                 berm_costmap_.data[i] = 100;
                 break;
             }
