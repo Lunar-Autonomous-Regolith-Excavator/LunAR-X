@@ -29,11 +29,17 @@ else
         source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_bringup_autonomy bringup_teleop.launch.py" C-m
 
     sleep 10;
+    # tmux send-keys -t 0 "source /opt/ros/humble/setup.bash; cd /home/lx_autonomy/lx_autonomy_ws && \
+    #     colcon build && source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_bringup_autonomy bringup_autonomy.launch.py" C-m
+    
     tmux send-keys -t 0 "source /opt/ros/humble/setup.bash; cd /home/lx_autonomy/lx_autonomy_ws && \
-        colcon build && source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_bringup_autonomy bringup_autonomy.launch.py" C-m
+        source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_bringup_autonomy bringup_autonomy.launch.py" C-m
 
     sleep 30;
-    tmux send-keys -t 1 "source /opt/ros/humble/setup.bash; colcon build --packages-up-to lx_localization && \
+    # tmux send-keys -t 1 "source /opt/ros/humble/setup.bash; colcon build --packages-up-to lx_localization && \
+    #     source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_localization localization.launch.py" C-m
+
+    tmux send-keys -t 1 "source /opt/ros/humble/setup.bash && \
         source /home/lx_autonomy/lx_autonomy_ws/install/setup.bash && ros2 launch lx_localization localization.launch.py" C-m
     
     # tmux send-keys -t 3 "source /opt/ros/humble/setup.bash; colcon build --packages-select lx_perception && \
