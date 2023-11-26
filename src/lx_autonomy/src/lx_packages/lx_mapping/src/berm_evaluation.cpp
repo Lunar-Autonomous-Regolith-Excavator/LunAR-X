@@ -50,6 +50,8 @@ void BermEvaluation::setupCommunications(){
 void BermEvaluation::userBermPointsCB(const std::shared_ptr<lx_msgs::srv::BermService::Request> req,
                                           const std::shared_ptr<lx_msgs::srv::BermService::Response> res){
     requested_berm_points_.clear();
+    berm_progress_.berm_points.clear();
+    berm_progress_.heights.clear();
     
     // Store requested berm points for evaluation
     for(auto &point: req->berm.berm_configuration){
@@ -72,6 +74,8 @@ void BermEvaluation::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr m
 void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::BermProgressEval::Request> req,
                                           const std::shared_ptr<lx_msgs::srv::BermProgressEval::Response> res){
 
+    berm_progress_.heights.clear();
+    
     if(!req->need_metrics || requested_berm_points_.size() == 0 || this->map_ == nullptr){
         return;
     }
@@ -176,11 +180,12 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
                 elevations.push_back(this->map_->data[j]);
 
                 double x_proj, y_proj, parallel_dist, perpendicular_dist, bin;
+                int sign = (y_diff > 0) - (y_diff < 0);
 
                 if(abs(m) > 20){
                     parallel_dist = y - berm_marker_1_point.y;
                     perpendicular_dist = x - berm_marker_1_point.x;
-                    bin = int(parallel_dist/(this->map_->info.resolution * 1.414));
+                    bin = sign*int(parallel_dist/(this->map_->info.resolution * 1.414));
                 }
                 
                 else{                
@@ -189,7 +194,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
                     int sign = (y_diff > 0) - (y_diff < 0);
                     parallel_dist = (y_proj - berm_marker_1_point.y)*m/(m*m + 1)*sign;
                     perpendicular_dist = (m*x - y + c)/sqrt(pow(m, 2) + 1);
-                    bin = int(parallel_dist/(this->map_->info.resolution * 1.414));
+                    bin = sign*int(parallel_dist/(this->map_->info.resolution * 1.414));
                 }
 
                 if(bin < num_bins_per_section && bin >= 0){
