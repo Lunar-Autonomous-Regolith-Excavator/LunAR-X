@@ -31,9 +31,9 @@ AutoDigHandler::AutoDigHandler(const rclcpp::NodeOptions& options = rclcpp::Node
                         std::bind(&AutoDigHandler::diagnosticPublish, this));
 
     // Set PID values
-    autodig_pid_outer_.kp = 0.016;
-    autodig_pid_outer_.ki = 0.0000012;
-    autodig_pid_outer_.kd = 0.02;
+    autodig_pid_outer_.kp = 0.022;
+    autodig_pid_outer_.ki = 0.0000018;
+    autodig_pid_outer_.kd = 0.025;
 
     autodig_pid_inner_.kp = 20.0;
     autodig_pid_inner_.ki = 0.0001;
@@ -265,7 +265,7 @@ void AutoDigHandler::callLocalizationCalibration(){
     
     auto goal_msg = CalibrateImu::Goal();
     goal_msg.dont_move_rover = true;
-    goal_msg.time = 40;
+    goal_msg.time = T_END_SECONDS - 2;
 
     RCLCPP_INFO(this->get_logger(), "Calling localization calibration action with dont_move_rover = true");
 
