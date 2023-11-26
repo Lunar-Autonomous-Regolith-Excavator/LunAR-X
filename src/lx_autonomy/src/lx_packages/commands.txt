@@ -55,3 +55,12 @@ ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{\
 
 Test Autodig service call:
 ros2 service call mapping/pcl_ground_height_srv lx_msgs/srv/PclGroundHeight 'need_height: true'
+
+
+
+ros2 action send_goal /operations/autodump_action lx_msgs/action/AutoDump "{\
+  \"prev_berm_segment\": {\"x\": 5.9, \"y\": 4.09, \"theta\": -1.2712},\
+  \"current_berm_segment\": {\"x\": 5.98, \"y\": 3.7, \"theta\": -1.4706},\
+  \"first_op_dump\": false,\
+  \"first_seg_dump\": false\
+}"
