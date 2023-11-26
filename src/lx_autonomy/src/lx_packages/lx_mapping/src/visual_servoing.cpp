@@ -22,7 +22,7 @@
 VisualServoing::VisualServoing() : Node("visual_servoing_node")
 {   
     // Set false for dry runs, set true for commands and to publish debug data
-    debug_mode_ = false;
+    debug_mode_ = true;
 
     // Setup Communications
     setupCommunications();
@@ -549,7 +549,6 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
 
         if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
         {
-            RCLCPP_INFO(this->get_logger(), "Servoing to detected berm");
             // calculate yaw error by projecting the direction vector into the x-y plane
             double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
             // shift yaw error to -pi/2 to pi/2
@@ -562,11 +561,11 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
             curr_error.y = yaw_error;
             curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            // RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(target_point, "targetpoint");
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point");
             // Detected berm is previous berm
             // Find closest point on line line_coefficients to the point previous_berm_segment
             vector<double> dir_vect = { line_coefficients[0] - prev_segment_pose.pose.position.x, 
@@ -611,6 +610,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
                 curr_error.y = curr_error.y + M_PI;
             }
             curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            // RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point, servoing with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(projected_point, "targetpoint");
             if(debug_mode_)
             {
