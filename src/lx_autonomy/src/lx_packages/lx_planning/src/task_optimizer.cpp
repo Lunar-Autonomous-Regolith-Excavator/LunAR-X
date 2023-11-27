@@ -115,7 +115,11 @@ void TaskOptimizer::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> g
 
     // Call optimization function
     OptimalSequencePlanner optimal_sequence_planner = OptimalSequencePlanner(this->map_, this->berm_inputs_, this->excavation_poses_, num_dumps_per_segment);
-    optimal_sequence_planner.get_plan();
+    vector<lx_msgs::msg::PlannedTask> plan = optimal_sequence_planner.get_plan();
+
+    // Return result
+    result->plan = plan;
+    goal_handle->succeed(result);
 }
 
 std::vector<Pose2D> TaskOptimizer::getDumpPoses(const Pose2D &berm_section) {

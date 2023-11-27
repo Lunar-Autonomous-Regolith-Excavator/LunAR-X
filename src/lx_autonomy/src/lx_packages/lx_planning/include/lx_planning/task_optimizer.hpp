@@ -54,6 +54,17 @@ struct Pose2D {
         this->y = y;
         this->theta = theta;
     }
+
+    geometry_msgs::msg::Pose getPose() {
+        geometry_msgs::msg::Pose pose;
+        pose.position.x = this->x;
+        pose.position.y = this->y;
+        pose.position.z = 0;
+        tf2::Quaternion q;
+        q.setRPY(0, 0, this->theta);
+        pose.orientation = tf2::toMsg(q);
+        return pose;
+    }
 };
 
 struct Point2D {
@@ -399,9 +410,6 @@ public:
         this->excavation_poses = make_shared<vector<Pose2D>>(excavation_poses);
         this->D = berm_inputs.size();
         this->E = excavation_poses.size();
-
-        this->D = berm_inputs.size();
-        this->E = excavation_poses.size();
         // Push initial state to queue
         TaskState initial_state(D, E, num_dumps_per_segment);
         initial_state.visited_excavations[0] = true;
@@ -475,8 +483,9 @@ public:
       
     }
 
-    void get_plan()
+    vector<lx_msgs::msg::PlannedTask> get_plan()
     {
+        vector<lx_msgs::msg::PlannedTask> final_plan;
         int goal_idx = -100;  
         int itr = 0;
         while(!pq.empty())
@@ -558,7 +567,7 @@ public:
         if (goal_idx == -100) 
         {
             cout<<"No path found"<<endl;
-            return;
+            return final_plan;
         }
 
         // Print path and cost (backtrack from goal)
@@ -572,7 +581,7 @@ public:
         reverse(path.begin(), path.end());
        
         // Print path with actions taken
-        cout<<"\n\nOptimal Path is: "<<endl;
+        cout<<"\nOptimal Path is: "<<endl;
         for(u_int i=0; i<path.size(); i++)
         {   
             cout<<"\n************ Node IDX: "<<path[i]<<endl;
@@ -581,6 +590,43 @@ public:
             if (i<path.size()-1) actions_taken[path[i+1]].print();
             cout<<"************"<<endl;
         }
+
+        bool first_op = true;
+
+        lx_msgs::msg::PlannedTask task;
+        for (u_int i = 0; i < path.size() -1; i++)
+        {
+            Action action_to_take = actions_taken[path[i+1]];
+            int berm_idx = action_to_take.dj;
+            int excavation_idx = action_to_take.ek;
+
+            if (!first_op) {
+                // Navigation Task to Excavation
+                task.task_type = int(TaskTypeEnum::AUTONAV);
+                task.pose = excavation_poses->at(excavation_idx).getPose();
+                final_plan.push_back(task);
+            }
+            else {
+                first_op = false;
+            }
+
+            // Excavation Task
+            task.task_type = int(TaskTypeEnum::AUTODIG);
+            task.pose = excavation_poses->at(excavation_idx).getPose();
+            final_plan.push_back(task);
+
+            // Navigation Task to Berm
+            task.task_type = int(TaskTypeEnum::AUTONAV);
+            task.pose = getDumpPose(berm_inputs->at(berm_idx), action_to_take.pj).getPose();
+            final_plan.push_back(task);
+
+            // Dump Task
+            task.task_type = int(TaskTypeEnum::AUTODUMP);
+            task.pose = berm_inputs->at(berm_idx).getPose();
+            final_plan.push_back(task);
+        }
+
+        return final_plan;
     }
 };
 

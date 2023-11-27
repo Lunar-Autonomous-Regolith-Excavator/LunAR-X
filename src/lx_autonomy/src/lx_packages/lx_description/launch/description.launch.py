@@ -34,7 +34,15 @@ def generate_launch_description():
         emulate_tty=True
     )
 
+    joint_state_publisher_gui_node = Node(
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui',
+        name='joint_state_publisher_gui',
+        emulate_tty=True
+    )
+
     ld.add_action(robot_state_publisher_node)
     ld.add_action(joint_viz_node)
+    ld.add_action(joint_state_publisher_gui_node)
 
     return ld

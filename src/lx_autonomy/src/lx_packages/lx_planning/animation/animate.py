@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.animation import FuncAnimation, PillowWriter  # For gif
 
+from ament_index_python.packages import get_package_share_directory
+import yaml
+
 # visualization
 fig = plt.figure()
 ax = plt.gca()
@@ -16,6 +19,7 @@ robot_pose_arr = []
 path_arr = []
 berm_pts_arr = []
 task_arr = []
+excavation_arr = []
 
 # Task types
 task_types = ['NAVIGATION', 'EXCAVATION', 'DUMP']
@@ -135,13 +139,13 @@ def visualize(berm_input_pts, height_grid, robot, path):
 
     plt.show()
 
-def getFrame(i, berm_pts_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr):
+def getFrame(i, berm_pts_arr, excavation_pts_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr):
     artists = []
 
     plt.gca().cla()
     
     # visualize the height map with legend with y axis inverted
-    artists.append(plt.imshow(height_grid_arr[i].T, cmap='viridis', origin='lower'))
+    artists.append(plt.imshow(height_grid_arr[i].T, cmap='Greys', origin='lower'))
     # artists.append(plt.colorbar(label='Value'))
 
     # visualize the robot as rectangle
@@ -156,6 +160,12 @@ def getFrame(i, berm_pts_arr, height_grid_arr, corners_arr, corners_tool_arr, ro
 
     # plot berm input points and connect them
     artists.append(plt.plot(berm_pts_arr[i][:, 0], berm_pts_arr[i][:, 1], 'bo-'))
+
+    # plot excavation input points
+    for pt in excavation_arr[i]:
+        x, y, t = pt
+        # Plot as arrow
+        artists.append(plt.arrow(x, y, 100 * np.cos(t), 100 * np.sin(t), width=2, color='r'))
 
     # Add task as title
     artists.append(plt.title('Task: ' + task_arr[i]))
@@ -200,7 +210,7 @@ def get_berm(theta: float, length: int, height: int):
 
     return berm_grid
 
-def overlay_berm(berm, berm_x, berm_y, height_grid, occupancy_grid):
+def overlay_berm(berm, berm_x, berm_y, height_grid):
     lx, ly = berm.shape
     min_x = int(berm_x) - lx//2
     min_y = int(berm_y) - ly//2
@@ -210,43 +220,44 @@ def overlay_berm(berm, berm_x, berm_y, height_grid, occupancy_grid):
     # overlay the berm on the height map
     height_grid[min_x:max_x, min_y:max_y] = np.maximum(height_grid[min_x:max_x, min_y:max_y], berm)
 
-    # make the whole berm as occupied
-    occupancy_grid[min_x:max_x, min_y:max_y] = berm > 1e-12
-
     return height_grid
 
 if __name__ == '__main__':
 
-    desired_berm_height = 15 # cms
-    berm_section_length = 40 # cms
+    # desired_berm_height = 15 # cms
+    # berm_section_length = 40 # cms
     
     # Set a seed for reproducibility
     # np.random.seed(42)
 
-    # Generate a 70 by 70 array with random height values
-    height_grid = np.random.rand(70, 70)
-    height_grid = gaussian_filter(height_grid, sigma=5)
-    height_grid = np.kron(height_grid, np.ones((10, 10))) # resize the height map to 700 by 700
-    height_grid = height_grid - np.min(height_grid) # make the minimum height zero
+    # Read parameters from YAML file
+    package_directory = get_package_share_directory("lx_planning")
+    yaml_file = package_directory + '/maps/moonyard.yaml'
+    with open(yaml_file, 'r') as file:
+        params = yaml.safe_load(file)
 
-    # generate occupancy grid if height is more than 1 cm
-    occupancy_grid = np.zeros(height_grid.shape)
-    occupancy_grid[height_grid > 5] = 1
-
-    # read input CSV for berm points
-    berm_points = np.genfromtxt('./dev/input.csv', delimiter=',')
-    # convert to cms
-    berm_points *= 100
+    # Extract parameters
+    desired_berm_height = int(params['berm_height'] * 100)
+    berm_section_length = int(params['section_length'] * 100)
+    berm_input = params['berm_input']
+    berm_points = np.array([[pt['x'], pt['y']] for pt in berm_input]) * 100
+    excavation_input = params['excavation_input']
+    excavation_points = np.array([[pt['x'] * 100, pt['y'] * 100, pt['z']] for pt in excavation_input])
 
     # read output CSV
-    output_points = np.genfromtxt('./dev/output.csv', delimiter=',')
+    output_points = np.genfromtxt('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/animation/output.csv', delimiter=',')
+
+    # # Generate a 70 by 70 array with random height values
+    # height_grid = np.random.rand(70, 70)
+    # height_grid = gaussian_filter(height_grid, sigma=5)
+    # height_grid = np.kron(height_grid, np.ones((10, 10))) # resize the height map to 700 by 700
+    # height_grid = height_grid - np.min(height_grid) # make the minimum height zero
+
+    height_grid = np.zeros((700, 700), dtype=int)
 
     # generate a robot
-    robot = Robot(175, 163, np.deg2rad(-13.445586))
-
-    # # generate a berm and overlay it on the height map
-    # berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
-    # height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid, occupancy_grid)
+    _, init_x, init_y, init_theta = output_points[0]
+    robot = Robot(init_x * 100, init_y * 100, np.deg2rad(init_theta))
     
     robot_path = []
     for out in output_points:
@@ -274,6 +285,7 @@ if __name__ == '__main__':
                 robot_pose_arr.append([robot.x, robot.y, robot.tool_x, robot.tool_y])
                 path_arr.append(np.array(robot_path)[-10:, :])
                 berm_pts_arr.append(berm_points.copy())
+                excavation_arr.append(excavation_points.copy())
                 task_arr.append(task_types[task])
 
                 robot.shift(dx * dt, dy * dt, dtheta * dt)
@@ -290,14 +302,14 @@ if __name__ == '__main__':
                 robot_pose_arr.append([robot.x, robot.y, robot.tool_x, robot.tool_y])
                 path_arr.append(np.array(robot_path)[-10:, :])
                 berm_pts_arr.append(berm_points.copy())
+                excavation_arr.append(excavation_points.copy())
                 task_arr.append(task_types[task])
 
                 robot.shift(dx * dt, dy * dt, dtheta * dt)
         
         elif task == 2: # dump
             berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
-            height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid, occupancy_grid)
-            berm_points = berm_points[1:, :]
+            height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
             for i in range(0, 10):
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())
@@ -306,13 +318,14 @@ if __name__ == '__main__':
                 robot_pose_arr.append([robot.x, robot.y, robot.tool_x, robot.tool_y])
                 path_arr.append(np.array(robot_path)[-10:, :])
                 berm_pts_arr.append(berm_points.copy())
+                excavation_arr.append(excavation_points.copy())
                 task_arr.append(task_types[task])
 
 
     # # visualize the robot
     # # visualize(berm_points, height_grid, robot, np.array(robot_path))
 
-    animation = FuncAnimation(fig, getFrame, frames=len(height_grid_arr), fargs=(berm_pts_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr))
+    animation = FuncAnimation(fig, getFrame, frames=len(height_grid_arr), fargs=(berm_pts_arr, excavation_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr))
     animation.save('animation.gif', writer='pillow', fps=10)
 
     # save the height map in png
