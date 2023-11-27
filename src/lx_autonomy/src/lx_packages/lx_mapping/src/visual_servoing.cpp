@@ -88,6 +88,10 @@ void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Swi
         if(this->current_berm_segment.x == 0 && this->current_berm_segment.y == 0 && this->current_berm_segment.theta == 0){
             transform_mode_ = false;
         }
+        else if (req->first_seg_dump == false) // only run transform points for first segment
+        {
+            transform_mode_ = false;
+        }
         else{
             transform_mode_ = true;
         }
@@ -588,7 +592,6 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         {
             // calculate yaw error by projecting the direction vector into the x-y plane
             double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
-            double z_approach = getTargetZ(input_cloud);
             // shift yaw error to -pi/2 to pi/2
             if(yaw_error > M_PI/2){
                 yaw_error = yaw_error - M_PI;
@@ -598,7 +601,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             }
             curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
             curr_error.y = yaw_error;
-            curr_error.z = z_approach - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
             RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(target_point, "targetpoint");
         }
@@ -647,7 +650,8 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             else if (curr_error.y < -M_PI/2){
                 curr_error.y = curr_error.y + M_PI;
             }
-            curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            double z_approach = getTargetZ(input_cloud);
+            curr_error.z = z_approach - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
             RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point, servoing with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(projected_point, "targetpoint");
             if(debug_mode_)

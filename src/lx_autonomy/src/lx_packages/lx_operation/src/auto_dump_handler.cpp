@@ -244,7 +244,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     {
         // Start Visual Servoing
         if(!callVisualServoSwitch(true, std::make_shared<lx_msgs::msg::BermSection>(goal->current_berm_segment), 
-                                    std::make_shared<lx_msgs::msg::BermSection>(goal->prev_berm_segment), goal->first_op_dump))
+                                    std::make_shared<lx_msgs::msg::BermSection>(goal->prev_berm_segment), goal->first_seg_dump))
         {
             RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to SWITCH ON visual servoing");
             exec_visual_servoing = false;
