@@ -21,9 +21,6 @@
 
 VisualServoing::VisualServoing() : Node("visual_servoing_node")
 {   
-    // Set false for dry runs, set true for commands and to publish debug data
-    debug_mode_ = true;
-
     // Setup Communications
     setupCommunications();
 
@@ -107,10 +104,11 @@ void VisualServoing::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sha
     pointcloud_thread_.detach();
 }
 
-pcl::PointIndices::Ptr VisualServoing::fitGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
-                                                    int max_iterations, double distance_threshold, 
-                                                    int round, pcl::PointIndices::Ptr inliers, 
-                                                    pcl::ModelCoefficients::Ptr coefficients){
+double VisualServoing::getMedianElevation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+    if(cloud->points.size() < 30){
+        RCLCPP_INFO(this->get_logger(), "No berm, as could not find ground plane");
+        return 0;
+    }
     // bin the points in z direction to count the number of points in each bin
     std::vector<int> bin_values(NUM_BINS, 0); // vector of bin values
     for(long unsigned int i = 0; i < cloud->points.size(); i++){
@@ -120,12 +118,56 @@ pcl::PointIndices::Ptr VisualServoing::fitGroundPlane(pcl::PointCloud<pcl::Point
         }
         bin_values[bin_idx]++;
     }
-    // print bin values
-    // for(int i = 0; i < NUM_BINS; i++){
-    //     RCLCPP_INFO(this->get_logger(), "bin %d: %d", i, bin_values[i]);
-    // }
+    // get the median elevation fof the points
+    int median_bin_idx = cloud->points.size()/2;
+    int sum = 0;
+    for(int i = 0; i < NUM_BINS; i++){
+        sum += bin_values[i];
+        if(sum > median_bin_idx){
+            median_bin_idx = i;
+            break;
+        }
+    }
+    double median_elevation = (double)median_bin_idx*(PCL_Z_MAX_M-PCL_Z_MIN_M)/NUM_BINS + PCL_Z_MIN_M;
 
+    // if number of points more than median_elevation plus PEAK_LINE_DISTANCE_M, then no berm
+    int num_points_above_threshold = 0;
+    int threshold_bin_idx = int((median_elevation+PEAK_LINE_DISTANCE_M-PCL_Z_MIN_M)/(PCL_Z_MAX_M-PCL_Z_MIN_M)*NUM_BINS);
+    // calculate using bins
+    for(int i = threshold_bin_idx; i < NUM_BINS; i++){
+        num_points_above_threshold += bin_values[i];
+    }
+    if(debug_mode_){
+        RCLCPP_INFO(this->get_logger(), "Median elevation: %f, num_points_above_threshold: %d", median_elevation, num_points_above_threshold);
+    }
+    if(num_points_above_threshold < 10){
+        RCLCPP_INFO(this->get_logger(), "No berm, as height of berm is too small");
+        visual_servo_fail_ = true;
+        return -100;
+    }
+
+    return median_elevation;
 }
+
+void VisualServoing::getGroundIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double median_elevation, pcl::PointIndices::Ptr ground_indices){
+    // get the indices of the points in the ground plane using cropbox
+    pcl::CropBox<pcl::PointXYZ> cropbox;
+    cropbox.setMin(Eigen::Vector4f(PCL_X_MIN_M, PCL_Y_MIN_M, PCL_Z_MIN_M, 1.0));
+    cropbox.setMax(Eigen::Vector4f(PCL_X_MAX_M, PCL_Y_MAX_M, median_elevation, 1.0));
+    cropbox.setInputCloud(cloud);
+    cropbox.filter(ground_indices->indices);
+}
+
+
+void VisualServoing::getBermIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double median_elevation, pcl::PointIndices::Ptr berm_indices){
+    // get the indices of the points in the berm plane
+    pcl::CropBox<pcl::PointXYZ> cropbox;
+    cropbox.setMin(Eigen::Vector4f(PCL_X_MIN_M, PCL_Y_MIN_M, median_elevation, 1.0));
+    cropbox.setMax(Eigen::Vector4f(PCL_X_MAX_M, PCL_Y_MAX_M, PCL_Z_MAX_M, 1.0));
+    cropbox.setInputCloud(cloud);
+    cropbox.filter(berm_indices->indices);
+}
+
 //function to apply RANSAC to fit ground plane on a pointcloud
 pcl::PointIndices::Ptr VisualServoing::fitBestPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                                     int max_iterations, double distance_threshold, 
@@ -435,260 +477,482 @@ vector<geometry_msgs::msg::PoseStamped> VisualServoing::getTransformedBermSegmen
 
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
 
+    visual_servo_fail_ = false;
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *input_cloud);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_minus_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
-    fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
-    fitGroundPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
-    // delete inliers from cloud
-    pcl::ExtractIndices<pcl::PointXYZ> extract;
-    extract.setInputCloud(input_cloud);
-    extract.setIndices(inliers_1);
-    extract.setNegative(true);
-    extract.filter(*cloud_minus_plane1);
-
-    // if no points in cloud_minus_plane1, then no berm
-    if(cloud_minus_plane1->points.size() < 30){
-        RCLCPP_INFO(this->get_logger(), "No berm, as could not find second plane");
-        return;
-    }
-    pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
-    fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
-
-    std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
-    std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
-    auto cross_product = crossProduct(normal_1, normal_2);
-    auto sin_theta = sqrt(cross_product[0]*cross_product[0] + cross_product[1]*cross_product[1] + cross_product[2]*cross_product[2]);
-    auto theta = asin(sin_theta);
-    
-    // create 2 vector pointers
-    std::vector<double> *ground_plane_vec = &normal_1;
-    std::vector<double> *berm_plane_vec = &normal_2;
-    std::vector<double> ground_plane_equation;
     std::vector<double> line_coefficients;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane2(new pcl::PointCloud<pcl::PointXYZ>);
     sensor_msgs::msg::PointCloud2 groundplane_msg;
     sensor_msgs::msg::PointCloud2 bermplane_msg;
+    std::vector<double> ground_plane_equation;
 
-    if(debug_mode_){
-        pcl::ExtractIndices<pcl::PointXYZ> extract_d1, extract_d2;
+    if(!USE_MEDIAN_SEGMENTATION){
+        fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
+        // delete inliers from cloud
+        pcl::ExtractIndices<pcl::PointXYZ> extract;
+        extract.setInputCloud(input_cloud);
+        extract.setIndices(inliers_1);
+        extract.setNegative(true);
+        extract.filter(*cloud_minus_plane1);
 
+        // if no points in cloud_minus_plane1, then no berm
+        if(cloud_minus_plane1->points.size() < 30){
+            RCLCPP_INFO(this->get_logger(), "No berm, as could not find second plane");
+            visual_servo_fail_ = true;
+            return;
+        }
+        pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
+        pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
+        fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
+
+        std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
+        std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
+        auto cross_product = crossProduct(normal_1, normal_2);
+        auto sin_theta = sqrt(cross_product[0]*cross_product[0] + cross_product[1]*cross_product[1] + cross_product[2]*cross_product[2]);
+        auto theta = asin(sin_theta);
+        
+        // create 2 vector pointers
+        std::vector<double> *ground_plane_vec = &normal_1;
+        std::vector<double> *berm_plane_vec = &normal_2;    
+
+        if(debug_mode_){
+            pcl::ExtractIndices<pcl::PointXYZ> extract_d1, extract_d2;
+
+            extract_d1.setInputCloud(input_cloud);
+            extract_d1.setIndices(inliers_1);
+            extract_d1.setNegative(false);
+            extract_d1.filter(*cloud_plane1);
+            groundplane_msg.header.frame_id = "base_link";
+
+            extract_d2.setInputCloud(cloud_minus_plane1);
+            extract_d2.setIndices(inliers_2);
+            extract_d2.setNegative(false);
+            extract_d2.filter(*cloud_plane2);
+            bermplane_msg.header.frame_id = "base_link";
+        }
+
+        if (theta < MIN_PLANE_ANGLE_DEG*M_PI/180.0){
+            // no berm
+            ground_plane_vec = &normal_1;
+            berm_plane_vec = &normal_1;
+            RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small %f", theta);
+            // publish ground plane
+            if(debug_mode_){
+                pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }
+            visual_servo_fail_ = true;
+        }
+        else if(cross_product[1]<0){
+            ground_plane_vec = &normal_1;
+            berm_plane_vec = &normal_2;
+            ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
+            line_coefficients = binPoints(cloud_minus_plane1, inliers_2, ground_plane_equation);
+            if(debug_mode_)
+            {
+                pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }
+        }
+        else{
+            ground_plane_vec = &normal_2;
+            berm_plane_vec = &normal_1;
+            ground_plane_equation = {coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]};
+            line_coefficients = binPoints(input_cloud, inliers_1, ground_plane_equation);
+            if(debug_mode_)
+            {
+                pcl::toROSMsg(*cloud_plane2, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane1, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }    
+        }
+
+        // check if line_coefficients is empty
+        if(line_coefficients.size() > 0){
+
+            geometry_msgs::msg::Point error_msg, curr_error;
+            std::vector<double> target_point(3,0.0);
+            // find the point on the line given by line_coefficients that is closest to the tool (origin). 
+            // The coefficients are the form (x0, y0, z0, x1, y1, z1) where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
+            double t = -(line_coefficients[0]*line_coefficients[3] + line_coefficients[1]*line_coefficients[4] + line_coefficients[2]*line_coefficients[5])/
+                            (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
+            target_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
+            target_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
+            target_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
+
+            // Get transformed berm segments
+            vector<geometry_msgs::msg::PoseStamped> transformed_berm_segments = this->getTransformedBermSegments();
+            bool got_transformed_berm_segments = true;
+            if (transformed_berm_segments.size() == 0)
+            {
+                got_transformed_berm_segments = false;
+                RCLCPP_INFO(this->get_logger(), "Visual Servoing could not transform berm segments, resorting to default behavior");
+            }
+            geometry_msgs::msg::PoseStamped curr_segment_pose, prev_segment_pose;
+            double dist_to_curr_segment, dist_to_prev_segment;
+            if(got_transformed_berm_segments == false)
+            {
+                dist_to_prev_segment = 1000; dist_to_curr_segment = 0; //to make sure curr_segment is chosen
+            }
+            else
+            {
+                curr_segment_pose = transformed_berm_segments[0];
+                prev_segment_pose = transformed_berm_segments[1];
+                dist_to_curr_segment = sqrt(pow(target_point[0] - curr_segment_pose.pose.position.x, 2) + pow(target_point[1] - curr_segment_pose.pose.position.y, 2));
+                dist_to_prev_segment = sqrt(pow(target_point[0] - prev_segment_pose.pose.position.x, 2) + pow(target_point[1] - prev_segment_pose.pose.position.y, 2));
+            }
+
+            if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
+            {
+                // calculate yaw error by projecting the direction vector into the x-y plane
+                double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
+                // shift yaw error to -pi/2 to pi/2
+                if(yaw_error > M_PI/2){
+                    yaw_error = yaw_error - M_PI;
+                }
+                else if(yaw_error < -M_PI/2){
+                    yaw_error = yaw_error + M_PI;
+                }
+                curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
+                curr_error.y = yaw_error;
+                curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+                // RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
+                publishVector(target_point, "targetpoint");
+            }
+            else
+            {
+                // Detected berm is previous berm
+                // Find closest point on line line_coefficients to the point previous_berm_segment
+                vector<double> dir_vect = { line_coefficients[0] - prev_segment_pose.pose.position.x, 
+                                            line_coefficients[1] - prev_segment_pose.pose.position.y, 
+                                            line_coefficients[2] - prev_segment_pose.pose.position.z };
+
+                double t = -(line_coefficients[3]*dir_vect[0] + line_coefficients[4]*dir_vect[1] + line_coefficients[5]*dir_vect[2])/
+                            (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
+
+                vector<double> closest_point{3, 0.0};
+                closest_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
+                closest_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
+                closest_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
+
+                // get theta of previous berm segment
+                tf2::Quaternion q(prev_segment_pose.pose.orientation.x, prev_segment_pose.pose.orientation.y, prev_segment_pose.pose.orientation.z, prev_segment_pose.pose.orientation.w);
+                double prev_segment_theta = tf2::getYaw(q);
+
+                // get intersection point
+                double SEG_LEN=0.4;
+                vector<double> intersection_point{3, 0.0};
+                intersection_point[0] = closest_point[0] + cos(prev_segment_theta)*SEG_LEN/2.0;
+                intersection_point[1] = closest_point[1] + sin(prev_segment_theta)*SEG_LEN/2.0;
+                intersection_point[2] = closest_point[2];
+
+                // get curr segment theta
+                q = tf2::Quaternion(curr_segment_pose.pose.orientation.x, curr_segment_pose.pose.orientation.y, curr_segment_pose.pose.orientation.z, curr_segment_pose.pose.orientation.w);
+                double curr_segment_theta = tf2::getYaw(q);
+
+                // calculate target point
+                vector<double> projected_point{3, 0.0};
+                projected_point[0] = intersection_point[0] + cos(curr_segment_theta)*SEG_LEN/2.0;
+                projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
+                projected_point[2] = intersection_point[2];
+
+                curr_error.x = - tool_distance_wrt_base_link_;
+                curr_error.y = curr_segment_theta;
+                if (curr_segment_theta > M_PI/2){
+                    curr_error.y = curr_error.y - M_PI;
+                }
+                else if (curr_segment_theta < -M_PI/2){
+                    curr_error.y = curr_error.y + M_PI;
+                }
+                curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+                // RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point, servoing with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
+                publishVector(projected_point, "targetpoint");
+                if(debug_mode_)
+                {
+                    // projected_point_marker_publisher_ for intersection_point, projected_point and closest_point
+                    visualization_msgs::msg::Marker marker_msg;
+                    marker_msg.header.frame_id = "base_link";
+                    marker_msg.header.stamp = this->get_clock()->now();
+                    marker_msg.ns = "visual_servoing";
+                    marker_msg.id = 0;
+                    marker_msg.type = visualization_msgs::msg::Marker::POINTS;
+                    marker_msg.action = visualization_msgs::msg::Marker::ADD;
+                    marker_msg.pose.orientation.w = 1.0;
+                    marker_msg.scale.x = 0.05;
+                    marker_msg.scale.y = 0.05;
+                    marker_msg.color.g = 1.0;
+                    marker_msg.color.r = 1.0;
+                    marker_msg.color.a = 1.0;
+                    geometry_msgs::msg::Point p;
+                    p.x = intersection_point[0]; p.y = intersection_point[1]; p.z = intersection_point[2];
+                    marker_msg.points.push_back(p);
+                    p.x = projected_point[0]; p.y = projected_point[1]; p.z = projected_point[2];
+                    marker_msg.points.push_back(p);
+                    p.x = closest_point[0]; p.y = closest_point[1]; p.z = closest_point[2];
+                    marker_msg.points.push_back(p);
+                    projected_point_marker_publisher_->publish(marker_msg);
+
+                    // transformed_berm_points_publisher_ for prev_segment_pose and curr_segment_pose
+                    visualization_msgs::msg::Marker marker_msg2;
+                    marker_msg2.header.frame_id = "base_link";
+                    marker_msg2.header.stamp = this->get_clock()->now();
+                    marker_msg2.ns = "visual_servoing";
+                    marker_msg2.id = 0;
+                    marker_msg2.type = visualization_msgs::msg::Marker::POINTS;
+                    marker_msg2.action = visualization_msgs::msg::Marker::ADD;
+                    marker_msg2.pose.orientation.w = 1.0;
+                    marker_msg2.scale.x = 0.05;
+                    marker_msg2.scale.y = 0.05;
+                    marker_msg2.color.b = 1.0;
+                    marker_msg2.color.a = 1.0;
+                    p.x = prev_segment_pose.pose.position.x; p.y = prev_segment_pose.pose.position.y; p.z = prev_segment_pose.pose.position.z;
+                    marker_msg2.points.push_back(p);
+                    p.x = curr_segment_pose.pose.position.x; p.y = curr_segment_pose.pose.position.y; p.z = curr_segment_pose.pose.position.z;
+                    marker_msg2.points.push_back(p);
+                    transformed_berm_points_publisher_->publish(marker_msg2);
+                }
+            }
+
+            // Filter errors 
+            error_msg.x = exp_filter_x_.getValue(curr_error.x);
+            error_msg.y = exp_filter_y_.getValue(curr_error.y);
+            error_msg.z = exp_filter_z_.getValue(curr_error.z);
+            visual_servo_error_publisher_->publish(error_msg);
+        }
+        else
+        {
+            RCLCPP_INFO(this->get_logger(), "No line coefficients");
+            visual_servo_fail_ = true;
+        }
+
+        publishVector(*ground_plane_vec, "groundplane");
+        publishVector(*berm_plane_vec, "bermplane");
+    }
+    else{
+        // get median elevation
+        double median_elevation = getMedianElevation(input_cloud);
+        // get ground indices
+        pcl::PointIndices::Ptr ground_indices(new pcl::PointIndices);
+        getGroundIndices(input_cloud, median_elevation, ground_indices);
+        // get berm indices
+        pcl::PointIndices::Ptr berm_indices(new pcl::PointIndices);
+        getBermIndices(input_cloud, median_elevation, berm_indices);
+
+        // if no points in berms, then no berm
+        if(berm_indices->indices.size() < 30){
+            RCLCPP_INFO(this->get_logger(), "No berm, as no points in berm indices");
+            visual_servo_fail_ = true;
+            return;
+        }
+        
+        // fit plane thorugh ground indices
+        pcl::ExtractIndices<pcl::PointXYZ> extract_d1;
         extract_d1.setInputCloud(input_cloud);
-        extract_d1.setIndices(inliers_1);
+        extract_d1.setIndices(ground_indices);
         extract_d1.setNegative(false);
         extract_d1.filter(*cloud_plane1);
         groundplane_msg.header.frame_id = "base_link";
-
-        extract_d2.setInputCloud(cloud_minus_plane1);
-        extract_d2.setIndices(inliers_2);
-        extract_d2.setNegative(false);
-        extract_d2.filter(*cloud_plane2);
-        bermplane_msg.header.frame_id = "base_link";
-    }
-
-    if (theta < MIN_PLANE_ANGLE_DEG*M_PI/180.0){
-        // no berm
-        ground_plane_vec = &normal_1;
-        berm_plane_vec = &normal_1;
-        RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small %f", theta);
-        // publish ground plane
+        pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
+        fitBestPlane(cloud_plane1, 100, 0.01, 1, inliers_1, coefficients_1);
         if(debug_mode_){
-            pcl::toROSMsg(*cloud_plane1, groundplane_msg);
-            groundplane_publisher_->publish(groundplane_msg);
-            pcl::toROSMsg(*cloud_plane2, bermplane_msg);
-            bermplane_publisher_->publish(bermplane_msg);
+            RCLCPP_INFO(this->get_logger(), "Ground plane coefficients: %f, %f, %f, %f", coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]);
+            RCLCPP_INFO(this->get_logger(), "cloud_plane1 size: %d", cloud_plane1->points.size());
         }
-    }
-    else if(cross_product[1]<0){
-        ground_plane_vec = &normal_1;
-        berm_plane_vec = &normal_2;
+        // get ground plane equation
         ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
-        line_coefficients = binPoints(cloud_minus_plane1, inliers_2, ground_plane_equation);
+
+        // call binPoints to get line coefficients
+        line_coefficients = binPoints(input_cloud, berm_indices, ground_plane_equation);
         if(debug_mode_)
-        {
+            RCLCPP_INFO(this->get_logger(), "Berm line coefficients: %f, %f, %f, %f, %f, %f", line_coefficients[0], line_coefficients[1], line_coefficients[2], line_coefficients[3], line_coefficients[4], line_coefficients[5]);
+        if(line_coefficients.size() == 0){
+            RCLCPP_INFO(this->get_logger(), "No berm, as could not find peak line");
+            visual_servo_fail_ = true;
+            return;
+        }
+        if(debug_mode_)
+        {   
+            // cloud_plane2 is berm plane
+            pcl::ExtractIndices<pcl::PointXYZ> extract_d2;
+            extract_d2.setInputCloud(input_cloud);
+            extract_d2.setIndices(berm_indices);
+            extract_d2.setNegative(false);
+            extract_d2.filter(*cloud_plane2);
+            bermplane_msg.header.frame_id = "base_link";
             pcl::toROSMsg(*cloud_plane1, groundplane_msg);
             groundplane_publisher_->publish(groundplane_msg);
             pcl::toROSMsg(*cloud_plane2, bermplane_msg);
             bermplane_publisher_->publish(bermplane_msg);
         }
-    }
-    else{
-        ground_plane_vec = &normal_2;
-        berm_plane_vec = &normal_1;
-        ground_plane_equation = {coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]};
-        line_coefficients = binPoints(input_cloud, inliers_1, ground_plane_equation);
-        if(debug_mode_)
-        {
-            pcl::toROSMsg(*cloud_plane2, groundplane_msg);
-            groundplane_publisher_->publish(groundplane_msg);
-            pcl::toROSMsg(*cloud_plane1, bermplane_msg);
-            bermplane_publisher_->publish(bermplane_msg);
-        }    
-    }
+        if(line_coefficients.size() > 0){
 
-    // check if line_coefficients is empty
-    if(line_coefficients.size() > 0){
+            geometry_msgs::msg::Point error_msg, curr_error;
+            std::vector<double> target_point(3,0.0);
+            // find the point on the line given by line_coefficients that is closest to the tool (origin). 
+            // The coefficients are the form (x0, y0, z0, x1, y1, z1) where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
+            double t = -(line_coefficients[0]*line_coefficients[3] + line_coefficients[1]*line_coefficients[4] + line_coefficients[2]*line_coefficients[5])/
+                            (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
+            target_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
+            target_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
+            target_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
 
-        geometry_msgs::msg::Point error_msg, curr_error;
-        std::vector<double> target_point(3,0.0);
-        // find the point on the line given by line_coefficients that is closest to the tool (origin). 
-        // The coefficients are the form (x0, y0, z0, x1, y1, z1) where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
-        double t = -(line_coefficients[0]*line_coefficients[3] + line_coefficients[1]*line_coefficients[4] + line_coefficients[2]*line_coefficients[5])/
-                        (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
-        target_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
-        target_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
-        target_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
-
-        // Get transformed berm segments
-        vector<geometry_msgs::msg::PoseStamped> transformed_berm_segments = this->getTransformedBermSegments();
-        bool got_transformed_berm_segments = true;
-        if (transformed_berm_segments.size() == 0)
-        {
-            got_transformed_berm_segments = false;
-            RCLCPP_INFO(this->get_logger(), "Visual Servoing could not transform berm segments, resorting to default behavior");
-        }
-        geometry_msgs::msg::PoseStamped curr_segment_pose, prev_segment_pose;
-        double dist_to_curr_segment, dist_to_prev_segment;
-        if(got_transformed_berm_segments == false)
-        {
-            dist_to_prev_segment = 1000; dist_to_curr_segment = 0; //to make sure curr_segment is chosen
-        }
-        else
-        {
-            curr_segment_pose = transformed_berm_segments[0];
-            prev_segment_pose = transformed_berm_segments[1];
-            dist_to_curr_segment = sqrt(pow(target_point[0] - curr_segment_pose.pose.position.x, 2) + pow(target_point[1] - curr_segment_pose.pose.position.y, 2));
-            dist_to_prev_segment = sqrt(pow(target_point[0] - prev_segment_pose.pose.position.x, 2) + pow(target_point[1] - prev_segment_pose.pose.position.y, 2));
-        }
-
-        if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
-        {
-            // calculate yaw error by projecting the direction vector into the x-y plane
-            double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
-            // shift yaw error to -pi/2 to pi/2
-            if(yaw_error > M_PI/2){
-                yaw_error = yaw_error - M_PI;
-            }
-            else if(yaw_error < -M_PI/2){
-                yaw_error = yaw_error + M_PI;
-            }
-            curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
-            curr_error.y = yaw_error;
-            curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
-            // RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
-            publishVector(target_point, "targetpoint");
-        }
-        else
-        {
-            // Detected berm is previous berm
-            // Find closest point on line line_coefficients to the point previous_berm_segment
-            vector<double> dir_vect = { line_coefficients[0] - prev_segment_pose.pose.position.x, 
-                                        line_coefficients[1] - prev_segment_pose.pose.position.y, 
-                                        line_coefficients[2] - prev_segment_pose.pose.position.z };
-
-            double t = -(line_coefficients[3]*dir_vect[0] + line_coefficients[4]*dir_vect[1] + line_coefficients[5]*dir_vect[2])/
-                        (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
-
-            vector<double> closest_point{3, 0.0};
-            closest_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
-            closest_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
-            closest_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
-
-            // get theta of previous berm segment
-            tf2::Quaternion q(prev_segment_pose.pose.orientation.x, prev_segment_pose.pose.orientation.y, prev_segment_pose.pose.orientation.z, prev_segment_pose.pose.orientation.w);
-            double prev_segment_theta = tf2::getYaw(q);
-
-            // get intersection point
-            double SEG_LEN=0.4;
-            vector<double> intersection_point{3, 0.0};
-            intersection_point[0] = closest_point[0] + cos(prev_segment_theta)*SEG_LEN/2.0;
-            intersection_point[1] = closest_point[1] + sin(prev_segment_theta)*SEG_LEN/2.0;
-            intersection_point[2] = closest_point[2];
-
-            // get curr segment theta
-            q = tf2::Quaternion(curr_segment_pose.pose.orientation.x, curr_segment_pose.pose.orientation.y, curr_segment_pose.pose.orientation.z, curr_segment_pose.pose.orientation.w);
-            double curr_segment_theta = tf2::getYaw(q);
-
-            // calculate target point
-            vector<double> projected_point{3, 0.0};
-            projected_point[0] = intersection_point[0] + cos(curr_segment_theta)*SEG_LEN/2.0;
-            projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
-            projected_point[2] = intersection_point[2];
-
-            curr_error.x = - tool_distance_wrt_base_link_;
-            curr_error.y = curr_segment_theta;
-            if (curr_segment_theta > M_PI/2){
-                curr_error.y = curr_error.y - M_PI;
-            }
-            else if (curr_segment_theta < -M_PI/2){
-                curr_error.y = curr_error.y + M_PI;
-            }
-            curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
-            // RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point, servoing with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
-            publishVector(projected_point, "targetpoint");
-            if(debug_mode_)
+            // Get transformed berm segments
+            vector<geometry_msgs::msg::PoseStamped> transformed_berm_segments = this->getTransformedBermSegments();
+            bool got_transformed_berm_segments = true;
+            if (transformed_berm_segments.size() == 0)
             {
-                // projected_point_marker_publisher_ for intersection_point, projected_point and closest_point
-                visualization_msgs::msg::Marker marker_msg;
-                marker_msg.header.frame_id = "base_link";
-                marker_msg.header.stamp = this->get_clock()->now();
-                marker_msg.ns = "visual_servoing";
-                marker_msg.id = 0;
-                marker_msg.type = visualization_msgs::msg::Marker::POINTS;
-                marker_msg.action = visualization_msgs::msg::Marker::ADD;
-                marker_msg.pose.orientation.w = 1.0;
-                marker_msg.scale.x = 0.05;
-                marker_msg.scale.y = 0.05;
-                marker_msg.color.g = 1.0;
-                marker_msg.color.r = 1.0;
-                marker_msg.color.a = 1.0;
-                geometry_msgs::msg::Point p;
-                p.x = intersection_point[0]; p.y = intersection_point[1]; p.z = intersection_point[2];
-                marker_msg.points.push_back(p);
-                p.x = projected_point[0]; p.y = projected_point[1]; p.z = projected_point[2];
-                marker_msg.points.push_back(p);
-                p.x = closest_point[0]; p.y = closest_point[1]; p.z = closest_point[2];
-                marker_msg.points.push_back(p);
-                projected_point_marker_publisher_->publish(marker_msg);
-
-                // transformed_berm_points_publisher_ for prev_segment_pose and curr_segment_pose
-                visualization_msgs::msg::Marker marker_msg2;
-                marker_msg2.header.frame_id = "base_link";
-                marker_msg2.header.stamp = this->get_clock()->now();
-                marker_msg2.ns = "visual_servoing";
-                marker_msg2.id = 0;
-                marker_msg2.type = visualization_msgs::msg::Marker::POINTS;
-                marker_msg2.action = visualization_msgs::msg::Marker::ADD;
-                marker_msg2.pose.orientation.w = 1.0;
-                marker_msg2.scale.x = 0.05;
-                marker_msg2.scale.y = 0.05;
-                marker_msg2.color.b = 1.0;
-                marker_msg2.color.a = 1.0;
-                p.x = prev_segment_pose.pose.position.x; p.y = prev_segment_pose.pose.position.y; p.z = prev_segment_pose.pose.position.z;
-                marker_msg2.points.push_back(p);
-                p.x = curr_segment_pose.pose.position.x; p.y = curr_segment_pose.pose.position.y; p.z = curr_segment_pose.pose.position.z;
-                marker_msg2.points.push_back(p);
-                transformed_berm_points_publisher_->publish(marker_msg2);
+                got_transformed_berm_segments = false;
+                RCLCPP_INFO(this->get_logger(), "Visual Servoing could not transform berm segments, resorting to default behavior");
             }
+            geometry_msgs::msg::PoseStamped curr_segment_pose, prev_segment_pose;
+            double dist_to_curr_segment, dist_to_prev_segment;
+            if(got_transformed_berm_segments == false)
+            {
+                dist_to_prev_segment = 1000; dist_to_curr_segment = 0; //to make sure curr_segment is chosen
+            }
+            else
+            {
+                curr_segment_pose = transformed_berm_segments[0];
+                prev_segment_pose = transformed_berm_segments[1];
+                dist_to_curr_segment = sqrt(pow(target_point[0] - curr_segment_pose.pose.position.x, 2) + pow(target_point[1] - curr_segment_pose.pose.position.y, 2));
+                dist_to_prev_segment = sqrt(pow(target_point[0] - prev_segment_pose.pose.position.x, 2) + pow(target_point[1] - prev_segment_pose.pose.position.y, 2));
+            }
+
+            if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
+            {
+                // calculate yaw error by projecting the direction vector into the x-y plane
+                double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
+                // shift yaw error to -pi/2 to pi/2
+                if(yaw_error > M_PI/2){
+                    yaw_error = yaw_error - M_PI;
+                }
+                else if(yaw_error < -M_PI/2){
+                    yaw_error = yaw_error + M_PI;
+                }
+                curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
+                curr_error.y = yaw_error;
+                curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+                // RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
+                publishVector(target_point, "targetpoint");
+            }
+            else
+            {
+                // Detected berm is previous berm
+                // Find closest point on line line_coefficients to the point previous_berm_segment
+                vector<double> dir_vect = { line_coefficients[0] - prev_segment_pose.pose.position.x, 
+                                            line_coefficients[1] - prev_segment_pose.pose.position.y, 
+                                            line_coefficients[2] - prev_segment_pose.pose.position.z };
+
+                double t = -(line_coefficients[3]*dir_vect[0] + line_coefficients[4]*dir_vect[1] + line_coefficients[5]*dir_vect[2])/
+                            (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
+
+                vector<double> closest_point{3, 0.0};
+                closest_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
+                closest_point[1] = line_coefficients[1] + line_coefficients[4]*t;  // y
+                closest_point[2] = line_coefficients[2] + line_coefficients[5]*t;  // z
+
+                // get theta of previous berm segment
+                tf2::Quaternion q(prev_segment_pose.pose.orientation.x, prev_segment_pose.pose.orientation.y, prev_segment_pose.pose.orientation.z, prev_segment_pose.pose.orientation.w);
+                double prev_segment_theta = tf2::getYaw(q);
+
+                // get intersection point
+                double SEG_LEN=0.4;
+                vector<double> intersection_point{3, 0.0};
+                intersection_point[0] = closest_point[0] + cos(prev_segment_theta)*SEG_LEN/2.0;
+                intersection_point[1] = closest_point[1] + sin(prev_segment_theta)*SEG_LEN/2.0;
+                intersection_point[2] = closest_point[2];
+
+                // get curr segment theta
+                q = tf2::Quaternion(curr_segment_pose.pose.orientation.x, curr_segment_pose.pose.orientation.y, curr_segment_pose.pose.orientation.z, curr_segment_pose.pose.orientation.w);
+                double curr_segment_theta = tf2::getYaw(q);
+
+                // calculate target point
+                vector<double> projected_point{3, 0.0};
+                projected_point[0] = intersection_point[0] + cos(curr_segment_theta)*SEG_LEN/2.0;
+                projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
+                projected_point[2] = intersection_point[2];
+
+                curr_error.x = - tool_distance_wrt_base_link_;
+                curr_error.y = curr_segment_theta;
+                if (curr_segment_theta > M_PI/2){
+                    curr_error.y = curr_error.y - M_PI;
+                }
+                else if (curr_segment_theta < -M_PI/2){
+                    curr_error.y = curr_error.y + M_PI;
+                }
+                curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+                // RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point, servoing with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
+                publishVector(projected_point, "targetpoint");
+                if(debug_mode_)
+                {
+                    // projected_point_marker_publisher_ for intersection_point, projected_point and closest_point
+                    visualization_msgs::msg::Marker marker_msg;
+                    marker_msg.header.frame_id = "base_link";
+                    marker_msg.header.stamp = this->get_clock()->now();
+                    marker_msg.ns = "visual_servoing";
+                    marker_msg.id = 0;
+                    marker_msg.type = visualization_msgs::msg::Marker::POINTS;
+                    marker_msg.action = visualization_msgs::msg::Marker::ADD;
+                    marker_msg.pose.orientation.w = 1.0;
+                    marker_msg.scale.x = 0.05;
+                    marker_msg.scale.y = 0.05;
+                    marker_msg.color.g = 1.0;
+                    marker_msg.color.r = 1.0;
+                    marker_msg.color.a = 1.0;
+                    geometry_msgs::msg::Point p;
+                    p.x = intersection_point[0]; p.y = intersection_point[1]; p.z = intersection_point[2];
+                    marker_msg.points.push_back(p);
+                    p.x = projected_point[0]; p.y = projected_point[1]; p.z = projected_point[2];
+                    marker_msg.points.push_back(p);
+                    p.x = closest_point[0]; p.y = closest_point[1]; p.z = closest_point[2];
+                    marker_msg.points.push_back(p);
+                    projected_point_marker_publisher_->publish(marker_msg);
+
+                    // transformed_berm_points_publisher_ for prev_segment_pose and curr_segment_pose
+                    visualization_msgs::msg::Marker marker_msg2;
+                    marker_msg2.header.frame_id = "base_link";
+                    marker_msg2.header.stamp = this->get_clock()->now();
+                    marker_msg2.ns = "visual_servoing";
+                    marker_msg2.id = 0;
+                    marker_msg2.type = visualization_msgs::msg::Marker::POINTS;
+                    marker_msg2.action = visualization_msgs::msg::Marker::ADD;
+                    marker_msg2.pose.orientation.w = 1.0;
+                    marker_msg2.scale.x = 0.05;
+                    marker_msg2.scale.y = 0.05;
+                    marker_msg2.color.b = 1.0;
+                    marker_msg2.color.a = 1.0;
+                    p.x = prev_segment_pose.pose.position.x; p.y = prev_segment_pose.pose.position.y; p.z = prev_segment_pose.pose.position.z;
+                    marker_msg2.points.push_back(p);
+                    p.x = curr_segment_pose.pose.position.x; p.y = curr_segment_pose.pose.position.y; p.z = curr_segment_pose.pose.position.z;
+                    marker_msg2.points.push_back(p);
+                    transformed_berm_points_publisher_->publish(marker_msg2);
+                }
+            }
+
+            // Filter errors 
+            error_msg.x = exp_filter_x_.getValue(curr_error.x);
+            error_msg.y = exp_filter_y_.getValue(curr_error.y);
+            error_msg.z = exp_filter_z_.getValue(curr_error.z);
+            visual_servo_error_publisher_->publish(error_msg);
         }
-
-        // Filter errors 
-        error_msg.x = exp_filter_x_.getValue(curr_error.x);
-        error_msg.y = exp_filter_y_.getValue(curr_error.y);
-        error_msg.z = exp_filter_z_.getValue(curr_error.z);
-        visual_servo_error_publisher_->publish(error_msg);
+        else
+        {
+            RCLCPP_INFO(this->get_logger(), "No line coefficients");
+            visual_servo_fail_ = true;
+        }
+    
+    
+    
     }
-    else
-    {
-        RCLCPP_INFO(this->get_logger(), "No line coefficients");
-    }
-
-    publishVector(*ground_plane_vec, "groundplane");
-    publishVector(*berm_plane_vec, "bermplane");
 }

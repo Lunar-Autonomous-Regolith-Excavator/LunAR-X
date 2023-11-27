@@ -16,6 +16,7 @@
 #include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/filters/crop_box.h>
 #include <geometry_msgs/msg/point.hpp>
 #include "rclcpp/logger.hpp"
 #include <vector>
@@ -33,8 +34,10 @@ class VisualServoing : public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        bool debug_mode_;
-        bool transform_mode_; // if true, then projects the berm points to the current_berm_segmen t
+        bool debug_mode_ = false;
+        bool transform_mode_; // if true, then projects the berm points to the current_berm_segment
+        const bool USE_MEDIAN_SEGMENTATION = true; // if true, then uses median segmentation
+        bool visual_servo_fail_ = false;
         double tool_height_wrt_base_link_, tool_distance_wrt_base_link_;
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 1.5; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
@@ -111,13 +114,14 @@ class VisualServoing : public rclcpp::Node
         *
         * */
 
-        pcl::PointIndices::Ptr fitGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr , 
-                                                    int , double , 
-                                                    int , pcl::PointIndices::Ptr , 
-                                                    pcl::ModelCoefficients::Ptr );
+        double getMedianElevation(pcl::PointCloud<pcl::PointXYZ>::Ptr);
         /*
         *
         */
+        void getGroundIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr , 
+                                                            double , pcl::PointIndices::Ptr);
+        void getBermIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr , 
+                                                            double , pcl::PointIndices::Ptr);
         
         vector<double> crossProduct(std::vector<double>, std::vector<double>);
 
