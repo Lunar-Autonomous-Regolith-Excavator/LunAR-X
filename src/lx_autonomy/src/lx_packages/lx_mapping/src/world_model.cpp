@@ -69,20 +69,29 @@ void WorldModel::setupInitialMaps(){
       zone_costmap_.data[GETMAXINDEX(zone_costmap_.info.width - 1, i, zone_costmap_.info.width)] = 100;
     }
 
-    updateTraversibilityCostmapWorldModel();
 
-    std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates;
-    geometry_msgs::msg::PointStamped point;
-    point.point.x = 6.0;
-    point.point.y = 3.0;
-    berm_zone_coordinates.push_back(point);
-    point.point.x = 6.0;
-    point.point.y = 3.4;
-    berm_zone_coordinates.push_back(point);
-    point.point.x = 6.0;
-    point.point.y = 3.8;
-    berm_zone_coordinates.push_back(point);
-    updateBermZonesWorldModel(berm_zone_coordinates);
+    if(debug_mode_){
+        std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates;
+        geometry_msgs::msg::PointStamped point;
+        point.point.x = 5.91;
+        point.point.y = 4.29;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 5.98;
+        point.point.y = 3.90;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 6.00;
+        point.point.y = 3.5;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 5.98;
+        point.point.y = 3.1;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 5.91;
+        point.point.y = 2.71;
+        berm_zone_coordinates.push_back(point);
+
+        updateBermZonesWorldModel(berm_zone_coordinates);
+    }
+
     updateTraversibilityCostmapWorldModel();
 
 
