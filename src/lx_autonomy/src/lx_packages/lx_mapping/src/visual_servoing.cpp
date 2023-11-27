@@ -426,6 +426,26 @@ vector<geometry_msgs::msg::PoseStamped> VisualServoing::getTransformedBermSegmen
     return ans;
 }
 
+double VisualServoing::getTargetZ(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::CropBox<pcl::PointXYZ> crop;
+    crop.setMin(Eigen::Vector4f(-10, -0.2, -10, 1.0));
+    crop.setMax(Eigen::Vector4f(10, 0.2, 10, 1.0));
+    crop.setInputCloud(cloud);
+    crop.filter(*cropped_cloud);
+    // reomove noise
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    sor.setInputCloud(cropped_cloud);
+    sor.setMeanK(50);
+    sor.setStddevMulThresh(1.0);
+    sor.filter(*cropped_cloud);
+
+    double max_z = 0.0;
+    std::for_each(cropped_cloud->points.begin(), cropped_cloud->points.end(), [&max_z](pcl::PointXYZ p){if(p.z>max_z){max_z = p.z;}});
+    RCLCPP_INFO(this->get_logger(), "Z value of approach point: %f", max_z);
+    return max_z;
+}
+
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -568,6 +588,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         {
             // calculate yaw error by projecting the direction vector into the x-y plane
             double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
+            double z_approach = getTargetZ(input_cloud);
             // shift yaw error to -pi/2 to pi/2
             if(yaw_error > M_PI/2){
                 yaw_error = yaw_error - M_PI;
@@ -577,7 +598,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             }
             curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
             curr_error.y = yaw_error;
-            curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            curr_error.z = z_approach - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
             RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(target_point, "targetpoint");
         }
