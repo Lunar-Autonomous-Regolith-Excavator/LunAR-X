@@ -17,6 +17,7 @@
 #include <thread>
 #include <vector>
 #include "lx_msgs/srv/request_rover_service.hpp"
+#include "lx_library/lx_utils.hpp"
 
 class WorldModel : public rclcpp::Node
 {

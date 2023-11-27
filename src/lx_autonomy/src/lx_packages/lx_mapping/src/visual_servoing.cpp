@@ -602,7 +602,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             double prev_segment_theta = tf2::getYaw(q);
 
             // get intersection point
-            double SEG_LEN=0.4;
+            double SEG_LEN=GLOBAL_BERM_LENGTH_M;
             vector<double> intersection_point{3, 0.0};
             intersection_point[0] = closest_point[0] + cos(prev_segment_theta)*SEG_LEN/2.0;
             intersection_point[1] = closest_point[1] + sin(prev_segment_theta)*SEG_LEN/2.0;

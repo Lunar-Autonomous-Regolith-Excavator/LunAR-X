@@ -15,6 +15,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <vector>
+#include "lx_library/lx_utils.hpp"
 
 
 class BermEvaluation : public rclcpp::Node
