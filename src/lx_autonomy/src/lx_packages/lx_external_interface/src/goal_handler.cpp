@@ -181,6 +181,14 @@ void GoalHandler::checkBermFeasibility(){
 
     RCLCPP_INFO(this->get_logger(), "Processing requested berm points");
 
+    // check if distance between consecutive points is greater than INTERPOLATION_DIST
+    for (long unsigned int i = 0; i < user_requested_berm_points_.size()-1; i++) {
+        if (distance(user_requested_berm_points_[i], user_requested_berm_points_[i+1]) < INTERPOLATION_DIST) {
+            RCLCPP_INFO(this->get_logger(), "Distance between consecutive points is less than %f", INTERPOLATION_DIST);
+            return;
+        }
+    }
+
     // Interpolate points 
     geometry_msgs::msg::PointStamped first_point{user_requested_berm_points_[0]};
     for (long unsigned int i = 0; i < user_requested_berm_points_.size()-1; i++) {
