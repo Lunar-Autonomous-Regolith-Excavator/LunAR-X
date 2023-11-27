@@ -38,6 +38,7 @@ class VisualServoing : public rclcpp::Node
         double tool_height_wrt_base_link_, tool_distance_wrt_base_link_;
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 1.5; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
+        const double PCL_Z_MIN_M = -0.5, PCL_Z_MAX_M = 0.5; // region of interest in z direction
         const int NUM_BINS = 100; // number of bins in each dim the ROI
         const double MIN_PLANE_ANGLE_DEG = 10.0; // minimum angle of the plane wrt the ground plane
         const double PEAK_LINE_DISTANCE_M = 0.06; // min dist between ground plane and peak line points
@@ -109,6 +110,15 @@ class VisualServoing : public rclcpp::Node
         /*
         *
         * */
+
+        pcl::PointIndices::Ptr fitGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr , 
+                                                    int , double , 
+                                                    int , pcl::PointIndices::Ptr , 
+                                                    pcl::ModelCoefficients::Ptr );
+        /*
+        *
+        */
+        
         vector<double> crossProduct(std::vector<double>, std::vector<double>);
 
         /*

@@ -107,6 +107,25 @@ void VisualServoing::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sha
     pointcloud_thread_.detach();
 }
 
+pcl::PointIndices::Ptr VisualServoing::fitGroundPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
+                                                    int max_iterations, double distance_threshold, 
+                                                    int round, pcl::PointIndices::Ptr inliers, 
+                                                    pcl::ModelCoefficients::Ptr coefficients){
+    // bin the points in z direction to count the number of points in each bin
+    std::vector<int> bin_values(NUM_BINS, 0); // vector of bin values
+    for(long unsigned int i = 0; i < cloud->points.size(); i++){
+        int bin_idx = int((cloud->points[i].z-PCL_Z_MIN_M)/(PCL_Z_MAX_M-PCL_Z_MIN_M)*NUM_BINS);
+        if(bin_idx<0 || bin_idx>=NUM_BINS){
+            continue;
+        }
+        bin_values[bin_idx]++;
+    }
+    // print bin values
+    // for(int i = 0; i < NUM_BINS; i++){
+    //     RCLCPP_INFO(this->get_logger(), "bin %d: %d", i, bin_values[i]);
+    // }
+
+}
 //function to apply RANSAC to fit ground plane on a pointcloud
 pcl::PointIndices::Ptr VisualServoing::fitBestPlane(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, 
                                                     int max_iterations, double distance_threshold, 
@@ -423,6 +442,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
     fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
+    fitGroundPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
     // delete inliers from cloud
     pcl::ExtractIndices<pcl::PointXYZ> extract;
     extract.setInputCloud(input_cloud);

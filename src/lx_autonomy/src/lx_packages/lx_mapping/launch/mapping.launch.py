@@ -10,28 +10,32 @@ def generate_launch_description():
             package='lx_mapping',
             executable='pc_handler_node',
             name='pc_handler_node',
-            emulate_tty=True
+            emulate_tty=True,
+            parameters=[{'use_sim_time': use_sim_time_param}]
         )
     
     auto_dump_visual_servoing_node = Node(
             package='lx_mapping',
             executable='visual_servoing_node',
             name='auto_dump_visual_servoing_node',
-            emulate_tty=True
+            emulate_tty=True,
+            parameters=[{'use_sim_time': use_sim_time_param}]
         )
     
     world_model_node = Node(
             package='lx_mapping',
             executable='world_model_node',
             name='world_model_node',
-            emulate_tty=True
+            emulate_tty=True,
+            parameters=[{'use_sim_time': use_sim_time_param}]
         )
     
     berm_evaluation_node = Node(
             package='lx_mapping',
             executable='berm_evaluation_node',
             name='berm_evaluation_node',
-            emulate_tty=True
+            emulate_tty=True,
+            parameters=[{'use_sim_time': use_sim_time_param}]
         )
 
     ld = LaunchDescription()
