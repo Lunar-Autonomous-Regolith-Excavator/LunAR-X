@@ -69,36 +69,29 @@ void WorldModel::setupInitialMaps(){
       zone_costmap_.data[GETMAXINDEX(zone_costmap_.info.width - 1, i, zone_costmap_.info.width)] = 100;
     }
 
-
-    if(debug_mode_){
-        std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates;
-        geometry_msgs::msg::PointStamped point;
-        point.point.x = 5.91;
-        point.point.y = 4.29;
-        berm_zone_coordinates.push_back(point);
-        point.point.x = 5.98;
-        point.point.y = 3.90;
-        berm_zone_coordinates.push_back(point);
-        point.point.x = 6.00;
-        point.point.y = 3.5;
-        berm_zone_coordinates.push_back(point);
-        point.point.x = 5.98;
-        point.point.y = 3.1;
-        berm_zone_coordinates.push_back(point);
-        point.point.x = 5.91;
-        point.point.y = 2.71;
-        berm_zone_coordinates.push_back(point);
-
-        updateBermZonesWorldModel(berm_zone_coordinates);
-    }
-
     updateTraversibilityCostmapWorldModel();
+
+    std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates;
+    geometry_msgs::msg::PointStamped point;
+    point.point.x = 6.0;
+    point.point.y = 3.0;
+    berm_zone_coordinates.push_back(point);
+    point.point.x = 6.0;
+    point.point.y = 3.4;
+    berm_zone_coordinates.push_back(point);
+    point.point.x = 6.0;
+    point.point.y = 3.8;
+    berm_zone_coordinates.push_back(point);
+    updateBermZonesWorldModel(berm_zone_coordinates);
+    updateTraversibilityCostmapWorldModel();
+
+
 }
 
 void WorldModel::setupCommunications(){
     rclcpp::QoS qos(10);  // initialize to default QoS
     qos.transient_local();
-    qos.reliable();
+    qos.reliable(); 
     qos.keep_last(1);
 
     // Publishers
@@ -145,6 +138,8 @@ void WorldModel::configureMaps(){
     zone_costmap_.info.height = 135;      // replace with your map height
     zone_costmap_.info.origin.position.x = 0.1;  // replace with your map origin x
     zone_costmap_.info.origin.position.y = 0.1;  // replace with your map origin y
+    // zone_costmap_.info.origin.position.x = -13;  // replace with your map origin x
+    // zone_costmap_.info.origin.position.y = -9;  // replace with your map origin y
     zone_costmap_.info.origin.position.z = 0.0;
     zone_costmap_.info.origin.orientation.x = 0.0;
     zone_costmap_.info.origin.orientation.y = 0.0;
@@ -340,30 +335,34 @@ void WorldModel::publishGlobalMap(){
 
 void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates){
 
+    double x_first = berm_zone_coordinates[0].point.x;
+    double y_first = berm_zone_coordinates[0].point.y;
+    double x_last = berm_zone_coordinates.back().point.x;
+    double y_last = berm_zone_coordinates.back().point.y;
+
     // berm_zone_coordinates is a vector of points that define the berm line segment. it is not a polygon. set berm_zone to 100 if point is within 0.3m of berm line
     for(size_t i = 0; i < berm_costmap_.info.width*berm_costmap_.info.height; i++){
         geometry_msgs::msg::Point32 point;
         point.x = berm_costmap_.info.origin.position.x + (i%berm_costmap_.info.width)*berm_costmap_.info.resolution;
         point.y = berm_costmap_.info.origin.position.y + (i/berm_costmap_.info.width)*berm_costmap_.info.resolution;
         point.z = 0.0;
-        for(size_t j = 0; j < berm_zone_coordinates.size()-1; j++){
+        for(size_t j = 1; j < berm_zone_coordinates.size()-1; j++){
             double x1 = berm_zone_coordinates[j].point.x;
             double y1 = berm_zone_coordinates[j].point.y;
             double x2 = berm_zone_coordinates[j+1].point.x;
             double y2 = berm_zone_coordinates[j+1].point.y;
             double line_dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
             double point_dist = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-            if(line_dist < 0.2 && point_dist < 0.1){
+            if(line_dist < 0.2 && point_dist < 0.5){
                 berm_costmap_.data[i] = 100;
                 break;
             }
         }
-        double x1 = berm_zone_coordinates.back().point.x;
-        double y1 = berm_zone_coordinates.back().point.y;
-        double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-        if(dist1 < 0.1){
+        double dist_first = sqrt(pow(point.x - x_first, 2) + pow(point.y - y_first, 2));
+        double dist_last = sqrt(pow(point.x - x_last, 2) + pow(point.y - y_last, 2));
+        if(dist_first < 0.2 || dist_last < 0.2){
             berm_costmap_.data[i] = 100;
-        }
+        }        
     }
 }
 
@@ -391,13 +390,18 @@ void WorldModel::filterMap(){
             if(neighbour_idx > global_map_.info.width*global_map_.info.height){
                 continue;
             }
+            // else if(filtered_global_map_.data[neighbour_idx] == 0){
+            //     continue;
+            // }   
             if(abs(filtered_global_map_.data[i] - filtered_global_map_.data[neighbour_idx]) <= gradient){
                 continue;
             }
+            // else if(global_map_.data[i] > global_map_.data[neighbour_idx]){
             else if(filtered_global_map_.data[i] > filtered_global_map_.data[neighbour_idx]){
                 bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] - gradient, 10000.0);
                 filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
             }
+            // // // else if(global_map_.data[i] < global_map_.data[neighbour_idx]){
             else if(filtered_global_map_.data[i] < filtered_global_map_.data[neighbour_idx]){
                 bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] + gradient, 10000.0);
                 filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
