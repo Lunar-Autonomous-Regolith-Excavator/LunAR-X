@@ -51,6 +51,7 @@ class ExpFilter{
     public:
         double DECAY_RATE;
         double prev_output;
+        int itr = 0;
         ExpFilter(double decay_rate = 0.9)
         {
             this->DECAY_RATE = decay_rate;
@@ -58,7 +59,15 @@ class ExpFilter{
         }
         double getValue(double input)
         {
-            this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
+            if(itr==0)
+            {
+                this->prev_output = input;
+                itr++;
+            }
+            else
+            {
+                this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
+            }
             return this->prev_output;
         }
 };
