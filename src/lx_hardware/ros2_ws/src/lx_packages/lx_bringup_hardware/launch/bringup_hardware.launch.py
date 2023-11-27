@@ -28,8 +28,12 @@ def generate_launch_description():
                           PythonLaunchDescriptionSource(
                           tool_height_dir + '/launch/aruco_recognition.launch.py'))
 
+    # imu_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(get_package_share_directory('vectornav') + '/launch/vectornav.launch.py'),
+    # )
+    
     imu_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(get_package_share_directory('vectornav') + '/launch/vectornav.launch.py'),
+        PythonLaunchDescriptionSource(get_package_share_directory('lx_bringup_hardware') + '/launch/lx_vectornav.launch.py'),
     )
 
     realsense_params_path = os.path.join(get_package_share_directory('lx_bringup_hardware'), 'config/realsense_config.yaml')
