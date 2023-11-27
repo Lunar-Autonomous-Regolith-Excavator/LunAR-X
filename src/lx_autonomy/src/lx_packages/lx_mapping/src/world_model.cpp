@@ -69,9 +69,30 @@ void WorldModel::setupInitialMaps(){
       zone_costmap_.data[GETMAXINDEX(zone_costmap_.info.width - 1, i, zone_costmap_.info.width)] = 100;
     }
 
-    updateTraversibilityCostmapWorldModel();
-    
 
+    if(debug_mode_){
+        std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates;
+        geometry_msgs::msg::PointStamped point;
+        point.point.x = 5.91;
+        point.point.y = 4.29;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 5.98;
+        point.point.y = 3.90;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 6.00;
+        point.point.y = 3.5;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 5.98;
+        point.point.y = 3.1;
+        berm_zone_coordinates.push_back(point);
+        point.point.x = 5.91;
+        point.point.y = 2.71;
+        berm_zone_coordinates.push_back(point);
+
+        updateBermZonesWorldModel(berm_zone_coordinates);
+    }
+
+    updateTraversibilityCostmapWorldModel();
 }
 
 void WorldModel::setupCommunications(){
@@ -124,8 +145,6 @@ void WorldModel::configureMaps(){
     zone_costmap_.info.height = 135;      // replace with your map height
     zone_costmap_.info.origin.position.x = 0.1;  // replace with your map origin x
     zone_costmap_.info.origin.position.y = 0.1;  // replace with your map origin y
-    // zone_costmap_.info.origin.position.x = -13;  // replace with your map origin x
-    // zone_costmap_.info.origin.position.y = -9;  // replace with your map origin y
     zone_costmap_.info.origin.position.z = 0.0;
     zone_costmap_.info.origin.orientation.x = 0.0;
     zone_costmap_.info.origin.orientation.y = 0.0;
@@ -334,7 +353,7 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
             double y2 = berm_zone_coordinates[j+1].point.y;
             double line_dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
             double point_dist = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-            if(line_dist < 0.2 && point_dist < 0.4){
+            if(line_dist < 0.2 && point_dist < 0.1){
                 berm_costmap_.data[i] = 100;
                 break;
             }
@@ -342,7 +361,7 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
         double x1 = berm_zone_coordinates.back().point.x;
         double y1 = berm_zone_coordinates.back().point.y;
         double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-        if(dist1 < 0.2){
+        if(dist1 < 0.1){
             berm_costmap_.data[i] = 100;
         }
     }
