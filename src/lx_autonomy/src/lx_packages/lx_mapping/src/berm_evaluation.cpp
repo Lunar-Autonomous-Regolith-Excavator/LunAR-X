@@ -125,6 +125,46 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     double peakline_length = 0;
     double peakline_error = 0;
 
+    //find the mean elevation of the region 0.3 to 0.4 m away from the line joining the two points
+    double sum_ground_height = 0;
+    int num_points_in_region = 1;
+    int num_berm_points = 0;
+    double berm_volume = 0;
+    for(size_t j = 0; j < this->map_->data.size(); j++){
+        double x = (j%this->map_->info.width)*this->map_->info.resolution;
+        double y = (j/this->map_->info.width)*this->map_->info.resolution;
+        for(size_t i = 0; i < requested_berm_points_.size()-1; i++){
+            double m = (requested_berm_points_[i+1].point.y - requested_berm_points_[i].point.y)/(requested_berm_points_[i+1].point.x - requested_berm_points_[i].point.x + this->map_->info.resolution);
+            double c = requested_berm_points_[i].point.y - m*requested_berm_points_[i].point.x;
+            double line_dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
+            double point_dist = sqrt(pow(x - requested_berm_points_[i].point.x, 2) + pow(y - requested_berm_points_[i].point.y, 2));
+            if(line_dist < 0.2 && point_dist < 0.4 && this->map_->data[j] > 0){
+                berm_volume += this->map_->data[j]*this->map_->info.resolution*this->map_->info.resolution;
+                num_berm_points++;
+            }
+            else if(line_dist > 0.4 && line_dist < 0.5 && this->map_->data[j] > 0){
+                sum_ground_height += this->map_->data[j];
+                num_points_in_region++;
+                break;
+            }
+        }
+    }
+    double mean_ground_height = sum_ground_height/num_points_in_region;
+    berm_volume -= mean_ground_height*this->map_->info.resolution*this->map_->info.resolution*num_berm_points;
+    berm_volume /= ELEVATION_SCALE;
+    // append to volumetric_progress_ with timestamp
+    // volumetric_progress_[this->now().seconds()].push_back(berm_volume);
+    berm_progress_.timestamps.push_back(this->now().seconds());
+    berm_progress_.volumes.push_back(berm_volume);
+    // print volumetric_progress_
+    if(DEBUG_MODE){
+        volumetric_progress_[this->now().seconds()].push_back(berm_volume);
+        for(auto &it: volumetric_progress_){
+            RCLCPP_INFO(this->get_logger(), "Timestamp: %f, Volumetric progress: %f", it.first, it.second.back());
+        }
+    }
+
+
     for(size_t i = 0; i < requested_berm_points_.size()-1; i++){
 
         geometry_msgs::msg::Point berm_marker_1_point , berm_marker_2_point;
@@ -144,23 +184,10 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
         midpoint.y = (berm_marker_1_point.y + berm_marker_2_point.y)/2;
         midpoint.z = 0;
 
-        //find the mean elevation of the region 0.3 to 0.4 m away from the line joining the two points
-        double sum_ground_height = 0;
-        int num_points_in_region = 1;
         // loop over the the rectangle region parallel to the line joining the two berm_marker_points 1 and 2 but 0.3 to 0.4 m away from it
         double m = y_diff/(x_diff+this->map_->info.resolution);
         double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
-        for(size_t j = 0; j < this->map_->data.size(); j++){
-            double x = (j%this->map_->info.width)*this->map_->info.resolution;
-            double y = (j/this->map_->info.width)*this->map_->info.resolution;
-            double line_dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
-            if(line_dist > 0.4 && line_dist < 0.5 && this->map_->data[j] > 0){
-                sum_ground_height += this->map_->data[j];
-                num_points_in_region++;
-            }
-        }
 
-        double mean_ground_height = sum_ground_height/num_points_in_region;
 
         RCLCPP_INFO(this->get_logger(), "Mean ground height: %f", mean_ground_height);
 
@@ -244,6 +271,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
 
     berm_progress_.length = peakline_length;
     berm_progress_.peakline_error = peakline_error;
+
 
     RCLCPP_INFO(this->get_logger(), "Peakline length: %f, Peakline error: %f", peakline_length, peakline_error);
     

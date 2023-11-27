@@ -70,6 +70,7 @@ void WorldModel::setupInitialMaps(){
     }
 
     updateTraversibilityCostmapWorldModel();
+    
 
 }
 
@@ -345,7 +346,6 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
             berm_costmap_.data[i] = 100;
         }
     }
-
 }
 
 
@@ -372,18 +372,13 @@ void WorldModel::filterMap(){
             if(neighbour_idx > global_map_.info.width*global_map_.info.height){
                 continue;
             }
-            // else if(filtered_global_map_.data[neighbour_idx] == 0){
-            //     continue;
-            // }   
             if(abs(filtered_global_map_.data[i] - filtered_global_map_.data[neighbour_idx]) <= gradient){
                 continue;
             }
-            // else if(global_map_.data[i] > global_map_.data[neighbour_idx]){
             else if(filtered_global_map_.data[i] > filtered_global_map_.data[neighbour_idx]){
                 bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] - gradient, 10000.0);
                 filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());
             }
-            // // // else if(global_map_.data[i] < global_map_.data[neighbour_idx]){
             else if(filtered_global_map_.data[i] < filtered_global_map_.data[neighbour_idx]){
                 bayes_filter_[neighbour_idx].updateCell(filtered_global_map_.data[i] + gradient, 10000.0);
                 filtered_global_map_.data[neighbour_idx] = int(bayes_filter_[neighbour_idx].getCellElevation());

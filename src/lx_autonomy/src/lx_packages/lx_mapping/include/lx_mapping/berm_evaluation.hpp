@@ -23,9 +23,13 @@ class BermEvaluation : public rclcpp::Node
         // Variables & pointers -----------------
         const double ELEVATION_SCALE = 400;
         const double DESIRED_BERM_HEIGHT_M = 0.15;
+        const bool DEBUG_MODE = true;
         std::vector<geometry_msgs::msg::PointStamped> requested_berm_points_;
         nav_msgs::msg::OccupancyGrid::SharedPtr map_;
         lx_msgs::msg::BermProgress berm_progress_;
+        // make dictionary of double vectors, to store volume with timestamps
+        std::map<double, std::vector<double>> volumetric_progress_;
+
         // Subscribers
         rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr occupancy_grid_subscriber_;
         // Publishers
