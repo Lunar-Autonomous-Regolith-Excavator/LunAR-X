@@ -197,10 +197,10 @@ public:
     // define astar arrays as global variables to avoid stack overflow
     vector<vector<bool>> vis;
     vector<vector<int>> parent;
-    vector<vector<int>> cost;
+    vector<vector<double>> cost;
     vector<vector<int>> is_obstacle;
 
-    priority_queue<pair<int, Point2D>, vector<pair<int, Point2D>>, compare_pair<Point2D>> pq;
+    priority_queue<pair<double, Point2D>, vector<pair<double, Point2D>>, compare_pair<Point2D>> pq;
     int x_size, y_size, resolution;
 
     Point2D start, goal;
@@ -214,13 +214,13 @@ public:
         this->resolution = resolution; // meters per pixel
 
         //initialize arrays
-        this->cost = vector<vector<int>>(x_size+1, vector<int>(y_size+1, MAXCOST)); //distance array
+        this->cost = vector<vector<double>>(x_size+1, vector<double>(y_size+1, MAXCOST)); //distance array
         this->vis = vector<vector<bool>>(x_size+1, vector<bool>(y_size+1, false));   //visited array
         this->parent = vector<vector<int>>(x_size+1, vector<int>(y_size+1, -1));    //parent array (index values of (dX,dY) saved)
         this->is_obstacle = vector<vector<int>>(x_size+1, vector<int>(y_size+1, -1)); // to hash if a point is an obstacle or not
 
         //priority queue to pop closest element (dist, point_2d)
-        this->pq = priority_queue<pair<int, Point2D>, vector<pair<int, Point2D>>, compare_pair<Point2D>>();
+        this->pq = priority_queue<pair<double, Point2D>, vector<pair<double, Point2D>>, compare_pair<Point2D>>();
     }
 
     bool isvalid(Point2D point, int x_size, int y_size)

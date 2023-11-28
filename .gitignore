@@ -19,3 +19,5 @@ __pycache__/
 *.vscode/*
 **__pycache__
 
+# Stored paths
+*path_*.txt
