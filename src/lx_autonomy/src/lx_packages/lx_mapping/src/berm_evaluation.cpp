@@ -261,9 +261,14 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
 
         berm_progress_.heights.push_back(berm_height);
     }
-    
+    // calculate the average height of the berm in one line of code
+    double avg_berm_height = std::accumulate(berm_progress_.heights.begin(), berm_progress_.heights.end(), 0.0)/berm_progress_.heights.size();
+    double threshold_berm_height = 0.9*std::min(GLOBAL_BERM_HEIGHT_M, avg_berm_height);
+    RCLCPP_INFO(this->get_logger(), "Average berm height: %f, Threshold berm height: %f", avg_berm_height, threshold_berm_height);
+
     for(size_t i = 0; i < berm_heights_bins.size(); i++){
-        if(berm_heights_bins[i] >= 0.9*DESIRED_BERM_HEIGHT_M){
+        RCLCPP_INFO(this->get_logger(), "Berm height in bin %d: %f", (int)i, berm_heights_bins[i]);
+        if(berm_heights_bins[i] >= threshold_berm_height){
             peakline_length += this->map_->info.resolution * 1.414;
         }
     }
