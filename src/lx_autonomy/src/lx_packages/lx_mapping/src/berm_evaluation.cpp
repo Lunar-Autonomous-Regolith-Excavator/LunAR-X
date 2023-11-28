@@ -227,7 +227,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
             marker_msg.color.b = 0.0;
         }
         else{
-            marker_msg.color.b = 0.13;
+            marker_msg.color.b = GLOBAL_BERM_HEIGHT_M;
         }
         marker_msg.colors.push_back(marker_msg.color);
         marker_array_msg.markers.push_back(marker_msg);

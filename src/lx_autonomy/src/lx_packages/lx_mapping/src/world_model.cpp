@@ -333,7 +333,7 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
             double y2 = berm_zone_coordinates[j+1].point.y;
             double dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
             double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-            if(dist < 0.2 && dist1 < GLOBAL_BERM_LENGTH_M){
+            if(dist < GLOBAL_BERM_LENGTH_M/2 && dist1 < GLOBAL_BERM_LENGTH_M/2){
                 berm_costmap_.data[i] = 100;
                 break;
             }
@@ -341,7 +341,7 @@ void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::Point
         double x1 = berm_zone_coordinates.back().point.x;
         double y1 = berm_zone_coordinates.back().point.y;
         double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-        if(dist1 < 0.2){
+        if(dist1 < GLOBAL_BERM_LENGTH_M/2){
             berm_costmap_.data[i] = 100;
         }
     }
