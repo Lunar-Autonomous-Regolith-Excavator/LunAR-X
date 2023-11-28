@@ -35,7 +35,7 @@ class VisualServoing : public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        bool debug_mode_ = false;
+        bool debug_mode_ = true;
         bool transform_mode_; // if true, then projects the berm points to the current_berm_segment
         const bool USE_MEDIAN_SEGMENTATION = true; // if true, then uses median segmentation
         bool visual_servo_fail_ = false;
