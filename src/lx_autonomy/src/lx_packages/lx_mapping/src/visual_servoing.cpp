@@ -21,9 +21,6 @@
 
 VisualServoing::VisualServoing() : Node("visual_servoing_node")
 {   
-    // Set false for dry runs, set true for commands and to publish debug data
-    debug_mode_ = true;
-
     // Setup Communications
     setupCommunications();
 
@@ -109,6 +106,70 @@ void VisualServoing::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sha
     pointcloud_thread_ = std::thread(std::bind(&VisualServoing::getVisualServoError, this, msg));
 
     pointcloud_thread_.detach();
+}
+
+double VisualServoing::getMedianElevation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+    if(cloud->points.size() < 30){
+        RCLCPP_INFO(this->get_logger(), "No berm, as could not find ground plane");
+        return 0;
+    }
+    // bin the points in z direction to count the number of points in each bin
+    std::vector<int> bin_values(NUM_BINS, 0); // vector of bin values
+    for(long unsigned int i = 0; i < cloud->points.size(); i++){
+        int bin_idx = int((cloud->points[i].z-PCL_Z_MIN_M)/(PCL_Z_MAX_M-PCL_Z_MIN_M)*NUM_BINS);
+        if(bin_idx<0 || bin_idx>=NUM_BINS){
+            continue;
+        }
+        bin_values[bin_idx]++;
+    }
+    // get the median elevation fof the points
+    int median_bin_idx = cloud->points.size()/2;
+    int sum = 0;
+    for(int i = 0; i < NUM_BINS; i++){
+        sum += bin_values[i];
+        if(sum > median_bin_idx){
+            median_bin_idx = i;
+            break;
+        }
+    }
+    double median_elevation = (double)median_bin_idx*(PCL_Z_MAX_M-PCL_Z_MIN_M)/NUM_BINS + PCL_Z_MIN_M;
+
+    // if number of points more than median_elevation plus PEAK_LINE_DISTANCE_M, then no berm
+    int num_points_above_threshold = 0;
+    int threshold_bin_idx = int((median_elevation+PEAK_LINE_DISTANCE_M-PCL_Z_MIN_M)/(PCL_Z_MAX_M-PCL_Z_MIN_M)*NUM_BINS);
+    // calculate using bins
+    for(int i = threshold_bin_idx; i < NUM_BINS; i++){
+        num_points_above_threshold += bin_values[i];
+    }
+    if(debug_mode_){
+        RCLCPP_INFO(this->get_logger(), "Median elevation: %f, num_points_above_threshold: %d", median_elevation, num_points_above_threshold);
+    }
+    if(num_points_above_threshold < 10){
+        RCLCPP_INFO(this->get_logger(), "No berm, as height of berm is too small");
+        visual_servo_fail_ = true;
+        return -100;
+    }
+
+    return median_elevation;
+}
+
+void VisualServoing::getGroundIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double median_elevation, pcl::PointIndices::Ptr ground_indices){
+    // get the indices of the points in the ground plane using cropbox
+    pcl::CropBox<pcl::PointXYZ> cropbox;
+    cropbox.setMin(Eigen::Vector4f(PCL_X_MIN_M, PCL_Y_MIN_M, PCL_Z_MIN_M, 1.0));
+    cropbox.setMax(Eigen::Vector4f(PCL_X_MAX_M, PCL_Y_MAX_M, median_elevation, 1.0));
+    cropbox.setInputCloud(cloud);
+    cropbox.filter(ground_indices->indices);
+}
+
+
+void VisualServoing::getBermIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double median_elevation, pcl::PointIndices::Ptr berm_indices){
+    // get the indices of the points in the berm plane
+    pcl::CropBox<pcl::PointXYZ> cropbox;
+    cropbox.setMin(Eigen::Vector4f(PCL_X_MIN_M, PCL_Y_MIN_M, median_elevation, 1.0));
+    cropbox.setMax(Eigen::Vector4f(PCL_X_MAX_M, PCL_Y_MAX_M, PCL_Z_MAX_M, 1.0));
+    cropbox.setInputCloud(cloud);
+    cropbox.filter(berm_indices->indices);
 }
 
 //function to apply RANSAC to fit ground plane on a pointcloud
@@ -452,103 +513,166 @@ double VisualServoing::getTargetZ(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
 
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
 
+    visual_servo_fail_ = false;
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *input_cloud);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_minus_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
-    fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
-    // delete inliers from cloud
-    pcl::ExtractIndices<pcl::PointXYZ> extract;
-    extract.setInputCloud(input_cloud);
-    extract.setIndices(inliers_1);
-    extract.setNegative(true);
-    extract.filter(*cloud_minus_plane1);
-
-    // if no points in cloud_minus_plane1, then no berm
-    if(cloud_minus_plane1->points.size() < 30){
-        RCLCPP_INFO(this->get_logger(), "No berm, as could not find second plane");
-        return;
-    }
-    pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
-    fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
-
-    std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
-    std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
-    auto cross_product = crossProduct(normal_1, normal_2);
-    auto sin_theta = sqrt(cross_product[0]*cross_product[0] + cross_product[1]*cross_product[1] + cross_product[2]*cross_product[2]);
-    auto theta = asin(sin_theta);
-    
-    // create 2 vector pointers
-    std::vector<double> *ground_plane_vec = &normal_1;
-    std::vector<double> *berm_plane_vec = &normal_2;
-    std::vector<double> ground_plane_equation;
     std::vector<double> line_coefficients;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane2(new pcl::PointCloud<pcl::PointXYZ>);
     sensor_msgs::msg::PointCloud2 groundplane_msg;
     sensor_msgs::msg::PointCloud2 bermplane_msg;
+    std::vector<double> ground_plane_equation;
 
-    if(debug_mode_){
-        pcl::ExtractIndices<pcl::PointXYZ> extract_d1, extract_d2;
+    if(!USE_MEDIAN_SEGMENTATION){
+        fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
+        // delete inliers from cloud
+        pcl::ExtractIndices<pcl::PointXYZ> extract;
+        extract.setInputCloud(input_cloud);
+        extract.setIndices(inliers_1);
+        extract.setNegative(true);
+        extract.filter(*cloud_minus_plane1);
 
+        // if no points in cloud_minus_plane1, then no berm
+        if(cloud_minus_plane1->points.size() < 30){
+            RCLCPP_INFO(this->get_logger(), "No berm, as could not find second plane");
+            visual_servo_fail_ = true;
+            return;
+        }
+        pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
+        pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
+        fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
+
+        std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
+        std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
+        auto cross_product = crossProduct(normal_1, normal_2);
+        auto sin_theta = sqrt(cross_product[0]*cross_product[0] + cross_product[1]*cross_product[1] + cross_product[2]*cross_product[2]);
+        auto theta = asin(sin_theta);
+        
+        // create 2 vector pointers
+        std::vector<double> *ground_plane_vec = &normal_1;
+        std::vector<double> *berm_plane_vec = &normal_2;    
+
+        if(debug_mode_){
+            pcl::ExtractIndices<pcl::PointXYZ> extract_d1, extract_d2;
+
+            extract_d1.setInputCloud(input_cloud);
+            extract_d1.setIndices(inliers_1);
+            extract_d1.setNegative(false);
+            extract_d1.filter(*cloud_plane1);
+            groundplane_msg.header.frame_id = "base_link";
+
+            extract_d2.setInputCloud(cloud_minus_plane1);
+            extract_d2.setIndices(inliers_2);
+            extract_d2.setNegative(false);
+            extract_d2.filter(*cloud_plane2);
+            bermplane_msg.header.frame_id = "base_link";
+        }
+
+        if (theta < MIN_PLANE_ANGLE_DEG*M_PI/180.0){
+            // no berm
+            ground_plane_vec = &normal_1;
+            berm_plane_vec = &normal_1;
+            RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small %f", theta);
+            // publish ground plane
+            if(debug_mode_){
+                pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }
+            visual_servo_fail_ = true;
+        }
+        else if(cross_product[1]<0){
+            ground_plane_vec = &normal_1;
+            berm_plane_vec = &normal_2;
+            ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
+            line_coefficients = binPoints(cloud_minus_plane1, inliers_2, ground_plane_equation);
+            if(debug_mode_)
+            {
+                pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }
+        }
+        else{
+            ground_plane_vec = &normal_2;
+            berm_plane_vec = &normal_1;
+            ground_plane_equation = {coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]};
+            line_coefficients = binPoints(input_cloud, inliers_1, ground_plane_equation);
+            if(debug_mode_)
+            {
+                pcl::toROSMsg(*cloud_plane2, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane1, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }    
+        }
+        publishVector(*ground_plane_vec, "groundplane");
+        publishVector(*berm_plane_vec, "bermplane");
+    }
+    else{
+        // get median elevation
+        double median_elevation = getMedianElevation(input_cloud);
+        // get ground indices
+        pcl::PointIndices::Ptr ground_indices(new pcl::PointIndices);
+        getGroundIndices(input_cloud, median_elevation, ground_indices);
+        // get berm indices
+        pcl::PointIndices::Ptr berm_indices(new pcl::PointIndices);
+        getBermIndices(input_cloud, median_elevation, berm_indices);
+
+        // if no points in berms, then no berm
+        if(berm_indices->indices.size() < 30){
+            RCLCPP_INFO(this->get_logger(), "No berm, as no points in berm indices");
+            visual_servo_fail_ = true;
+            return;
+        }
+        
+        // fit plane thorugh ground indices
+        pcl::ExtractIndices<pcl::PointXYZ> extract_d1;
         extract_d1.setInputCloud(input_cloud);
-        extract_d1.setIndices(inliers_1);
+        extract_d1.setIndices(ground_indices);
         extract_d1.setNegative(false);
         extract_d1.filter(*cloud_plane1);
         groundplane_msg.header.frame_id = "base_link";
-
-        extract_d2.setInputCloud(cloud_minus_plane1);
-        extract_d2.setIndices(inliers_2);
-        extract_d2.setNegative(false);
-        extract_d2.filter(*cloud_plane2);
-        bermplane_msg.header.frame_id = "base_link";
-    }
-
-    if (theta < MIN_PLANE_ANGLE_DEG*M_PI/180.0){
-        // no berm
-        ground_plane_vec = &normal_1;
-        berm_plane_vec = &normal_1;
-        RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small %f", theta);
-        // publish ground plane
+        pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
+        fitBestPlane(cloud_plane1, 100, 0.01, 1, inliers_1, coefficients_1);
         if(debug_mode_){
-            pcl::toROSMsg(*cloud_plane1, groundplane_msg);
-            groundplane_publisher_->publish(groundplane_msg);
-            pcl::toROSMsg(*cloud_plane2, bermplane_msg);
-            bermplane_publisher_->publish(bermplane_msg);
+            RCLCPP_INFO(this->get_logger(), "Ground plane coefficients: %f, %f, %f, %f", coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]);
+            RCLCPP_INFO(this->get_logger(), "cloud_plane1 size: %d", cloud_plane1->points.size());
         }
-    }
-    else if(cross_product[1]<0){
-        ground_plane_vec = &normal_1;
-        berm_plane_vec = &normal_2;
+        // get ground plane equation
         ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
-        line_coefficients = binPoints(cloud_minus_plane1, inliers_2, ground_plane_equation);
+
+        // call binPoints to get line coefficients
+        line_coefficients = binPoints(input_cloud, berm_indices, ground_plane_equation);
         if(debug_mode_)
-        {
+            RCLCPP_INFO(this->get_logger(), "Berm line coefficients: %f, %f, %f, %f, %f, %f", line_coefficients[0], line_coefficients[1], line_coefficients[2], line_coefficients[3], line_coefficients[4], line_coefficients[5]);
+        if(line_coefficients.size() == 0){
+            RCLCPP_INFO(this->get_logger(), "No berm, as could not find peak line");
+            visual_servo_fail_ = true;
+            return;
+        }
+        if(debug_mode_)
+        {   
+            // cloud_plane2 is berm plane
+            pcl::ExtractIndices<pcl::PointXYZ> extract_d2;
+            extract_d2.setInputCloud(input_cloud);
+            extract_d2.setIndices(berm_indices);
+            extract_d2.setNegative(false);
+            extract_d2.filter(*cloud_plane2);
+            bermplane_msg.header.frame_id = "base_link";
             pcl::toROSMsg(*cloud_plane1, groundplane_msg);
             groundplane_publisher_->publish(groundplane_msg);
             pcl::toROSMsg(*cloud_plane2, bermplane_msg);
             bermplane_publisher_->publish(bermplane_msg);
         }
-    }
-    else{
-        ground_plane_vec = &normal_2;
-        berm_plane_vec = &normal_1;
-        ground_plane_equation = {coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]};
-        line_coefficients = binPoints(input_cloud, inliers_1, ground_plane_equation);
-        if(debug_mode_)
-        {
-            pcl::toROSMsg(*cloud_plane2, groundplane_msg);
-            groundplane_publisher_->publish(groundplane_msg);
-            pcl::toROSMsg(*cloud_plane1, bermplane_msg);
-            bermplane_publisher_->publish(bermplane_msg);
-        }    
-    }
-
-    // check if line_coefficients is empty
+    }        // check if line_coefficients is empty
     if(line_coefficients.size() > 0){
 
         geometry_msgs::msg::Point error_msg, curr_error;
@@ -709,8 +833,6 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     else
     {
         RCLCPP_INFO(this->get_logger(), "No line coefficients");
+        visual_servo_fail_ = true;
     }
-
-    publishVector(*ground_plane_vec, "groundplane");
-    publishVector(*berm_plane_vec, "bermplane");
 }
