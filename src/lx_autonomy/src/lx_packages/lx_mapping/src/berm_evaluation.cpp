@@ -200,13 +200,13 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
             double dist = sqrt(pow(x - midpoint.x, 2) + pow(y - midpoint.y, 2));
 
             // find the tenth percentile of the elevation of the points in the region 0.3m away from the midpoint of the line joining the two berm_marker_points
-            if(dist < 0.3){
+            if(dist < 0.2){
                 if(this->map_->data[j] > max){
                     max = this->map_->data[j];
                 }
                 elevations.push_back(this->map_->data[j]);
 
-                double x_proj, y_proj, parallel_dist, perpendicular_dist, bin;
+                double parallel_dist, perpendicular_dist, bin;
                 int sign = (y_diff > 0) - (y_diff < 0);
 
                 if(abs(m) > 20){
@@ -216,14 +216,14 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
                 }
                 
                 else{                
-                    x_proj = (m*(y - berm_marker_1_point.y) + x + m*m*berm_marker_1_point.x)/(m*m + 1);
-                    y_proj = m*x_proj + c;      
-                    int sign = (y_diff > 0) - (y_diff < 0);
-                    parallel_dist = (y_proj - berm_marker_1_point.y)*m/(m*m + 1)*sign;
-                    perpendicular_dist = (m*x - y + c)/sqrt(pow(m, 2) + 1);
-                    bin = sign*int(parallel_dist/(this->map_->info.resolution * 1.414));
+                    // make vectors of line segment joining the two berm_marker_points and the vector joining the first berm_marker_point to the current point
+                    std::vector<double> line_segment = {x_diff, y_diff, 0};
+                    std::vector<double> point_vector = {x - berm_marker_1_point.x, y - berm_marker_1_point.y, 0};
+                    double dot_product = point_vector[0]*line_segment[0] + point_vector[1]*line_segment[1];
+                    parallel_dist = dot_product/GLOBAL_BERM_LENGTH_M;
+                    perpendicular_dist = (point_vector[0]*line_segment[1] - point_vector[1]*line_segment[0])/GLOBAL_BERM_LENGTH_M;
+                    bin = int(parallel_dist/(this->map_->info.resolution * 1.414));
                 }
-
                 if(bin < num_bins_per_section && bin >= 0){
                     if(this->map_->data[j] > berm_heights_bins[i*num_bins_per_section + bin]){
                         berm_heights_bins[i*num_bins_per_section + bin] = this->map_->data[j];
@@ -267,7 +267,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     RCLCPP_INFO(this->get_logger(), "Average berm height: %f, Threshold berm height: %f", avg_berm_height, threshold_berm_height);
 
     for(size_t i = 0; i < berm_heights_bins.size(); i++){
-        RCLCPP_INFO(this->get_logger(), "Berm height in bin %d: %f", (int)i, berm_heights_bins[i]);
+        // RCLCPP_INFO(this->get_logger(), "Berm height in bin %d: %f", (int)i, berm_heights_bins[i]);
         if(berm_heights_bins[i] >= threshold_berm_height){
             peakline_length += this->map_->info.resolution * 1.414;
         }
