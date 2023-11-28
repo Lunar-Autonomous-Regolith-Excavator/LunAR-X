@@ -644,7 +644,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         fitBestPlane(cloud_plane1, 100, 0.01, 1, inliers_1, coefficients_1);
         if(debug_mode_){
             RCLCPP_INFO(this->get_logger(), "Ground plane coefficients: %f, %f, %f, %f", coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]);
-            RCLCPP_INFO(this->get_logger(), "cloud_plane1 size: %d", cloud_plane1->points.size());
+            RCLCPP_INFO(this->get_logger(), "cloud_plane1 size: %ld", cloud_plane1->points.size());
         }
         // get ground plane equation
         ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
