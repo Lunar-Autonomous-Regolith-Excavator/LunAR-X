@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     # Read parameters from YAML file
     package_directory = get_package_share_directory("lx_planning")
-    yaml_file = package_directory + '/maps/test.yaml'
+    yaml_file = package_directory + '/maps/moonyard.yaml'
     with open(yaml_file, 'r') as file:
         params = yaml.safe_load(file)
 
