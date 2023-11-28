@@ -22,7 +22,7 @@
 VisualServoing::VisualServoing() : Node("visual_servoing_node")
 {   
     // Set false for dry runs, set true for commands and to publish debug data
-    debug_mode_ = false;
+    debug_mode_ = true;
 
     // Setup Communications
     setupCommunications();
@@ -86,6 +86,10 @@ void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Swi
         this->prev_berm_segment = req->prev_berm_segment;
         // if all values in current_berm_segment are 0, set transform_mode_ to false
         if(this->current_berm_segment.x == 0 && this->current_berm_segment.y == 0 && this->current_berm_segment.theta == 0){
+            transform_mode_ = false;
+        }
+        else if (req->first_seg_dump == false) // only run transform points for first segment
+        {
             transform_mode_ = false;
         }
         else{
@@ -363,6 +367,18 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     for(int i=0;i<6;i++){
         line_coefficients.push_back(coefficients->values[i]);
     }
+    
+    // In the inliers of the peak line, find the average x and y values
+    double avg_x = 0.0, avg_y = 0.0;
+    for(long unsigned int i = 0; i < inliers_peakline->indices.size(); i++){
+        avg_x += binned_cloud_filtered->points[inliers_peakline->indices[i]].x;
+        avg_y += binned_cloud_filtered->points[inliers_peakline->indices[i]].y;
+    }
+    avg_x = avg_x/inliers_peakline->indices.size();
+
+    // append to line_coefficients
+    line_coefficients.push_back(avg_x); line_coefficients.push_back(avg_y);
+
     return line_coefficients;
 }
 
@@ -414,6 +430,26 @@ vector<geometry_msgs::msg::PoseStamped> VisualServoing::getTransformedBermSegmen
     return ans;
 }
 
+double VisualServoing::getTargetZ(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::CropBox<pcl::PointXYZ> crop;
+    crop.setMin(Eigen::Vector4f(-10, -0.2, -10, 1.0));
+    crop.setMax(Eigen::Vector4f(10, 0.2, 10, 1.0));
+    crop.setInputCloud(cloud);
+    crop.filter(*cropped_cloud);
+    // reomove noise
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    sor.setInputCloud(cropped_cloud);
+    sor.setMeanK(50);
+    sor.setStddevMulThresh(1.0);
+    sor.filter(*cropped_cloud);
+
+    double max_z = 0.0;
+    std::for_each(cropped_cloud->points.begin(), cropped_cloud->points.end(), [&max_z](pcl::PointXYZ p){if(p.z>max_z){max_z = p.z;}});
+    RCLCPP_INFO(this->get_logger(), "Z value of approach point: %f", max_z);
+    return max_z;
+}
+
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -422,7 +458,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_minus_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
-    fitBestPlane(input_cloud, 100, 0.02, 1, inliers_1, coefficients_1);
+    fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
     // delete inliers from cloud
     pcl::ExtractIndices<pcl::PointXYZ> extract;
     extract.setInputCloud(input_cloud);
@@ -437,7 +473,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     }
     pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
-    fitBestPlane(cloud_minus_plane1, 100, 0.02, 2, inliers_2, coefficients_2);
+    fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
 
     std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
     std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
@@ -518,7 +554,9 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         geometry_msgs::msg::Point error_msg, curr_error;
         std::vector<double> target_point(3,0.0);
         // find the point on the line given by line_coefficients that is closest to the tool (origin). 
-        // The coefficients are the form (x0, y0, z0, x1, y1, z1) where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
+        // The coefficients are the form (x0, y0, z0, x1, y1, z1, xmid, ymid)
+        // where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
+        // (xmid, ymid) is the midpoint of the inliers of the peak line
         double t = -(line_coefficients[0]*line_coefficients[3] + line_coefficients[1]*line_coefficients[4] + line_coefficients[2]*line_coefficients[5])/
                         (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
         target_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
@@ -543,13 +581,15 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         {
             curr_segment_pose = transformed_berm_segments[0];
             prev_segment_pose = transformed_berm_segments[1];
-            dist_to_curr_segment = sqrt(pow(target_point[0] - curr_segment_pose.pose.position.x, 2) + pow(target_point[1] - curr_segment_pose.pose.position.y, 2));
-            dist_to_prev_segment = sqrt(pow(target_point[0] - prev_segment_pose.pose.position.x, 2) + pow(target_point[1] - prev_segment_pose.pose.position.y, 2));
+            double x_inlier = line_coefficients[6], y_inlier = line_coefficients[7]; // midpoint of the inliers of the peak line
+            dist_to_curr_segment = sqrt(pow(x_inlier - curr_segment_pose.pose.position.x, 2) + pow(y_inlier - curr_segment_pose.pose.position.y, 2));
+            dist_to_prev_segment = sqrt(pow(x_inlier - prev_segment_pose.pose.position.x, 2) + pow(y_inlier - prev_segment_pose.pose.position.y, 2));
+            // print distance to curr and prev segments
+            RCLCPP_INFO(this->get_logger(), "Distance to curr segment: %f, Distance to prev segment: %f", dist_to_curr_segment, dist_to_prev_segment);
         }
 
         if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
         {
-            RCLCPP_INFO(this->get_logger(), "Servoing to detected berm");
             // calculate yaw error by projecting the direction vector into the x-y plane
             double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
             // shift yaw error to -pi/2 to pi/2
@@ -562,11 +602,11 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
             curr_error.y = yaw_error;
             curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(target_point, "targetpoint");
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point");
             // Detected berm is previous berm
             // Find closest point on line line_coefficients to the point previous_berm_segment
             vector<double> dir_vect = { line_coefficients[0] - prev_segment_pose.pose.position.x, 
@@ -586,7 +626,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             double prev_segment_theta = tf2::getYaw(q);
 
             // get intersection point
-            double SEG_LEN=0.4;
+            double SEG_LEN=GLOBAL_BERM_LENGTH_M;
             vector<double> intersection_point{3, 0.0};
             intersection_point[0] = closest_point[0] + cos(prev_segment_theta)*SEG_LEN/2.0;
             intersection_point[1] = closest_point[1] + sin(prev_segment_theta)*SEG_LEN/2.0;
@@ -602,15 +642,17 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
             projected_point[2] = intersection_point[2];
 
-            curr_error.x = - tool_distance_wrt_base_link_;
-            curr_error.y = curr_segment_theta;
-            if (curr_segment_theta > M_PI/2){
+            curr_error.x = projected_point[0] - tool_distance_wrt_base_link_;
+            curr_error.y = M_PI/2 - curr_segment_theta;
+            if (curr_error.y > M_PI/2){
                 curr_error.y = curr_error.y - M_PI;
             }
-            else if (curr_segment_theta < -M_PI/2){
+            else if (curr_error.y < -M_PI/2){
                 curr_error.y = curr_error.y + M_PI;
             }
-            curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            double z_approach = getTargetZ(input_cloud);
+            curr_error.z = z_approach - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point, servoing with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(projected_point, "targetpoint");
             if(debug_mode_)
             {

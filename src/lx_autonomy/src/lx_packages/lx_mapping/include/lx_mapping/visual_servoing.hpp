@@ -16,6 +16,8 @@
 #include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/filters/crop_box.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <geometry_msgs/msg/point.hpp>
 #include "rclcpp/logger.hpp"
 #include <vector>
@@ -131,6 +133,8 @@ class VisualServoing : public rclcpp::Node
         void toolDistanceCallback(const std_msgs::msg::Float64::SharedPtr );
 
         vector<geometry_msgs::msg::PoseStamped> getTransformedBermSegments();
+
+        double getTargetZ(pcl::PointCloud<pcl::PointXYZ>::Ptr);
 
 
     public:

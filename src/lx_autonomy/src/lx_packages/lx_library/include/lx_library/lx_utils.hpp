@@ -12,6 +12,9 @@ struct pid_struct{
     double kd;
 };
 
+const double GLOBAL_BERM_LENGTH_M = 0.43;
+const double GLOBAL_BERM_HEIGHT_M = 0.13;
+
 enum class JoyButtons : int {
                             START = 7, BACK = 6, GUIDE = 8, 
                             A = 0, B = 1, X = 2, Y = 3, 
@@ -51,6 +54,7 @@ class ExpFilter{
     public:
         double DECAY_RATE;
         double prev_output;
+        int itr = 0;
         ExpFilter(double decay_rate = 0.9)
         {
             this->DECAY_RATE = decay_rate;
@@ -58,7 +62,15 @@ class ExpFilter{
         }
         double getValue(double input)
         {
-            this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
+            if(itr==0)
+            {
+                this->prev_output = input;
+                itr++;
+            }
+            else
+            {
+                this->prev_output = this->DECAY_RATE*this->prev_output + (1-this->DECAY_RATE)*input;
+            }
             return this->prev_output;
         }
 };
