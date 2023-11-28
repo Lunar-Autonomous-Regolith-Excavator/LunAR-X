@@ -338,17 +338,8 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     marker_array_msg.scale.y = 0.05;
     marker_array_msg.color.r = 1.0;
     marker_array_msg.color.a = 1.0;
-    for(int i = 0; i < NUM_BINS; i++){
-        geometry_msgs::msg::Point p;
-        p.x = ((double)peak_x[i]*(PCL_X_MAX_M-PCL_X_MIN_M)/NUM_BINS) + PCL_X_MIN_M;
-        p.y = (double)i*(PCL_Y_MAX_M-PCL_Y_MIN_M)/NUM_BINS + PCL_Y_MIN_M;
-        p.z = peak_z[i];
-        marker_array_msg.points.push_back(p);
-    }
 
-    if(debug_mode_){
-        peakpoints_marker_publisher_->publish(marker_array_msg);    
-    }
+
     // Make a new PCL pointcloud with only the points in the bins
     pcl::PointCloud<pcl::PointXYZ>::Ptr binned_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for(int i = 0; i < NUM_BINS; i++){
@@ -379,13 +370,20 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     for(long unsigned int i=0; i < binned_cloud->points.size(); i++){
         if(abs(distances[i]-max_distance)<PEAK_LINE_DISTANCE_M){
             binned_cloud_filtered->points.push_back(binned_cloud->points[i]);
+            geometry_msgs::msg::Point p;
+            p.x = binned_cloud->points[i].x;
+            p.y = binned_cloud->points[i].y;
+            p.z = binned_cloud->points[i].z;
+            marker_array_msg.points.push_back(p);
         }
     }
     if (binned_cloud_filtered->points.size() < 2){
         RCLCPP_INFO(this->get_logger(), "No berm, as could not find peak line");
         return {};
     }
-
+    if(debug_mode_){
+        peakpoints_marker_publisher_->publish(marker_array_msg);    
+    }
     // fit a line to the binned cloud
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_peakline(new pcl::PointIndices);
