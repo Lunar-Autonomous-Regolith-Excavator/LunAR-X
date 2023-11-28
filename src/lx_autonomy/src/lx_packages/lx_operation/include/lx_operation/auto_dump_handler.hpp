@@ -159,7 +159,8 @@ class AutoDumpHandler: public rclcpp::Node
         * */
         bool callVisualServoSwitch(bool switch_state, 
                            const lx_msgs::msg::BermSection::SharedPtr current_berm_segment = nullptr,
-                           const lx_msgs::msg::BermSection::SharedPtr prev_berm_segment = nullptr);
+                           const lx_msgs::msg::BermSection::SharedPtr prev_berm_segment = nullptr, 
+                           const bool first_seg_dump = false);
 
         /*
         * 

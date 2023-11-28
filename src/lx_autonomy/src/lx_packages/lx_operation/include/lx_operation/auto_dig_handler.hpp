@@ -78,13 +78,13 @@ class AutoDigHandler: public rclcpp::Node
         // Constants
         const double OUTER_PID_CLIP_MIN = 0.01;
         const double OUTER_PID_CLIP_MAX = 0.25;
-        const double FORWARD_SPEED = 0.03; // speed at which the rover moves forward (m/s)
+        const double FORWARD_SPEED = 0.02; // speed at which the rover moves forward (m/s)
         const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
         const double NOMINAL_CURRENT_VALUE_I = 1.2; 
         const double NOMINAL_CURRENT_VALUE_F = 3.1;
         const double T_END_SECONDS = 55; // time for which the current is increased from nominal_current_value_i to nominal_current_value_f 
         const double GOTO_TOOL_HEIGHT = 0.24; // the height the tool goes to before starting excavation
-        const double END_TOOL_HEIGHT = 0.45; // the height the tool goes to after excavation is complete
+        const double END_TOOL_HEIGHT = 0.43; // the height the tool goes to after excavation is complete
         
         // --------------------------------------
 

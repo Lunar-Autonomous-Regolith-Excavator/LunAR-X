@@ -15,6 +15,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <vector>
+#include "lx_library/lx_utils.hpp"
 
 
 class BermEvaluation : public rclcpp::Node
@@ -22,7 +23,7 @@ class BermEvaluation : public rclcpp::Node
     private:
         // Variables & pointers -----------------
         const double ELEVATION_SCALE = 400;
-        const double DESIRED_BERM_HEIGHT_M = 0.15;
+        const double DESIRED_BERM_HEIGHT_M = GLOBAL_BERM_HEIGHT_M;
         std::vector<geometry_msgs::msg::PointStamped> requested_berm_points_;
         nav_msgs::msg::OccupancyGrid::SharedPtr map_;
         lx_msgs::msg::BermProgress berm_progress_;

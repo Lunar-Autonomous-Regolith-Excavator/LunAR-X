@@ -96,7 +96,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     marker_msg.type = visualization_msgs::msg::Marker::CUBE;
     marker_msg.action = visualization_msgs::msg::Marker::ADD;
     marker_msg.scale.x = 0.1;
-    marker_msg.scale.y = 0.4;
+    marker_msg.scale.y = GLOBAL_BERM_LENGTH_M;
     marker_msg.color.a = 1.0;
     marker_msg.color.r = 0.0; 
     marker_msg.color.g = 1.0;
@@ -116,7 +116,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     peak_points_marker.color.g = 0.0;   
     peak_points_marker.color.b = 1.0;
 
-    int num_bins_per_section = 0.4 / (this->map_->info.resolution * 1.414);
+    int num_bins_per_section = GLOBAL_BERM_LENGTH_M / (this->map_->info.resolution * 1.414);
     RCLCPP_INFO(this->get_logger(), "Num bins per section: %d", num_bins_per_section);
 
     std::vector<double> berm_heights_bins(requested_berm_points_.size()*num_bins_per_section, 0);
@@ -227,7 +227,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
             marker_msg.color.b = 0.0;
         }
         else{
-            marker_msg.color.b = 0.13;
+            marker_msg.color.b = GLOBAL_BERM_HEIGHT_M;
         }
         marker_msg.colors.push_back(marker_msg.color);
         marker_array_msg.markers.push_back(marker_msg);

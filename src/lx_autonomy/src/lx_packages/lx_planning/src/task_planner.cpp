@@ -133,13 +133,16 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         // Find the number of iterations and 
         int num_iterations = berm_section_iterations_[i];
 
+        int sign = 1;
         for (int j = 0; j < num_iterations; j++){
             // Randomize excavation pose
             double min_offset = 0.1;
             double max_offset = 0.4;
             double random_offset = (double)rand() / (double)RAND_MAX; // 0 to 1
             random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
-            if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
+            random_offset = random_offset * sign; // change sign with each iteration
+            sign *= -1;
+            // if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
             geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
             rand_excavation_pose.position.y += random_offset * cos(berm_section.angle + M_PI / 2);
             rand_excavation_pose.position.y = std::max(1.5, std::min(4.5, rand_excavation_pose.position.y));
@@ -201,6 +204,8 @@ bool TaskPlanner::findBermSequence(const std::vector<geometry_msgs::msg::Point> 
             center.x = (point_1.x + point_2.x) / 2;
             center.y = (point_1.y + point_2.y) / 2;
             double angle = atan2(point_2.y - point_1.y, point_2.x - point_1.x);
+            // print the x,y, angle of the berm section
+            RCLCPP_INFO(this->get_logger(), "Berm section %d: (%f, %f), %f", i, center.x, center.y, angle);
 
             // Add to berm sequence
             BermSection berm_section(center, angle);
