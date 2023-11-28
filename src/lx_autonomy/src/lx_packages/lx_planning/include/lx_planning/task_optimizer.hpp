@@ -22,6 +22,7 @@
 #include <limits>
 #include <queue>
 #include <utility>
+#include <fstream>
 
 #define GETMAPINDEX(x, y, width) (y * width + x)
 
@@ -311,6 +312,63 @@ public:
         // if no path found, return max cost
         return MAXCOST;
     }
+
+    vector<Point2D> get_path(const Point2D& start, const Point2D& goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const u_int8_t* map, const int collision_thresh)
+    {
+        vector<Point2D> path;
+
+        //insert start node with distance 0
+        pq.push({0, start});
+        cost[start.x][start.y] = 0;
+        vis[start.x][start.y] = true;
+        parent[start.x][start.y] = -1;
+
+        while(!pq.empty())
+        {
+            Point2D u = pq.top().second;
+            pq.pop();
+
+            // Check if we have reached goal
+            if(u.x == goal.x && u.y == goal.y)
+            {
+                Point2D curr = goal;
+                while(parent[curr.x][curr.y] != -1)
+                {
+                    path.push_back(curr);
+                    int dir = parent[curr.x][curr.y];
+                    curr = {curr.x + invDX[dir], curr.y + invDY[dir]}; 
+                }
+                reverse(path.begin(), path.end());
+                return path;
+            }
+            
+            //iterate over all unvisited neighbors of u
+            for(int dir = 0; dir < NUMOFDIRS; dir++)
+            {
+                Point2D v = {u.x + dX[dir], u.y + dY[dir]};
+                // if neighbor is valid and not visited
+                if(isvalid(v, x_size, y_size) && vis[v.x][v.y] == false)
+                {                    
+                    // Check if neighbor is an obstacle
+                    if (check_if_obstacle(v, berm_inputs, visited_berm_counts, map, collision_thresh)) continue;
+                    
+                    double v_g = cost[u.x][u.y] + movecost[dir];
+
+                    //if there is a shorter path to v through u, update cost and push to queue
+                    if(cost[v.x][v.y] > v_g)
+                    {
+                        int v_h = get_octal_distance(v, goal);
+
+                        parent[v.x][v.y] = dir;
+                        cost[v.x][v.y] = v_g;
+                        pq.push({v_g + v_h, v});
+                        vis[v.x][v.y] = true;
+                    }
+                }
+            }
+        }
+        return path;        
+    }
 };
 
 class OptimalSequencePlanner
@@ -367,6 +425,29 @@ public:
         Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
         double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map->data.data()), 50);
         return move_cost*resolution;
+    }
+
+    vector<Pose2D> get_astar_path(Pose2D start, Pose2D goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
+    {
+        double resolution = map->info.resolution; // meters per pixel
+        Astar2D astar(map->info.width, map->info.height, resolution);
+        Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
+        Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
+        vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map->data.data()), 50);
+        // Multiply path by resolution
+        Pose2D pose;
+        vector<Pose2D> path_poses;
+        for(u_int i=0; i<path.size(); i++)
+        {
+            pose.x = path[i].x*resolution;
+            pose.y = path[i].y*resolution;
+            if (i < path.size() - 1)
+            {
+                pose.theta = atan2(path[i+1].y - path[i].y, path[i+1].x - path[i].x);
+            }
+            path_poses.push_back(pose);
+        }
+        return path_poses;
     }
 
     TaskState get_next_state(const TaskState& state, int dj, int ek)
@@ -483,6 +564,23 @@ public:
       
     }
 
+    bool save_path(const vector<Pose2D> &path, const string& filename)
+    {
+        ofstream myfile;
+        myfile.open(filename);
+        if(!myfile.is_open())
+        {
+            cout<<"Error opening file"<<endl;
+            return false;
+        }
+        for(u_int i=0; i<path.size(); i++)
+        {
+            myfile<<path[i].x<<","<<path[i].y<<","<<path[i].theta<<endl;
+        }
+        myfile.close();
+        return true;
+    }
+
     vector<lx_msgs::msg::PlannedTask> get_plan()
     {
         vector<lx_msgs::msg::PlannedTask> final_plan;
@@ -592,7 +690,12 @@ public:
         }
 
         bool first_op = true;
+        int nav_count = 0;
+        string dir = "/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/paths/";
 
+        vector<int> visited_berm_counts(D, 0);
+
+        Pose2D robot_cur_pose = excavation_poses->at(0), robot_next_pose;
         lx_msgs::msg::PlannedTask task;
         for (u_int i = 0; i < path.size() -1; i++)
         {
@@ -605,6 +708,12 @@ public:
                 task.task_type = int(TaskTypeEnum::AUTONAV);
                 task.pose = excavation_poses->at(excavation_idx).getPose();
                 final_plan.push_back(task);
+
+                vector<Pose2D> path = get_astar_path(robot_cur_pose, excavation_poses->at(excavation_idx), *berm_inputs, visited_berm_counts);
+                robot_cur_pose = excavation_poses->at(excavation_idx);
+
+                // Save path to file
+                save_path(path, dir + "path_" + to_string(nav_count++) + ".txt");
             }
             else {
                 first_op = false;
@@ -614,16 +723,26 @@ public:
             task.task_type = int(TaskTypeEnum::AUTODIG);
             task.pose = excavation_poses->at(excavation_idx).getPose();
             final_plan.push_back(task);
+            robot_cur_pose = excavation_poses->at(excavation_idx);
+            robot_cur_pose.x += EXCAVATION_DIST_M*cos(robot_cur_pose.theta);
+            robot_cur_pose.y += EXCAVATION_DIST_M*sin(robot_cur_pose.theta);
 
             // Navigation Task to Berm
             task.task_type = int(TaskTypeEnum::AUTONAV);
-            task.pose = getDumpPose(berm_inputs->at(berm_idx), action_to_take.pj).getPose();
+            Pose2D dump_pose = getDumpPose(berm_inputs->at(berm_idx), action_to_take.pj);
+            task.pose = dump_pose.getPose();
             final_plan.push_back(task);
+            vector<Pose2D> path = get_astar_path(robot_cur_pose, dump_pose, *berm_inputs, visited_berm_counts);
+            robot_cur_pose = dump_pose;
+
+            save_path(path, dir + "path_" + to_string(nav_count++) + ".txt");
 
             // Dump Task
             task.task_type = int(TaskTypeEnum::AUTODUMP);
             task.pose = berm_inputs->at(berm_idx).getPose();
             final_plan.push_back(task);
+
+            visited_berm_counts[berm_idx] += 1;
         }
 
         return final_plan;

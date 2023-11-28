@@ -145,7 +145,7 @@ def getFrame(i, berm_pts_arr, excavation_pts_arr, height_grid_arr, corners_arr, 
     plt.gca().cla()
     
     # visualize the height map with legend with y axis inverted
-    artists.append(plt.imshow(height_grid_arr[i].T, cmap='Greys', origin='lower'))
+    artists.append(plt.imshow(height_grid_arr[i].T, cmap='viridis', origin='lower'))
     # artists.append(plt.colorbar(label='Value'))
 
     # visualize the robot as rectangle
@@ -258,6 +258,8 @@ if __name__ == '__main__':
     # generate a robot
     _, init_x, init_y, init_theta = output_points[0]
     robot = Robot(init_x * 100, init_y * 100, np.deg2rad(init_theta))
+
+    nav_count = 0
     
     robot_path = []
     for out in output_points:
@@ -271,13 +273,21 @@ if __name__ == '__main__':
         theta = np.deg2rad(theta)
         
         if task == 0: # navigation
-            dx = x - robot.x
-            dy = y - robot.y
-            dtheta = theta - robot.theta
-            if dx == 0 and dy == 0 and dtheta == 0:
-                continue
+            # dx = x - robot.x
+            # dy = y - robot.y
+            # dtheta = theta - robot.theta
+            # if dx == 0 and dy == 0 and dtheta == 0:
+            #     continue
 
-            for i in range(0, 10):
+            # read path from file
+            path = np.genfromtxt('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/paths/path_' + str(nav_count) + '.txt', delimiter=',')
+            path[:, :2] *= 100
+
+            for i in range(len(path)):
+                dx = path[i, 0] - robot.x
+                dy = path[i, 1] - robot.y
+                dtheta = 0 #path[i, 2] - robot.theta
+
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())
                 corners_arr.append(robot.get_corners())
@@ -288,7 +298,9 @@ if __name__ == '__main__':
                 excavation_arr.append(excavation_points.copy())
                 task_arr.append(task_types[task])
 
-                robot.shift(dx * dt, dy * dt, dtheta * dt)
+                robot.shift(dx, dy, dtheta)
+            
+            nav_count += 1
         
         elif task == 1: # excavation
             dx = x + 150 * np.cos(robot.theta) - robot.x
