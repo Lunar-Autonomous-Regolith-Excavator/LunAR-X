@@ -6,6 +6,7 @@ from matplotlib.animation import FuncAnimation, PillowWriter  # For gif
 
 from ament_index_python.packages import get_package_share_directory
 import yaml
+import cv2
 
 # visualization
 fig = plt.figure()
@@ -34,7 +35,7 @@ class Robot:
     WIDTH = 70
     LENGTH = 100
     
-    LENGTH_TOOL = 40
+    LENGTH_TOOL = 35
     TOOL_POS = LENGTH/2 + LENGTH_TOOL
     TOOL_RAD = 10
     TOOL_WIDTH = 42
@@ -232,7 +233,7 @@ if __name__ == '__main__':
 
     # Read parameters from YAML file
     package_directory = get_package_share_directory("lx_planning")
-    yaml_file = package_directory + '/maps/moonyard.yaml'
+    yaml_file = package_directory + '/maps/test.yaml'
     with open(yaml_file, 'r') as file:
         params = yaml.safe_load(file)
 
@@ -247,13 +248,16 @@ if __name__ == '__main__':
     # read output CSV
     output_points = np.genfromtxt('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/animation/output.csv', delimiter=',')
 
-    # # Generate a 70 by 70 array with random height values
-    # height_grid = np.random.rand(70, 70)
-    # height_grid = gaussian_filter(height_grid, sigma=5)
-    # height_grid = np.kron(height_grid, np.ones((10, 10))) # resize the height map to 700 by 700
-    # height_grid = height_grid - np.min(height_grid) # make the minimum height zero
+    map_string = params['map_image']
+    map_string= '/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/maps/' + map_string
+    map_image = (255 - cv2.imread(map_string, cv2.IMREAD_GRAYSCALE))
+    map_image[map_image < 128] = 0
+    map_image[map_image >= 128] = 25
 
-    height_grid = np.zeros((700, 700), dtype=int)
+    # scale the map by 5 times
+    height_grid = np.kron(map_image, np.ones((5, 5)))
+    # rotate clockwise by 90 degrees
+    height_grid = np.rot90(height_grid, k=3)
 
     # generate a robot
     _, init_x, init_y, init_theta = output_points[0]
@@ -273,12 +277,6 @@ if __name__ == '__main__':
         theta = np.deg2rad(theta)
         
         if task == 0: # navigation
-            # dx = x - robot.x
-            # dy = y - robot.y
-            # dtheta = theta - robot.theta
-            # if dx == 0 and dy == 0 and dtheta == 0:
-            #     continue
-
             # read path from file
             path = np.genfromtxt('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/paths/path_' + str(nav_count) + '.txt', delimiter=',')
             path[:, :2] *= 100
