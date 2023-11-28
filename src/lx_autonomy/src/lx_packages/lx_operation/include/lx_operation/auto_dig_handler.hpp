@@ -78,7 +78,7 @@ class AutoDigHandler: public rclcpp::Node
         // Constants
         const double OUTER_PID_CLIP_MIN = 0.01;
         const double OUTER_PID_CLIP_MAX = 0.25;
-        const double FORWARD_SPEED = 0.03; // speed at which the rover moves forward (m/s)
+        const double FORWARD_SPEED = 0.02; // speed at which the rover moves forward (m/s)
         const double DRUM_COMMAND_EXCAVATION = -0.8; // speed at which the drum rotates [-1, 1], -ve is excavation
         const double NOMINAL_CURRENT_VALUE_I = 1.2; 
         const double NOMINAL_CURRENT_VALUE_F = 3.1;

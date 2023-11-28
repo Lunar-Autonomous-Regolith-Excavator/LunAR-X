@@ -792,12 +792,12 @@ std::vector<geometry_msgs::msg::Point> OperationsHandler::createVizRectangle(flo
     // Add the four corners to the points
     geometry_msgs::msg::Point point;
     point.z = 0.0;
-    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
-    point.y = y - 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
-    point.y = y - 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
-    point.y = y + 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + GLOBAL_BERM_LENGTH_M/2*sin(theta) - 0.2/2*cos(theta); point.x = x + GLOBAL_BERM_LENGTH_M/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - GLOBAL_BERM_LENGTH_M/2*sin(theta) - 0.2/2*cos(theta); point.x = x - GLOBAL_BERM_LENGTH_M/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - GLOBAL_BERM_LENGTH_M/2*sin(theta) + 0.2/2*cos(theta); point.x = x - GLOBAL_BERM_LENGTH_M/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + GLOBAL_BERM_LENGTH_M/2*sin(theta) + 0.2/2*cos(theta); point.x = x + GLOBAL_BERM_LENGTH_M/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
     // Repeat first point to close the rectangle
-    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + GLOBAL_BERM_LENGTH_M/2*sin(theta) - 0.2/2*cos(theta); point.x = x + GLOBAL_BERM_LENGTH_M/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
 
     return polygon;
 }
