@@ -133,16 +133,18 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     for(size_t j = 0; j < this->map_->data.size(); j++){
         double x = (j%this->map_->info.width)*this->map_->info.resolution;
         double y = (j/this->map_->info.width)*this->map_->info.resolution;
+        bool is_in_region = false;
         for(size_t i = 0; i < requested_berm_points_.size()-1; i++){
             double m = (requested_berm_points_[i+1].point.y - requested_berm_points_[i].point.y)/(requested_berm_points_[i+1].point.x - requested_berm_points_[i].point.x + this->map_->info.resolution);
             double c = requested_berm_points_[i].point.y - m*requested_berm_points_[i].point.x;
             double line_dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
             double point_dist = sqrt(pow(x - requested_berm_points_[i].point.x, 2) + pow(y - requested_berm_points_[i].point.y, 2));
-            if(line_dist < 0.2 && point_dist < 0.4 && this->map_->data[j] > 0){
+            if(line_dist < GLOBAL_BERM_HEIGHT_M/0.866 && point_dist < GLOBAL_BERM_LENGTH_M && this->map_->data[j] > 0 && !is_in_region){
                 berm_volume += this->map_->data[j]*this->map_->info.resolution*this->map_->info.resolution;
                 num_berm_points++;
+                is_in_region = true;
             }
-            else if(line_dist > 0.4 && line_dist < 0.5 && this->map_->data[j] > 0){
+            else if(line_dist > GLOBAL_BERM_HEIGHT_M*2.4 && line_dist < GLOBAL_BERM_HEIGHT_M*2.9 && this->map_->data[j] > 0){
                 sum_ground_height += this->map_->data[j];
                 num_points_in_region++;
                 break;
@@ -186,8 +188,6 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
 
         // loop over the the rectangle region parallel to the line joining the two berm_marker_points 1 and 2 but 0.3 to 0.4 m away from it
         double m = y_diff/(x_diff+this->map_->info.resolution);
-        double c = berm_marker_1_point.y - m*berm_marker_1_point.x;
-
 
         RCLCPP_INFO(this->get_logger(), "Mean ground height: %f", mean_ground_height);
 
@@ -200,7 +200,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
             double dist = sqrt(pow(x - midpoint.x, 2) + pow(y - midpoint.y, 2));
 
             // find the tenth percentile of the elevation of the points in the region 0.3m away from the midpoint of the line joining the two berm_marker_points
-            if(dist < 0.2){
+            if(dist < GLOBAL_BERM_LENGTH_M*0.75){
                 if(this->map_->data[j] > max){
                     max = this->map_->data[j];
                 }
