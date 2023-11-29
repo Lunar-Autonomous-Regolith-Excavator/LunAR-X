@@ -240,7 +240,9 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
         if(elevations.size() > 0){
             int top_percentile_pt = 0.95*elevations.size();
             std::nth_element(elevations.begin(), elevations.begin() + top_percentile_pt, elevations.end());
-            berm_height = (elevations[top_percentile_pt]-mean_ground_height)/ELEVATION_SCALE;
+            if(elevations[top_percentile_pt] > mean_ground_height){
+                berm_height = (elevations[top_percentile_pt]-mean_ground_height)/ELEVATION_SCALE;
+            }
         }
 
         RCLCPP_INFO(this->get_logger(), "Berm height in section %d: %f", (int)i, berm_height);
@@ -261,15 +263,25 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
 
         berm_progress_.heights.push_back(berm_height);
     }
-    // calculate the average height of the berm in one line of code
-    double avg_berm_height = std::accumulate(berm_progress_.heights.begin(), berm_progress_.heights.end(), 0.0)/berm_progress_.heights.size();
-    double threshold_berm_height = 0.9*std::min(GLOBAL_BERM_HEIGHT_M, avg_berm_height);
+    // calculate the average height of non-zero berm_heights_bins
+    double avg_berm_height = 0;
+    int num_non_zero_bins = 0;
+    for(size_t i = 0; i < berm_progress_.heights.size(); i++){
+        if(berm_progress_.heights[i] > 0){
+            avg_berm_height += berm_progress_.heights[i];
+            num_non_zero_bins++;
+        }
+    }
+    avg_berm_height /= num_non_zero_bins;
+    double threshold_berm_height = std::max(0.9*std::min(GLOBAL_BERM_HEIGHT_M, avg_berm_height), MIN_BERM_HEIGHT_M);
     RCLCPP_INFO(this->get_logger(), "Average berm height: %f, Threshold berm height: %f", avg_berm_height, threshold_berm_height);
 
     for(size_t i = 0; i < berm_heights_bins.size(); i++){
         // RCLCPP_INFO(this->get_logger(), "Berm height in bin %d: %f", (int)i, berm_heights_bins[i]);
-        if(berm_heights_bins[i] >= threshold_berm_height){
+        if((berm_heights_bins[i]-mean_ground_height)/ELEVATION_SCALE > threshold_berm_height){
             peakline_length += this->map_->info.resolution * 1.414;
+            peak_points_marker.points.push_back(peak_points[i]);
+
         }
     }
     peakline_error = sqrt(peakline_error)*this->map_->info.resolution /(peakline_length+0.0001);
@@ -281,9 +293,12 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     RCLCPP_INFO(this->get_logger(), "Peakline length: %f, Peakline error: %f", peakline_length, peakline_error);
     
 
-    for(size_t i = 0; i < peak_points.size(); i++){
-        peak_points_marker.points.push_back(peak_points[i]);
-    }
+    // for(size_t i = 0; i < peak_points.size(); i++)
+    // {
+    //     if(peak_points[i].z > MIN_BERM_HEIGHT_M/ELEVATION_SCALE){
+    //         peak_points_marker.points.push_back(peak_points[i]);
+    //     }
+    // }
     
     berm_evaluation_array_publisher_->publish(marker_array_msg);
     peak_points_publisher_->publish(peak_points_marker);
