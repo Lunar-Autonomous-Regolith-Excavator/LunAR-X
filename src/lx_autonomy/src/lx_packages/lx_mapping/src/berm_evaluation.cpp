@@ -227,10 +227,12 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
                 if(bin < num_bins_per_section && bin >= 0){
                     if(this->map_->data[j] > berm_heights_bins[i*num_bins_per_section + bin]){
                         berm_heights_bins[i*num_bins_per_section + bin] = this->map_->data[j];
-                        peakline_error += pow(perpendicular_dist, 2);
                         geometry_msgs::msg::Point point;
                         point.x = x; point.y = y; point.z = this->map_->data[j]/ELEVATION_SCALE;
                         peak_points[i*num_bins_per_section + bin] = point;
+                        if((this->map_->data[j]-mean_ground_height)/ELEVATION_SCALE > MIN_BERM_HEIGHT_M){
+                            peakline_error += pow(perpendicular_dist, 2);
+                        }
                     }
                 }
             }
@@ -267,7 +269,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     double avg_berm_height = 0;
     int num_non_zero_bins = 0;
     for(size_t i = 0; i < berm_progress_.heights.size(); i++){
-        if(berm_progress_.heights[i] > 0){
+        if(berm_progress_.heights[i] > MIN_BERM_HEIGHT_M){
             avg_berm_height += berm_progress_.heights[i];
             num_non_zero_bins++;
         }
@@ -287,19 +289,11 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     peakline_error = sqrt(peakline_error)*this->map_->info.resolution /(peakline_length+0.0001);
 
     berm_progress_.length = peakline_length;
+    berm_progress_.average_height = avg_berm_height;
     berm_progress_.peakline_error = peakline_error;
 
-
     RCLCPP_INFO(this->get_logger(), "Peakline length: %f, Peakline error: %f", peakline_length, peakline_error);
-    
 
-    // for(size_t i = 0; i < peak_points.size(); i++)
-    // {
-    //     if(peak_points[i].z > MIN_BERM_HEIGHT_M/ELEVATION_SCALE){
-    //         peak_points_marker.points.push_back(peak_points[i]);
-    //     }
-    // }
-    
     berm_evaluation_array_publisher_->publish(marker_array_msg);
     peak_points_publisher_->publish(peak_points_marker);
 
