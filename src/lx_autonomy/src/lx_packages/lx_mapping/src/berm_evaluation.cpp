@@ -133,16 +133,14 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
     for(size_t j = 0; j < this->map_->data.size(); j++){
         double x = (j%this->map_->info.width)*this->map_->info.resolution;
         double y = (j/this->map_->info.width)*this->map_->info.resolution;
-        bool is_in_region = false;
         for(size_t i = 0; i < requested_berm_points_.size()-1; i++){
             double m = (requested_berm_points_[i+1].point.y - requested_berm_points_[i].point.y)/(requested_berm_points_[i+1].point.x - requested_berm_points_[i].point.x + this->map_->info.resolution);
             double c = requested_berm_points_[i].point.y - m*requested_berm_points_[i].point.x;
             double line_dist = abs(m*x - y + c)/sqrt(pow(m, 2) + 1);
             double point_dist = sqrt(pow(x - requested_berm_points_[i].point.x, 2) + pow(y - requested_berm_points_[i].point.y, 2));
-            if(line_dist < GLOBAL_BERM_HEIGHT_M/0.866 && point_dist < GLOBAL_BERM_LENGTH_M && this->map_->data[j] > 0 && !is_in_region){
+            if(line_dist < GLOBAL_BERM_HEIGHT_M/0.866 && point_dist < GLOBAL_BERM_LENGTH_M*0.7 && this->map_->data[j] > 0){
                 berm_volume += this->map_->data[j]*this->map_->info.resolution*this->map_->info.resolution;
                 num_berm_points++;
-                is_in_region = true;
             }
             else if(line_dist > GLOBAL_BERM_HEIGHT_M*2.4 && line_dist < GLOBAL_BERM_HEIGHT_M*2.9 && this->map_->data[j] > 0){
                 sum_ground_height += this->map_->data[j];
