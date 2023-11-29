@@ -136,16 +136,19 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
         int sign = 1;
         for (int j = 0; j < num_iterations; j++){
             // Randomize excavation pose
-            double min_offset = 0.1;
-            double max_offset = 0.4;
+            double min_offset = 0.2;
+            double max_offset = 0.5;
             double random_offset = (double)rand() / (double)RAND_MAX; // 0 to 1
             random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
             random_offset = random_offset * sign; // change sign with each iteration
             sign *= -1;
             // if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
             geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
-            rand_excavation_pose.position.y += random_offset * cos(berm_section.angle + M_PI / 2);
+            rand_excavation_pose.position.y += random_offset;
             rand_excavation_pose.position.y = std::max(1.5, std::min(4.5, rand_excavation_pose.position.y));
+
+            rand_excavation_pose.position.x += random_offset;
+            rand_excavation_pose.position.x = std::max(1.0, std::min(1.8, rand_excavation_pose.position.x));
 
             // Add navigation task for excavation pose to the plan
             lx_msgs::msg::PlannedTask navigation_task;

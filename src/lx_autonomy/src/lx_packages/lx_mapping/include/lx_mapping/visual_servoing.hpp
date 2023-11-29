@@ -48,7 +48,7 @@ class VisualServoing : public rclcpp::Node
         const double PEAK_LINE_DISTANCE_M = 0.06; // min dist between ground plane and peak line points
         // const double DRUM_X_BASELINK_M = 0.9; // higher value -> rover stops more towards the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
-        const double DRUM_Z_BASELINK_M = -0.32; // more negative-> higher drum
+        const double DRUM_Z_BASELINK_M = -0.28; // more negative-> higher drum
         bool node_state_ = false; // state of the node
         lx_msgs::msg::BermSection current_berm_segment, prev_berm_segment;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};

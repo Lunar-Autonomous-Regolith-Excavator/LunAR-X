@@ -142,7 +142,7 @@ void BermEvaluation::evalServiceCallback(const std::shared_ptr<lx_msgs::srv::Ber
                 berm_volume += this->map_->data[j]*this->map_->info.resolution*this->map_->info.resolution;
                 num_berm_points++;
             }
-            else if(line_dist > GLOBAL_BERM_HEIGHT_M*2.4 && line_dist < GLOBAL_BERM_HEIGHT_M*2.9 && this->map_->data[j] > 0){
+            else if(line_dist > GLOBAL_BERM_HEIGHT_M*2.4 && line_dist < GLOBAL_BERM_HEIGHT_M*2.6 && this->map_->data[j] > 0){
                 sum_ground_height += this->map_->data[j];
                 num_points_in_region++;
                 break;

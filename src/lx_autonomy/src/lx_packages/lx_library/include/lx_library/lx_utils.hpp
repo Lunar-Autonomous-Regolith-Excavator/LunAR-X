@@ -12,7 +12,7 @@ struct pid_struct{
     double kd;
 };
 
-const double GLOBAL_BERM_LENGTH_M = 0.43;
+const double GLOBAL_BERM_LENGTH_M = 0.45;
 const double GLOBAL_BERM_HEIGHT_M = 0.13;
 
 enum class JoyButtons : int {

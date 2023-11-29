@@ -1052,18 +1052,20 @@ void OperationsHandler::bermEvalCB(rclcpp::Client<lx_msgs::srv::BermProgressEval
         berm_progress_marker.pose.orientation.y = 0.0;
 
         // Create text
-        std::string berm_progress_text = "Final_Berm:\nHeight:";
-        double heights_avg = 0.0;
-        for(auto& height_point: berm_progress.heights){
-            heights_avg += height_point;
-        }
-        heights_avg /= berm_progress.heights.size();
-        berm_progress_text += std::to_string(heights_avg) + "m\nLength:";
-        berm_progress_text += std::to_string(berm_progress.length) + "m";
-        berm_progress_marker.text = berm_progress_text;
+        if(berm_progress.heights.size() > 0){
+            std::string berm_progress_text = "Berm_Progress:\nHeight:";
+            // double heights_avg = 0.0;
+            // for(auto& height_point: berm_progress.heights){
+            //     heights_avg += height_point;
+            // }
+            // heights_avg /= berm_progress.heights.size();
+            berm_progress_text += std::to_string(berm_progress.average_height) + "m\nLength:";
+            berm_progress_text += std::to_string(berm_progress.length) + "m";
+            berm_progress_marker.text = berm_progress_text;
 
-        // Publish marker
-        progress_viz_publisher_->publish(berm_progress_marker);
+            // Publish marker
+            progress_viz_publisher_->publish(berm_progress_marker);
+        }
 
     } 
     else{
