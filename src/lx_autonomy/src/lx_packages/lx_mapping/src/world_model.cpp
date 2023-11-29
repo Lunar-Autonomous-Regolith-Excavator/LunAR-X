@@ -317,68 +317,36 @@ void WorldModel::publishGlobalMap(){
     // world_model_publisher_->publish(world_model_);
 }
 
-std::vector<std::vector<int>> rotateBerm(std::vector<std::vector<int>>& berm, double angle){
-    int length = berm.size(), width = berm[0].size();
-    std::vector<std::vector<int>> rotated_berm(length, std::vector<int>(length, 0));
-
-    for (size_t i = 0; i < length; i++){
-        for (size_t j = 0; j < width; j++){
-            // Find index for rotated matrix
-            int x = int(i*cos(angle) - j*sin(angle));
-            int y = int(i*sin(angle) + j*cos(angle));
-            rotated_berm[x][y] = berm[i][j];
-        }
-    }
-
-    return rotated_berm;
-}
-
 void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates){
 
-    // Berm
-    double width = GLOBAL_BERM_LENGTH_M * 3.464;
-    double length = GLOBAL_BERM_LENGTH_M + width;
-    int berm_width = ceil(width/MAP_RESOLUTION);
-    int berm_length = ceil(lendth/MAP_RESOLUTION);
-    // Make width even
-    if(berm_width%2 != 0){
-        berm_width += 1;
-    }
-    std::vector<std::vector<int>> berm(berm_length, std::vector<int>(berm_width, 100));
-
-    for (size_t i = 0; i < berm_width; i++){
-        for (size_t j = 0; j < berm_width; j++){
-            double distance = sqrt(pow(i - berm_width/2, 2) + pow(j - berm_width/2, 2));
-            if (distance > berm_width/2){
-                berm[i][j] = 0;
-            }
-        }
-    }
+    double x_first = berm_zone_coordinates[0].point.x;
+    double y_first = berm_zone_coordinates[0].point.y;
+    double x_last = berm_zone_coordinates.back().point.x;
+    double y_last = berm_zone_coordinates.back().point.y;
 
     // berm_zone_coordinates is a vector of points that define the berm line segment. it is not a polygon. set berm_zone to 100 if point is within 0.3m of berm line
-    for(size_t i = 0; i < berm_zone_coordinates.size() - 1; i++) {
-        double x1 = berm_zone_coordinates[i].point.x;
-        double y1 = berm_zone_coordinates[i].point.y;
-        double x2 = berm_zone_coordinates[i+1].point.x;
-        double y2 = berm_zone_coordinates[i+1].point.y;
-
-        int start_x = (int)((x1 + x2)/2 - berm_width/2);
-        int start_y = (int)((y1 + y2)/2 - berm_width/2);
-        double angle = atan2(y2 - y1, x2 - x1);
-
-        std::vector<std::vector<int>> rotated_berm = rotateBerm(berm, angle);
-
-        for (size_t i = 0; i < rotated_berm.size(); i++){
-            for (size_t j = 0; j < rotated_berm[0].size(); j++){
-                if (rotated_berm[i][j] == 100){
-                    int x = start_x + i;
-                    int y = start_y + j;
-                    if (x >= 0 && x < berm_costmap_.info.width && y >= 0 && y < berm_costmap_.info.height){
-                        berm_costmap_.data[x + y*berm_costmap_.info.width] = 100;
-                    }
-                }
+    for(size_t i = 0; i < berm_costmap_.info.width*berm_costmap_.info.height; i++){
+        geometry_msgs::msg::Point32 point;
+        point.x = berm_costmap_.info.origin.position.x + (i%berm_costmap_.info.width)*berm_costmap_.info.resolution;
+        point.y = berm_costmap_.info.origin.position.y + (i/berm_costmap_.info.width)*berm_costmap_.info.resolution;
+        point.z = 0.0;
+        for(size_t j = 1; j < berm_zone_coordinates.size()-1; j++){
+            double x1 = berm_zone_coordinates[j].point.x;
+            double y1 = berm_zone_coordinates[j].point.y;
+            double x2 = berm_zone_coordinates[j+1].point.x;
+            double y2 = berm_zone_coordinates[j+1].point.y;
+            double line_dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
+            double point_dist = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
+            if(line_dist < (GLOBAL_BERM_LENGTH_M/2) && point_dist < (GLOBAL_BERM_LENGTH_M*1.2)){
+                berm_costmap_.data[i] = 100;
+                break;
             }
         }
+        double dist_first = sqrt(pow(point.x - x_first, 2) + pow(point.y - y_first, 2));
+        double dist_last = sqrt(pow(point.x - x_last, 2) + pow(point.y - y_last, 2));
+        if(dist_first < GLOBAL_BERM_LENGTH_M/2 || dist_last < GLOBAL_BERM_LENGTH_M/2){
+            berm_costmap_.data[i] = 100;
+        }        
     }
 }
 
