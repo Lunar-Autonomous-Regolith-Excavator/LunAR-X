@@ -16,8 +16,15 @@
 #include <iostream>
 #include <memory>
 
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+
+#include "lx_planning/base.hpp"
 #include "lx_planning/collision_checker.hpp"
 #include "lx_planning/a_star.hpp"
+#include "lx_planning/smoother.hpp"
 
 class MapMock
 {
@@ -26,9 +33,9 @@ public:
 	{
 	  if (wx < origin_x || wy < origin_y)
 		 return false;
-		 
-	  mx = static_cast<unsigned int>((wx - origin_x) / resolution);
-	  my = static_cast<unsigned int>((wy - origin_y) / resolution);
+ 
+	  mx = static_cast<unsigned int>((wx - origin_x) / (world_x / size_x));
+	  my = static_cast<unsigned int>((wy - origin_y) / (world_y / size_y));
 
 	  if (mx < size_x && my < size_y)
 		 return true;
@@ -38,23 +45,20 @@ public:
 
 	void mapToWorld(unsigned int mx, unsigned int my, double & wx, double & wy) const
 	{
-		wx = origin_x + (mx + 0.5) * resolution;
-		wy = origin_y + (my + 0.5) * resolution;		
+		wx = origin_x + (mx + 0.5) * (world_x / size_x);
+		wy = origin_y + (my + 0.5) * (world_y / size_y);
 	}
 
 	double getCost(int x, int y)
-	{		
-		if(x > 40 && x <= 60 && y > 40 && y <= 60)
-			return 254;
-			
-		return 0;
+	{
+		return data.at<uint8_t>(y, x);
 	}
 
 	double getCost(int idx)
 	{
 		int x = idx % getSizeInCellsX();
 		int y = idx / getSizeInCellsY();
-		
+
 		return getCost(x, y);
 	}
 
@@ -62,10 +66,43 @@ public:
 	{
 		return size_x;
 	}
-	
+
 	unsigned int getSizeInCellsY()
 	{
 		return size_y;
+	}
+
+	unsigned int getWorldX()
+	{
+		return world_x;
+	}
+
+	unsigned int getWorldY()
+	{
+		return world_y;
+	}
+
+	bool fromImage(const std::string &filename)
+	{
+		using namespace cv;
+
+		data = imread(filename, IMREAD_GRAYSCALE);
+
+		if(data.empty())
+			return false;
+
+		world_x = data.cols;
+		world_y = data.rows;
+
+		resize(data, data, Size(size_x, size_y));
+		threshold(data, data, 127, 254, THRESH_BINARY_INV);
+
+		return true;
+	}
+
+	const cv::Mat &getData()
+	{
+		return data;
 	}
 
 	static constexpr double UNKNOWN = 255;
@@ -74,11 +111,13 @@ public:
 	static constexpr double FREE = 0;
 
 private:
-	double resolution = 0.1;
+	cv::Mat data;
 	double origin_x = 0.0;
 	double origin_y = 0.0;
-	double size_x = 100;
-	double size_y = 100;
+	double size_x = 200;
+	double size_y = 200;
+	double world_x;
+	double world_y;
 };
 
 struct PointMock
@@ -93,46 +132,123 @@ using namespace nav2_smac_planner;
 
 using namespace std;
 
+void Display(MapMock *map,
+             const std::vector<Eigen::Vector2d> &pathWorld,
+             const std::vector<Eigen::Vector2d> &pathSmooth)
+{
+	cv::Mat img;
+	cv::resize(map->getData(), img, cv::Size(map->getWorldX(), map->getWorldY()));
+	threshold(img, img, 127, 254, cv::THRESH_BINARY);
+
+	img = ~img;
+
+	for (size_t i = 0; i != pathWorld.size(); ++i)
+		cv::circle(img, cv::Point(pathWorld[i].x(), pathWorld[i].y()), 5, 127, 1);
+
+	for (size_t i = 0; i != pathSmooth.size(); ++i)
+		cv::circle(img, cv::Point(pathSmooth[i].x(), pathSmooth[i].y()), 5, 0, 1);
+
+
+	cv::imshow("map", img);
+}
+
 int main(int /*argc*/, char **/*argv*/)
 {
+	bool enableSmoother = true;
+
 	MapMock *map = new MapMock();
+	if(!map->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/maze.png"))
+	{
+		cerr << "failed to load map, terminating" << endl;
+		return 1;
+	}
+
+	Smoother<MapMock> *smoother = nullptr;
+	if (enableSmoother)
+	{
+		Smoother<MapMock> *smoother = new Smoother<MapMock>();
+		OptimizerParams params; //may require extra tuning!
+		params.debug = false; //enable extra output to console
+		smoother->initialize(params);
+	}
 	
 	//initialize some footprint, just a vector<PointMock> here
 	FootprintCollisionChecker<MapMock, PointMock>::Footprint footprint;
 	
-	footprint.push_back( {-1, -1} );
-	footprint.push_back( {1, -1} );
-	footprint.push_back( {1, 1});
-	footprint.push_back( {-1, 1} );
+	//in world units
+	footprint.push_back( {-5, -5} );
+	footprint.push_back( {5, -5} );
+	footprint.push_back( {5, 5});
+	footprint.push_back( {-5, 5} );
 
 	SearchInfo info;
 
 	info.change_penalty = 1.2;
 	info.non_straight_penalty = 1.4;
 	info.reverse_penalty = 2.1;
-	info.minimum_turning_radius = 2.0;  // in grid coordinates
+	info.minimum_turning_radius = 5;  //in world units
+
 	unsigned int size_theta = 72;
 
 	AStarAlgorithm<MapMock, GridCollisionChecker<MapMock, PointMock>> a_star(nav2_smac_planner::MotionModel::DUBIN, info);
 
-	int max_iterations = 10000;
-	float tolerance = 10.0;
-	int it_on_approach = 10;
-	int num_it = 0;
+	int max_iterations = 100000;
+	int it_on_approach = 100;
 
 	a_star.initialize(false, max_iterations, it_on_approach);
-	a_star.setFootprint(footprint, true);
+	a_star.setFootprint(footprint, false);
 
-	// functional case testing
 	a_star.createGraph(map->getSizeInCellsX(), map->getSizeInCellsY(), size_theta, map);
-	a_star.setStart(10u, 10u, 0u);
-	a_star.setGoal(80u, 80u, 40u);
-	nav2_smac_planner::NodeSE2::CoordinateVector plan;
-	bool found = a_star.createPath(plan, num_it, tolerance);
+	a_star.setStart(40u, 100u, 0u);
+	a_star.setGoal(180u, 100u, 0u);
+
+	NodeSE2::CoordinateVector path;
+
+	float tolerance = 5.0;
+	int num_it = 0;
+
+	bool found = a_star.createPath(path, num_it, tolerance);
 
 	cout << "found path: " << found << endl;
-	cout << "num_it " << num_it << endl;
-	cout << "path size " << plan.size() << endl;
+	cout << "num_it " << num_it << " of max " << max_iterations << endl;
+	cout << "path size " << path.size() << endl;
+
+	// Convert to world coordinates
+	std::vector<Eigen::Vector2d> path_world, path_smoothed;
+	path_world.reserve(path.size());
+	path_smoothed.reserve(path.size());
+
+	for (int i = path.size() - 1; i >= 0; --i)
+	{
+		double wx, wy;
+		map->mapToWorld(path[i].x, path[i].y, wx, wy);
+		path_world.push_back(Eigen::Vector2d(wx, wy));
+		path_smoothed.push_back(Eigen::Vector2d(wx, wy));
+	}
+
+	if(smoother) {
+		//may require extra tuning
+		SmootherParams smoother_params;
+		smoother_params.max_curvature = 1.0f / info.minimum_turning_radius;
+		smoother_params.curvature_weight = 30.0;
+		smoother_params.distance_weight = 0.0;
+		smoother_params.smooth_weight = 100.0;
+		smoother_params.costmap_weight = 0.025;
+		smoother_params.max_time = 0.1; //limit optimization time
+
+		// Smooth plan
+		if (!smoother->smooth(path_world, map, smoother_params))
+		{
+			cerr << "failed to smooth plan, Ceres could not find a usable solution to optimize." << endl;
+		}
+	}
+
+	Display(map, path_world, path_smoothed);
+
+	cv::waitKey(0);
+	
+	delete map;
+	delete smoother;
 
 	cout << "done!" << endl;
 

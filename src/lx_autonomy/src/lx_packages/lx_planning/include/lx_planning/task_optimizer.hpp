@@ -4,6 +4,16 @@
 #include "base.hpp"
 #include "edge_cost_search.hpp"
 
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
+#include "lx_library/lx_utils.hpp"
+#include "lx_msgs/msg/planned_task.hpp"
+#include "lx_msgs/action/plan_task.hpp"
+#include "rcl_interfaces/srv/get_parameters.hpp"
+#include "rcl_interfaces/srv/set_parameters.hpp"
+#include "rcl_interfaces/msg/parameter.hpp"
+#include "lx_msgs/msg/berm_section.hpp"
+
 
 class OptimalSequencePlanner
 {
@@ -483,12 +493,6 @@ class TaskOptimizer: public rclcpp::Node
         * Destructor
         * */
         ~TaskOptimizer(){};
-
-        // Function to get rover footprint
-        std::vector<geometry_msgs::msg::Point> getRoverFootprint(const Pose2D& );
-
-        // Function to get bounds of rover footprint
-        Bounds getBounds(const std::vector<geometry_msgs::msg::Point>& );
 };
 
 #endif

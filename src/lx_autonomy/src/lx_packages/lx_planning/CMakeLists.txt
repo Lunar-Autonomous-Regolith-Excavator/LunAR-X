@@ -18,12 +18,13 @@ find_package(nav2_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 
 find_package(OpenCV REQUIRED)
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(Eigen3 REQUIRED)
 find_package(ompl REQUIRED)
 
 include_directories(
   include
   ${OMPL_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 # Task planning node
@@ -39,11 +40,12 @@ ament_target_dependencies(map_pub rclcpp nav2_msgs)
 add_executable(test_planner src/test_task_planner.cpp)
 ament_target_dependencies(test_planner rclcpp lx_msgs geometry_msgs)
 
-add_executable(simple-example src/node_se2.cpp src/simple_example.cpp)
-target_link_libraries(simple-example ompl ${OpenCV_LIBS} Eigen3::Eigen)
+add_executable(simple_example src/node_se2.cpp src/simple_example.cpp)
+target_link_libraries(simple_example ompl ceres ${OpenCV_LIBS} Eigen3::Eigen)
+ament_target_dependencies(simple_example rclcpp lx_msgs lx_library geometry_msgs tf2_geometry_msgs nav_msgs)
 
-add_executable(gui-example src/node_se2.cpp src/gui_example.cpp)
-target_link_libraries(gui-example ompl ceres ${OpenCV_LIBS} Eigen3::Eigen)
+add_executable(gui_example src/node_se2.cpp src/gui_example.cpp)
+target_link_libraries(gui_example ompl ceres ${OpenCV_LIBS} Eigen3::Eigen)
 
 # Install python executables
 ament_python_install_package(${PROJECT_NAME})
@@ -57,6 +59,8 @@ install(TARGETS
   task_optimizer_node
   map_pub
   test_planner
+  simple_example
+  gui_example
   DESTINATION lib/${PROJECT_NAME}
 )
 

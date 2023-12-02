@@ -1,18 +1,7 @@
 #ifndef BASE_H
 #define BASE_H
 
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_action/rclcpp_action.hpp"
-#include "lx_library/lx_utils.hpp"
-#include "lx_msgs/msg/planned_task.hpp"
-#include "lx_msgs/action/plan_task.hpp"
-#include "rcl_interfaces/srv/get_parameters.hpp"
-#include "rcl_interfaces/srv/set_parameters.hpp"
-#include "rcl_interfaces/msg/parameter.hpp"
-#include "lx_msgs/msg/berm_section.hpp"
-#include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
-#include "nav_msgs/msg/occupancy_grid.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 #include <tf2/utils.h>
