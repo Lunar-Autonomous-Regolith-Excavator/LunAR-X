@@ -120,12 +120,6 @@ private:
 	double world_y;
 };
 
-struct PointMock
-{
-	double x;
-	double y;
-};
-
 using namespace fcc;
 using namespace std;
 using namespace nav2_smac_planner;
@@ -154,7 +148,7 @@ void Display(MapMock *map,
 
 int main(int /*argc*/, char **/*argv*/)
 {
-	bool enableSmoother = true;
+	bool enableSmoother = false;
 
 	MapMock *map = new MapMock();
 	if(!map->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/maze.png"))
@@ -172,8 +166,8 @@ int main(int /*argc*/, char **/*argv*/)
 		smoother->initialize(params);
 	}
 	
-	//initialize some footprint, just a vector<PointMock> here
-	FootprintCollisionChecker<MapMock, PointMock>::Footprint footprint;
+	//initialize some footprint, just a vector<Point2D> here
+	FootprintCollisionChecker<MapMock, Point2D>::Footprint footprint;
 	
 	//in world units
 	footprint.push_back( {-5, -5} );
@@ -190,7 +184,7 @@ int main(int /*argc*/, char **/*argv*/)
 
 	unsigned int size_theta = 72;
 
-	AStarAlgorithm<MapMock, GridCollisionChecker<MapMock, PointMock>> a_star(nav2_smac_planner::MotionModel::DUBIN, info);
+	AStarAlgorithm<MapMock, GridCollisionChecker<MapMock, Point2D>> a_star(nav2_smac_planner::MotionModel::DUBIN, info);
 
 	int max_iterations = 100000;
 	int it_on_approach = 100;
@@ -207,11 +201,14 @@ int main(int /*argc*/, char **/*argv*/)
 	float tolerance = 5.0;
 	int num_it = 0;
 
-	bool found = a_star.createPath(path, num_it, tolerance);
+	double cost = 0.0;
+
+	bool found = a_star.createPath(path, num_it, tolerance, cost);
 
 	cout << "found path: " << found << endl;
 	cout << "num_it " << num_it << " of max " << max_iterations << endl;
 	cout << "path size " << path.size() << endl;
+	cout << "cost " << cost << endl;
 
 	// Convert to world coordinates
 	std::vector<Eigen::Vector2d> path_world, path_smoothed;

@@ -159,7 +159,7 @@ bool AStarAlgorithm<CostmapT, CollisionCheckerT>::areInputsValid()
 template<typename CostmapT, typename CollisionCheckerT>
 bool AStarAlgorithm<CostmapT, CollisionCheckerT>::createPath(
   CoordinateVector & path, int & iterations,
-  const float & tolerance)
+  const float & tolerance, double & cost)
 {
   _tolerance = tolerance * NodeSE2::neutral_cost;
   _best_heuristic_node = {std::numeric_limits<float>::max(), 0};
@@ -210,14 +210,18 @@ bool AStarAlgorithm<CostmapT, CollisionCheckerT>::createPath(
 
     // 2) Mark Nbest as visited
     current_node->visited();
+    cost = getAccumulatedCost(current_node);
 
     // 2.a) Use an analytic expansion (if available) to generate a path
     // to the goal.
+    double analytic_cost = 0.0;
     NodePtr result = tryAnalyticExpansion(
       current_node, neighborGetter, analytic_iterations,
-      closest_distance);
+      closest_distance, analytic_cost);
     if (result != nullptr) {
       current_node = result;
+      cost += analytic_cost;
+      current_node->setAccumulatedCost(cost);
     }
 
     // 3) Check if we're at the goal, backtrace if required
@@ -271,7 +275,8 @@ bool AStarAlgorithm<CostmapT, CollisionCheckerT>::isGoal(NodePtr & node)
 template<typename CostmapT, typename CollisionCheckerT>
 typename AStarAlgorithm<CostmapT, CollisionCheckerT>::NodePtr AStarAlgorithm<CostmapT, CollisionCheckerT>::getAnalyticPath(
   const AStarAlgorithm<CostmapT, CollisionCheckerT>::NodePtr & node,
-  const AStarAlgorithm<CostmapT, CollisionCheckerT>::NodeGetter & node_getter)
+  const AStarAlgorithm<CostmapT, CollisionCheckerT>::NodeGetter & node_getter,
+  double & cost)
 {
   ompl::base::ScopedState<> from(node->motion_table.state_space), to(
     node->motion_table.state_space), s(node->motion_table.state_space);
@@ -342,9 +347,10 @@ typename AStarAlgorithm<CostmapT, CollisionCheckerT>::NodePtr AStarAlgorithm<Cos
     }
   }
   // Legitimate path - set the parent relationships - poses already set
+  double path_cost = 0.0;
   prev = node;
   for (const auto & node_pose : possible_nodes) {
-    const auto & n = node_pose.first;
+    NodePtr n = node_pose.first;
     if (!n->wasVisited()) {
       // Make sure this node has not been visited by the regular algorithm.
       // If it has been, there is the (slight) chance that it is in the path we are expanding
@@ -352,6 +358,9 @@ typename AStarAlgorithm<CostmapT, CollisionCheckerT>::NodePtr AStarAlgorithm<Cos
       // Skipping to the next node will still create a kinematically feasible path.
       n->parent = prev;
       n->visited();
+      // Compute the cost of the path
+      path_cost += getTraversalCost(prev, n);
+      // Set the previous node to this node
       prev = n;
     }
   }
@@ -359,6 +368,7 @@ typename AStarAlgorithm<CostmapT, CollisionCheckerT>::NodePtr AStarAlgorithm<Cos
     _goal->parent = prev;
     _goal->visited();
   }
+  cost = path_cost;
   return _goal;
 }
 
@@ -496,7 +506,7 @@ unsigned int & AStarAlgorithm<CostmapT, CollisionCheckerT>::getSizeDim3()
 template<typename CostmapT, typename CollisionCheckerT>
 typename AStarAlgorithm<CostmapT, CollisionCheckerT>::NodePtr AStarAlgorithm<CostmapT, CollisionCheckerT>::tryAnalyticExpansion(
   const NodePtr & current_node, const NodeGetter & getter, int & analytic_iterations,
-  int & closest_distance)
+  int & closest_distance, double & cost)
 {
   if (_motion_model == MotionModel::DUBIN || _motion_model == MotionModel::REEDS_SHEPP) {
     // This must be a NodeSE2 node if we are using these motion models
@@ -527,7 +537,7 @@ typename AStarAlgorithm<CostmapT, CollisionCheckerT>::NodePtr AStarAlgorithm<Cos
     if (analytic_iterations <= 0) {
       // Reset the counter, and try the analytic path expansion
       analytic_iterations = desired_iterations;
-      return getAnalyticPath(current_node, getter);
+      return getAnalyticPath(current_node, getter, cost);
     }
     analytic_iterations--;
   }

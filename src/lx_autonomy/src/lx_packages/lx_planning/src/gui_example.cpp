@@ -241,10 +241,11 @@ void MainLoop(State *state)
 		float tolerance = 5.0;
 		int num_it = 0;
 		bool found;
+		double cost = 0.0;
 
 		try
 		{
-			found = a_star.createPath(path, num_it, tolerance);
+			found = a_star.createPath(path, num_it, tolerance, cost);
 		}
 		catch (const std::runtime_error & e)
 		{
@@ -255,6 +256,7 @@ void MainLoop(State *state)
 		cout << "found " << found << endl;
 		cout << "num_it " << num_it << " of max " << max_iterations << endl;
 		cout << "path size " << path.size() << endl;
+		cout << "cost " << cost << endl;
 
 		if(!found)
 			continue;
@@ -282,7 +284,7 @@ void MainLoop(State *state)
 
 int main(int argc, char **argv)
 {
-	bool enableSmoother = true; //change to true to enable smoother
+	bool enableSmoother = false; //change to true to enable smoother
 
 	MapMock *map = new MapMock();
 	Smoother<MapMock> *smoother = nullptr;

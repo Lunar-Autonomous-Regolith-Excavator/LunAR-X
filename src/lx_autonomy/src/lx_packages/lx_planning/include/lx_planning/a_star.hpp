@@ -102,7 +102,7 @@ public:
    * @param tolerance Reference to tolerance in costmap nodes
    * @return if plan was successful
    */
-  bool createPath(CoordinateVector & path, int & num_iterations, const float & tolerance);
+  bool createPath(CoordinateVector & path, int & num_iterations, const float & tolerance, double & cost);
 
   /**
    * @brief Create the graph based on the node type. For 2D nodes, a cost grid.
@@ -153,7 +153,7 @@ public:
    * @param getter The function object that gets valid nodes from the graph
    * @return Node pointer to goal node if successful, else return nullptr
    */
-  NodePtr getAnalyticPath(const NodePtr & node, const NodeGetter & getter);
+  NodePtr getAnalyticPath(const NodePtr & node, const NodeGetter & getter, double & cost);
 
   /**
    * @brief Set the starting pose for planning, as a node index
@@ -285,7 +285,7 @@ protected:
    */
   inline NodePtr tryAnalyticExpansion(
     const NodePtr & current_node,
-    const NodeGetter & getter, int & iterations, int & best_cost);
+    const NodeGetter & getter, int & iterations, int & best_cost, double & cost);
 
   bool _traverse_unknown;
   int _max_iterations;
