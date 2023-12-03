@@ -2,6 +2,7 @@
 #define BASE_H
 
 #include "geometry_msgs/msg/pose.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 #include <tf2/utils.h>
@@ -12,6 +13,15 @@
 #include <queue>
 #include <utility>
 #include <fstream>
+
+#include <iostream>
+#include <memory>
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+
+#include <Eigen/Core>
 
 #define GETMAPINDEX(x, y, width) (y * width + x)
 
@@ -166,6 +176,118 @@ struct Action
         cout<<"Build Berm: "<<dj<<" at "<<pj<<endl;
         cout<<"Goto Excavation: "<<ek<<endl;
         cout<<"-------"<<endl;
+    }
+};
+
+class Map2D
+{
+public:
+    static constexpr double UNKNOWN = 255;
+	static constexpr double OCCUPIED = 254;
+	static constexpr double INSCRIBED = 253;
+	static constexpr double FREE = 0;
+
+	cv::Mat data;
+	double resolution;
+	double origin_x;
+	double origin_y;
+	double size_x;
+	double size_y;
+
+    Map2D() {}
+
+    Map2D(double resolution, double origin_x, double origin_y, double size_x, double size_y) {
+        this->resolution = resolution;
+        this->origin_x = origin_x;
+        this->origin_y = origin_y;
+        this->size_x = size_x;
+        this->size_y = size_y;
+    }
+
+    Map2D(nav_msgs::msg::OccupancyGrid map) {
+        this->resolution = map.info.resolution;
+        this->origin_x = map.info.origin.position.x;
+        this->origin_y = map.info.origin.position.y;
+        this->size_x = map.info.width;
+        this->size_y = map.info.height;
+
+        // Convert to cv::Mat
+        cv::Mat img(map.info.height, map.info.width, CV_8UC1);
+        for (int i = 0; i < map.info.height; i++) {
+            for (int j = 0; j < map.info.width; j++) {
+                int idx = GETMAPINDEX(j, i, map.info.width);
+                if (map.data[idx] == -1) {
+                    img.at<uint8_t>(i, j) = UNKNOWN;
+                } else if (map.data[idx] > 100) {
+                    img.at<uint8_t>(i, j) = OCCUPIED;
+                } else {
+                    img.at<uint8_t>(i, j) = FREE;
+                }
+            }
+        }
+        this->data = img;
+    }
+
+	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my)
+	{
+	  if (wx < origin_x || wy < origin_y)
+		 return false;
+		 
+	  mx = static_cast<unsigned int>((wx - origin_x) / resolution);
+	  my = static_cast<unsigned int>((wy - origin_y) / resolution);
+
+	  if (mx < size_x && my < size_y)
+		 return true;
+
+	  return false;
+	}
+
+	void mapToWorld(unsigned int mx, unsigned int my, double & wx, double & wy) const
+	{
+		wx = origin_x + (mx + 0.5) * resolution;
+		wy = origin_y + (my + 0.5) * resolution;		
+	}
+
+	double getCost(int x, int y)
+	{		
+		return data.at<uint8_t>(y, x);
+	}
+
+	double getCost(int idx)
+	{
+		int x = idx % getSizeInCellsX();
+		int y = idx / getSizeInCellsY();
+		
+		return getCost(x, y);
+	}
+
+	unsigned int getSizeInCellsX()
+	{
+		return size_x;
+	}
+	
+	unsigned int getSizeInCellsY()
+	{
+		return size_y;
+	}
+
+	bool fromImage(const std::string &filename)
+	{
+		using namespace cv;
+
+		data = imread(filename, IMREAD_GRAYSCALE);
+
+		if(data.empty())
+			return false;
+		
+		threshold(data, data, 127, 254, THRESH_BINARY_INV);
+
+		return true;
+	}
+
+    void display() {
+        cv::imshow("map", this->data);
+        cv::waitKey(0);
     }
 };
 

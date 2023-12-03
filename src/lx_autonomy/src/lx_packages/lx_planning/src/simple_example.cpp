@@ -184,7 +184,7 @@ int main(int /*argc*/, char **/*argv*/)
 
 	unsigned int size_theta = 72;
 
-	AStarAlgorithm<MapMock, GridCollisionChecker<MapMock, Point2D>> a_star(nav2_smac_planner::MotionModel::DUBIN, info);
+	AStarAlgorithm<MapMock, GridCollisionChecker<MapMock, Point2D>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, info);
 
 	int max_iterations = 100000;
 	int it_on_approach = 100;

@@ -57,8 +57,8 @@ class PlanTaskNode(Node):
         self.occupancy_grid.info.resolution = 0.05  # Update with your map resolution
         self.occupancy_grid.info.width = map_image.shape[1]
         self.occupancy_grid.info.height = map_image.shape[0]
-        self.occupancy_grid.info.origin.position.x = -((map_image.shape[1] - 1) / 2) * self.occupancy_grid.info.resolution
-        self.occupancy_grid.info.origin.position.y = -((map_image.shape[0] - 1) / 2) * self.occupancy_grid.info.resolution
+        self.occupancy_grid.info.origin.position.x = 0.0
+        self.occupancy_grid.info.origin.position.y = 0.0
         self.occupancy_grid.data = map_image.flatten().tolist()
         
         # convert berm_input to a list of Points

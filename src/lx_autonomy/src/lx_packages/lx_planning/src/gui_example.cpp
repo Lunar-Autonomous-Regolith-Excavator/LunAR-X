@@ -25,7 +25,7 @@
 #include "lx_planning/a_star.hpp"
 #include "lx_planning/smoother.hpp"
 
-class MapMock
+class Map2D
 {
 public:
 	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my)
@@ -133,8 +133,8 @@ using namespace std;
 
 struct State
 {
-	MapMock *map;
-	Smoother<MapMock> *smoother;
+	Map2D *map;
+	Smoother<Map2D> *smoother;
 	cv::Point start;
 	cv::Point end;
 };
@@ -160,7 +160,7 @@ void OnMouse(int event, int x, int y, int /*flags*/, void* userdata)
 	}
 }
 
-void Display(MapMock *map,
+void Display(Map2D *map,
              const std::vector<Eigen::Vector2d> &pathWorld,
              const std::vector<Eigen::Vector2d> &pathSmooth)
 {
@@ -200,14 +200,14 @@ void Smooth(State *state, const SearchInfo &info, std::vector<Eigen::Vector2d> &
 
 void MainLoop(State *state)
 {
-	MapMock *map = state->map;
-	Smoother<MapMock> *smoother = state->smoother;
+	Map2D *map = state->map;
+	Smoother<Map2D> *smoother = state->smoother;
 
 	do
 	{
 		cout << "LMB: start | RMB: goal | ANY: plan | ESC: quit" << endl;
 
-		FootprintCollisionChecker<MapMock, PointMock>::Footprint footprint;
+		FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
 
 		//in world units
 		footprint.push_back( {-5, -5} );
@@ -224,7 +224,7 @@ void MainLoop(State *state)
 
 		unsigned int size_theta = 72;
 
-		AStarAlgorithm<MapMock, GridCollisionChecker<MapMock, PointMock>> a_star(nav2_smac_planner::MotionModel::DUBIN, info);
+		AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, info);
 
 		int max_iterations = 100000;
 		int it_on_approach = 100;
@@ -286,8 +286,8 @@ int main(int argc, char **argv)
 {
 	bool enableSmoother = false; //change to true to enable smoother
 
-	MapMock *map = new MapMock();
-	Smoother<MapMock> *smoother = nullptr;
+	Map2D *map = new Map2D();
+	Smoother<Map2D> *smoother = nullptr;
 
 	if(!map->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/maze.png"))
 	{
@@ -297,7 +297,7 @@ int main(int argc, char **argv)
 
 	if(enableSmoother)
 	{
-		smoother = new Smoother<MapMock>();
+		smoother = new Smoother<Map2D>();
 		OptimizerParams params; //may require extra tuning!
 		params.debug = false; //enable extra output to console
 		smoother->initialize(params);
