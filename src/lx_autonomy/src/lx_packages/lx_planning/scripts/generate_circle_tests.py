@@ -10,7 +10,9 @@ def generate_circle_points(a, b, r, theta, offset_theta, max_theta=360):
     return points
 
 
-pts = generate_circle_points(6, 1.5, 1.25, 20, 180)
+# pts = generate_circle_points(6, 1.5, 1.25, 90, 180)
+pts = generate_circle_points(6, 1.5, 1, 90, 180)
+
 
 # plot points
 plt.plot([x[0] for x in pts], [x[1] for x in pts], 'ro-')

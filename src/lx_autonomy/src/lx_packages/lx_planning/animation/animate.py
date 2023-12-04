@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     # Read parameters from YAML file
     package_directory = get_package_share_directory("lx_planning")
-    yaml_file = package_directory + '/maps/moonyard.yaml'
+    yaml_file = package_directory + '/maps/test.yaml'
     with open(yaml_file, 'r') as file:
         params = yaml.safe_load(file)
 
@@ -246,10 +246,10 @@ if __name__ == '__main__':
     excavation_points = np.array([[pt['x'] * 100, pt['y'] * 100, pt['z']] for pt in excavation_input])
 
     # read output CSV
-    output_points = np.genfromtxt('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/animation/output.csv', delimiter=',')
+    output_points = np.genfromtxt('/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/animation/output.csv', delimiter=',')
 
     map_string = params['map_image']
-    map_string= '/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/maps/' + map_string
+    map_string= '/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/maps/' + map_string
     map_image = (255 - cv2.imread(map_string, cv2.IMREAD_GRAYSCALE))
     map_image[map_image < 128] = 0
     map_image[map_image >= 128] = 25
@@ -278,7 +278,7 @@ if __name__ == '__main__':
         
         if task == 0: # navigation
             # read path from file
-            path = np.genfromtxt('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/paths/path_' + str(nav_count) + '.txt', delimiter=',')
+            path = np.genfromtxt('/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/paths/path_' + str(nav_count) + '.txt', delimiter=',')
             path[:, :2] *= 100
 
             for i in range(len(path)):
@@ -319,7 +319,7 @@ if __name__ == '__main__':
         
         elif task == 2: # dump
             berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
-            height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
+            # height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
             for i in range(0, 10):
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())

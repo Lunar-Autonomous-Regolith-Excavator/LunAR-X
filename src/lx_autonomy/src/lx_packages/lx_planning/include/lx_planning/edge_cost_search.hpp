@@ -11,7 +11,9 @@ class Astar2D
 public:
     // 2D Astar constants
     static constexpr int NUMOFDIRS = 8;
-    static constexpr double BERM_AVOID_DIST_M = 0.5;
+    static constexpr double BERM_AVOID_DIST_M = 0.25;
+    static constexpr double ROBOT_RADIUS_M = 0.4;
+
     static constexpr array<int, 8> dX = {-1, -1, -1,  0,  0,  1, 1, 1};
     static constexpr array<int, 8> dY = {-1,  0,  1, -1,  1, -1, 0, 1};
     static constexpr array<double, 8> movecost = {1.414, 1, 1.414, 1, 1, 1.414, 1, 1.414};
@@ -25,13 +27,14 @@ public:
     vector<vector<int>> is_obstacle;
 
     priority_queue<pair<double, Point2D>, vector<pair<double, Point2D>>, compare_pair<Point2D>> pq;
-    int x_size, y_size, resolution;
+    int x_size, y_size; 
+    double resolution;
 
     Point2D start, goal;
 
     Astar2D(){}
 
-    Astar2D(int x_size, int y_size, int resolution)
+    Astar2D(int x_size, int y_size, double resolution)
     {   
         this->x_size= x_size;
         this->y_size = y_size;
@@ -71,9 +74,17 @@ public:
         for (u_int i = 0; i < berm_inputs.size(); i++){
             if (visited_berm_counts[i] == 0) continue;
             Pose2D berm_input = berm_inputs[i];
-            double distance = sqrt(pow((point.x*resolution - berm_input.x), 2) + pow((point.y*resolution - berm_input.y), 2));
-            if (distance < BERM_AVOID_DIST_M) 
+            double point_x = point.x, point_y = point.y;
+            point_x *= resolution; point_y *= resolution;
+            double distance = sqrt(pow(point_x - berm_input.x, 2) + pow(point_y - berm_input.y, 2));
+            // cout<<"Distance to berm "<<i<<" is "<<distance<<endl;
+            // cout<<"orig points: "<<point.x<<", "<<point.y<<endl; // TODO: remove this "cout
+            // cout<<"resolution: "<<resolution<<endl; // TODO: remove this "cout
+            // cout<<"Point 1: "<<point_x<<", "<<point_y<<endl;
+            // cout<<"Point 2: "<<berm_input.x<<", "<<berm_input.y<<endl;
+            if (distance < (BERM_AVOID_DIST_M + ROBOT_RADIUS_M))
             {
+                cout<<"Berm obstacle detected at: "<<point_x<<", "<<point_y<<" for berm "<<i<<endl;
                 result = true;
                 break;
             }

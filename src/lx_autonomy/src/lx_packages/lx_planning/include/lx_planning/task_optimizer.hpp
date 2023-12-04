@@ -21,7 +21,7 @@ public:
     // number of dump locations and excavation locations
     int D, E;
     Pose2D robot_start_pose;
-    bool DEBUG = true;
+    bool DEBUG = false;
     double EXCAVATION_DIST_M = 1.5; 
     const double TOOL_DISTANCE_TO_DUMP = 0.85;
 
@@ -90,7 +90,6 @@ public:
         Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
         double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map.data.data()), 50);
         if (move_cost == DBL_MAX) return DBL_MAX;
-        cout << "Move cost: " << move_cost << endl;
         return move_cost * resolution;
     }
 
@@ -145,49 +144,33 @@ public:
 
         // Compute reset cost to move from robot_dump_pose to excavation_poses[ek]
         Pose2D robot_end_pose = excavation_poses[ek];
-        cout << "Exca cost: " << excavation_cost << endl;
-        cout << "Dump cost: " << dump_cost << endl;
-        cout << "Finding reset cost" << endl;
         double reset_cost = get_astar_cost(robot_dump_pose, robot_end_pose, berm_inputs, visited_berm_counts);
         if (reset_cost == DBL_MAX) return DBL_MAX;
-        cout << "Reset cost: " << reset_cost << endl;
         double total_cost = excavation_cost + dump_cost + reset_cost;
-        cout << "Total cost: " << total_cost << endl;
-
         return total_cost;
     }
 
     void update_neighbor(const int &u, const int &dj, const int &pj, const int &ej)
     {
-        cout << "In update neighbor" << endl;
         // Function adds neighbor to search if it is not already visited or if it has a lower g value
         // Get next state
         auto new_state = get_next_state(states[u], dj, ej);
 
-        cout << "Got next state" << endl;
-
         // see if new_state was already reached before (new_state_idx = -1 otherwise)
         int new_state_idx = -1;
         if(state_to_idx.find(new_state)!=state_to_idx.end()) new_state_idx = state_to_idx[new_state];
-
-        cout << "Got new state idx" << endl;
         
         // If new state is already closed, continue
         if(new_state_idx!=-1 && visited_states[new_state_idx]==true) return;
-
-        cout << "Got visited state" << endl;
 
         double next_state_cost = get_next_state_cost(states[u], dj, pj, ej);
         if (next_state_cost == DBL_MAX) return;
         
         double g_val = g_values[u] + next_state_cost;
 
-        cout << "Got g val" << endl;
-
         // If state not in search, add it
         if(new_state_idx==-1)
         {
-            cout << "In new state idx == -1" << endl;
             // Heuristics 
             double h_val = 0;
             // if (DEBUG)
@@ -208,7 +191,6 @@ public:
         }
         else
         {
-            cout << "In new state idx != -1" << endl;
             // If we reach a state with lower g value, update it
             if (g_val < g_values[new_state_idx])
             {
@@ -321,9 +303,8 @@ public:
                     // iterate through all dump poses for dj
                     for(int pj = 0; pj<2; pj++) 
                     {
-                        cout<<"Updating neighbor"<<" u: "<<u<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
+                        if(DEBUG) cout<<"Updating neighbor"<<" u: "<<u<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
                         update_neighbor(u, dj, pj, ej);
-                        cout << "###";
                     }
                 }
             }
@@ -359,7 +340,7 @@ public:
 
         bool first_op = true;
         int nav_count = 0;
-        string dir = "/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/paths/";
+        string dir = "/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/paths/";
 
         vector<int> visited_berm_counts(D, 0);
 

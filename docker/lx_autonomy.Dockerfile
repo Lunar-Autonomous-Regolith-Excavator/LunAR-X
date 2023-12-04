@@ -7,6 +7,9 @@ FROM ros:humble-ros-base
 # Update & Upgrade
 RUN sudo apt-get update && sudo apt-get upgrade -y
 
+RUN apt update && apt install curl -y
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
 ### Expose required ports
 # TODO
@@ -38,6 +41,8 @@ RUN apt update && apt install python3-pip -y
 RUN apt-get install ros-humble-foxglove-bridge -y
 # install joy
 RUN apt update && apt install ros-humble-joy-linux -y
+# hybrid a* dependencies
+RUN apt update && apt-get install libompl-dev libeigen3-dev libceres-dev libopencv-dev -y
 
 ### Copy source code
 COPY ./src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/
@@ -47,7 +52,7 @@ COPY ./src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/
 COPY ./utilities/ /home/lx_autonomy/lx_autonomy_ws/utilities/
 
 # Run rosdep on src folder
-RUN cd /home/lx_autonomy/lx_autonomy_ws && apt-get update && rosdep install -i --from-path src --rosdistro humble -y
+RUN cd /home/lx_autonomy/lx_autonomy_ws && DEBIAN_FRONTEND=noninteractive rosdep update && DEBIAN_FRONTEND=noninteractive rosdep install --from-paths src --ignore-src -r -y
 
 # Colcon build
 RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && colcon build

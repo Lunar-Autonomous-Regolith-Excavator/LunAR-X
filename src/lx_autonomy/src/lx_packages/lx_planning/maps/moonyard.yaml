@@ -5,6 +5,8 @@ berm_input:
   y: 3.4
 - x: 6.0
   y: 3.8
+- x: 6.0
+  y: 4.2
 excavation_input:
 - x: 1.0
   y: 1.0
@@ -27,7 +29,10 @@ excavation_input:
 - x: 1.0
   y: 3.0
   z: 0.0
+- x: 1.0
+  y: 3.0
+  z: 0.0
 berm_height: 0.14
 section_length: 0.4
 map_image: moonyard.png
-output_file: /home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/animation/output.csv
+output_file: /home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/animation/output.csv
