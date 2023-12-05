@@ -27,5 +27,5 @@ excavation_input:
   z: 0.0
 berm_height: 0.09
 section_length: 0.435
-map_image: test_lg.png
+map_image: rect_large.png
 output_file: animation/output.csv

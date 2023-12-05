@@ -52,6 +52,9 @@ RUN mv or-tools_x86_64_Ubuntu-22.04_cpp_v9.8.3296 or-tools
 WORKDIR /home/or-tools
 RUN make test
 
+# Install ffmpeg to save video
+RUN apt update && apt install ffmpeg -y
+
 ### Copy source code
 COPY ./src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/
 

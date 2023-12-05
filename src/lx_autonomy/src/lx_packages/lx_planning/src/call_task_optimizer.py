@@ -11,11 +11,11 @@ from nav_msgs.msg import OccupancyGrid
 import yaml
 from numpy import arctan2, rad2deg
 import cv2
-
+import sys
 from ament_index_python.packages import get_package_share_directory
 
 class PlanTaskNode(Node):
-    def __init__(self):
+    def __init__(self, map_yaml_name):
         super().__init__('plan_task_node')
         self._action_client = ActionClient(self, PlanTask, 'plan_task')
         
@@ -23,14 +23,15 @@ class PlanTaskNode(Node):
         while not self._action_client.wait_for_server(timeout_sec=1.0):
             self.get_logger().info('Action server not available, waiting...')
         self.get_logger().info('Action server is available')
-
+        
+        self.map_yaml_name = map_yaml_name # example: moonyard
         self.load_parameters()
 
     def load_parameters(self):
         # Read parameters from YAML file
         package_directory = get_package_share_directory("lx_planning")
 
-        yaml_file = package_directory + '/maps/test.yaml'
+        yaml_file = package_directory + '/maps/' + self.map_yaml_name + '.yaml'
         with open(yaml_file, 'r') as file:
             params = yaml.safe_load(file)
 
@@ -107,9 +108,18 @@ class PlanTaskNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    action_client = PlanTaskNode()
+
+    if args is not None and len(args) > 1:
+        map_yaml_name = args[1]
+
+    action_client = PlanTaskNode(map_yaml_name)
     action_client.call_plan_task_action()
+    # Run your node
     rclpy.spin(action_client)
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) < 2:
+        print('Usage: call_task_optimizer.py <mapname yaml name: moonyard>')
+        sys.exit(1)
+    
+    main(args=sys.argv)

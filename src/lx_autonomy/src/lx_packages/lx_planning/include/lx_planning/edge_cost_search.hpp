@@ -77,14 +77,8 @@ public:
             double point_x = point.x, point_y = point.y;
             point_x *= resolution; point_y *= resolution;
             double distance = sqrt(pow(point_x - berm_input.x, 2) + pow(point_y - berm_input.y, 2));
-            // cout<<"Distance to berm "<<i<<" is "<<distance<<endl;
-            // cout<<"orig points: "<<point.x<<", "<<point.y<<endl; // TODO: remove this "cout
-            // cout<<"resolution: "<<resolution<<endl; // TODO: remove this "cout
-            // cout<<"Point 1: "<<point_x<<", "<<point_y<<endl;
-            // cout<<"Point 2: "<<berm_input.x<<", "<<berm_input.y<<endl;
             if (distance < (BERM_AVOID_DIST_M + ROBOT_RADIUS_M))
             {
-                cout<<"Berm obstacle detected at: "<<point_x<<", "<<point_y<<" for berm "<<i<<endl;
                 result = true;
                 break;
             }

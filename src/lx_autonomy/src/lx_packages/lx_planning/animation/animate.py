@@ -7,6 +7,7 @@ from matplotlib.animation import FuncAnimation, PillowWriter  # For gif
 from ament_index_python.packages import get_package_share_directory
 import yaml
 import cv2
+import sys
 
 # visualization
 fig = plt.figure()
@@ -224,7 +225,11 @@ def overlay_berm(berm, berm_x, berm_y, height_grid):
     return height_grid
 
 if __name__ == '__main__':
-
+    if len(sys.argv) < 2:
+        print('Usage: python animate.py <map_yaml_file>')
+        sys.exit(1)
+        
+    map_yaml_file = sys.argv[1]
     # desired_berm_height = 15 # cms
     # berm_section_length = 40 # cms
     
@@ -233,7 +238,7 @@ if __name__ == '__main__':
 
     # Read parameters from YAML file
     package_directory = get_package_share_directory("lx_planning")
-    yaml_file = package_directory + '/maps/test.yaml'
+    yaml_file = package_directory + '/maps/' + map_yaml_file + '.yaml'
     with open(yaml_file, 'r') as file:
         params = yaml.safe_load(file)
 
