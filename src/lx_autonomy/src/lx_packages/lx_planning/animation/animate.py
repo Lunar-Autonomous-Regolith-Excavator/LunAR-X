@@ -342,11 +342,11 @@ if __name__ == '__main__':
     # # visualize(berm_points, height_grid, robot, np.array(robot_path))
 
     animation = FuncAnimation(fig, getFrame, frames=len(height_grid_arr), fargs=(berm_pts_arr, excavation_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr))
-    # animation.save('animation.gif', writer='pillow', fps=10)
-    animation.save('animation.mp4', writer='ffmpeg', fps=30)
+    # animation.save('bags/animation.gif', writer='pillow', fps=10)
+    animation.save('bags/animation.mp4', writer='ffmpeg', fps=30)
 
     # save the height map in png
     plt.imshow(height_grid.T, cmap='viridis', origin='lower')
     # colorbar bottom
     plt.colorbar(label='Value', orientation='horizontal')
-    plt.savefig('height_map.png')
+    plt.savefig('bags/height_map.png')
