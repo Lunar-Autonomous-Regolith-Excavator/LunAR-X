@@ -21,10 +21,17 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(ompl REQUIRED)
 
+set(ORTOOLS_DIR "/home/hariharan/or-tools")
+
 include_directories(
   include
   ${OMPL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${ORTOOLS_DIR}/include
+)
+
+link_directories(
+  ${ORTOOLS_DIR}/lib
 )
 
 # Task planning node
@@ -40,6 +47,9 @@ ament_target_dependencies(map_pub rclcpp nav2_msgs)
 
 add_executable(test_planner src/test_task_planner.cpp)
 ament_target_dependencies(test_planner rclcpp lx_msgs geometry_msgs)
+
+add_executable(tsp_test src/tsp_test.cpp)
+target_link_libraries(tsp_test ortools)
 
 add_executable(simple_example src/node_se2.cpp src/simple_example.cpp)
 target_link_libraries(simple_example ompl ceres ${OpenCV_LIBS} Eigen3::Eigen)
@@ -60,6 +70,7 @@ install(TARGETS
   task_optimizer_node
   map_pub
   test_planner
+  tsp_test
   simple_example
   gui_example
   DESTINATION lib/${PROJECT_NAME}
