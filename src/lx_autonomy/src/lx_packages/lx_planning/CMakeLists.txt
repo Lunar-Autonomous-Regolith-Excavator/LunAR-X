@@ -68,6 +68,8 @@ install(TARGETS
 install(DIRECTORY
   launch
   maps
+  animation
+  paths
   DESTINATION share/${PROJECT_NAME}
 )
 

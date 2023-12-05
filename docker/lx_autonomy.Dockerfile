@@ -43,6 +43,14 @@ RUN apt-get install ros-humble-foxglove-bridge -y
 RUN apt update && apt install ros-humble-joy-linux -y
 # hybrid a* dependencies
 RUN apt update && apt-get install libompl-dev libeigen3-dev libceres-dev libopencv-dev -y
+# Google OR-Tools
+RUN apt update && apt install -y build-essential cmake lsb-release wget
+WORKDIR /home/
+RUN wget https://github.com/google/or-tools/releases/download/v9.8/or-tools_amd64_ubuntu-22.04_cpp_v9.8.3296.tar.gz
+RUN tar -xf or-tools_amd64_ubuntu-22.04_cpp_v9.8.3296.tar.gz
+RUN mv or-tools_x86_64_Ubuntu-22.04_cpp_v9.8.3296 or-tools
+WORKDIR /home/or-tools
+RUN make test
 
 ### Copy source code
 COPY ./src/lx_autonomy/src/ /home/lx_autonomy/lx_autonomy_ws/src/
@@ -55,7 +63,7 @@ COPY ./utilities/ /home/lx_autonomy/lx_autonomy_ws/utilities/
 RUN cd /home/lx_autonomy/lx_autonomy_ws && DEBIAN_FRONTEND=noninteractive rosdep update && DEBIAN_FRONTEND=noninteractive rosdep install --from-paths src --ignore-src -r -y
 
 # Colcon build
-RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && colcon build
+RUN cd /home/lx_autonomy/lx_autonomy_ws && source /opt/ros/humble/setup.bash && colcon build --symlink-install --parallel-workers 4
 
 # Set work directory
 WORKDIR /home/lx_autonomy/lx_autonomy_ws

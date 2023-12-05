@@ -35,4 +35,4 @@ excavation_input:
 berm_height: 0.14
 section_length: 0.4
 map_image: moonyard.png
-output_file: /home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/animation/output.csv
+output_file: animation/output.csv

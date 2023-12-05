@@ -27,5 +27,5 @@ excavation_input:
   z: 0.0
 berm_height: 0.09
 section_length: 0.435
-map_image: test.png
-output_file: /home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/animation/output.csv
+map_image: test_lg.png
+output_file: animation/output.csv

@@ -12,7 +12,7 @@ public:
     // 2D Astar constants
     static constexpr int NUMOFDIRS = 8;
     static constexpr double BERM_AVOID_DIST_M = 0.25;
-    static constexpr double ROBOT_RADIUS_M = 0.4;
+    static constexpr double ROBOT_RADIUS_M = 0.5;
 
     static constexpr array<int, 8> dX = {-1, -1, -1,  0,  0,  1, 1, 1};
     static constexpr array<int, 8> dY = {-1,  0,  1, -1,  1, -1, 0, 1};

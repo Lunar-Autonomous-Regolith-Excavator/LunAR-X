@@ -246,10 +246,10 @@ if __name__ == '__main__':
     excavation_points = np.array([[pt['x'] * 100, pt['y'] * 100, pt['z']] for pt in excavation_input])
 
     # read output CSV
-    output_points = np.genfromtxt('/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/animation/output.csv', delimiter=',')
+    output_points = np.genfromtxt(package_directory + '/animation/output.csv', delimiter=',')
 
     map_string = params['map_image']
-    map_string= '/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/maps/' + map_string
+    map_string= package_directory + '/maps/' + map_string
     map_image = (255 - cv2.imread(map_string, cv2.IMREAD_GRAYSCALE))
     map_image[map_image < 128] = 0
     map_image[map_image >= 128] = 25
@@ -278,13 +278,16 @@ if __name__ == '__main__':
         
         if task == 0: # navigation
             # read path from file
-            path = np.genfromtxt('/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/paths/path_' + str(nav_count) + '.txt', delimiter=',')
+            path = np.genfromtxt(package_directory + '/paths/path_' + str(nav_count) + '.txt', delimiter=',')
             path[:, :2] *= 100
 
             for i in range(len(path)):
                 dx = path[i, 0] - robot.x
                 dy = path[i, 1] - robot.y
-                dtheta = 0 #path[i, 2] - robot.theta
+                if i == len(path)-1:
+                    dtheta = path[i, 2] - robot.theta
+                else:
+                    dtheta = 0
 
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())
@@ -301,10 +304,10 @@ if __name__ == '__main__':
             nav_count += 1
         
         elif task == 1: # excavation
-            dx = x + 150 * np.cos(robot.theta) - robot.x
-            dy = y + 150 * np.sin(robot.theta) - robot.y
+            dx = x + 50 * np.cos(robot.theta) - robot.x
+            dy = y + 50 * np.sin(robot.theta) - robot.y
             dtheta = theta - robot.theta
-            for i in range(0, 10):
+            for i in range(0, 30):
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())
                 corners_arr.append(robot.get_corners())
@@ -319,8 +322,11 @@ if __name__ == '__main__':
         
         elif task == 2: # dump
             berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
-            # height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
-            for i in range(0, 10):
+            height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
+            for i in range(0, 50):
+                if i == 45:
+                    robot.shift(0, 0, -robot.theta)
+                    dtheta = 0
                 robot_path.append([robot.x, robot.y])
                 height_grid_arr.append(height_grid.copy())
                 corners_arr.append(robot.get_corners())
@@ -336,7 +342,8 @@ if __name__ == '__main__':
     # # visualize(berm_points, height_grid, robot, np.array(robot_path))
 
     animation = FuncAnimation(fig, getFrame, frames=len(height_grid_arr), fargs=(berm_pts_arr, excavation_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr))
-    animation.save('animation.gif', writer='pillow', fps=10)
+    # animation.save('animation.gif', writer='pillow', fps=10)
+    animation.save('animation.mp4', writer='ffmpeg', fps=30)
 
     # save the height map in png
     plt.imshow(height_grid.T, cmap='viridis', origin='lower')

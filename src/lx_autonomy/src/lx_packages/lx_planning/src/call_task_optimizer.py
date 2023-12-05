@@ -40,7 +40,7 @@ class PlanTaskNode(Node):
         self.berm_height = params['berm_height']
         self.section_length = params['section_length']
 
-        self.output_file = params['output_file']
+        self.output_file = package_directory + "/" + params['output_file']
 
         # Load the map image from lx_planning/maps/mapstring.png
         map_string = params['map_image']

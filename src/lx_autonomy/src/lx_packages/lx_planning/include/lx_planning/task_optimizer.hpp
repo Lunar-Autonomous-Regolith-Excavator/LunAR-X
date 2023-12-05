@@ -14,6 +14,9 @@
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "lx_msgs/msg/berm_section.hpp"
 
+#include "ament_index_cpp/get_package_share_directory.hpp"
+
+
 
 class OptimalSequencePlanner
 {
@@ -107,9 +110,10 @@ public:
         {
             pose.x = path[i].x*resolution;
             pose.y = path[i].y*resolution;
-            if (i < path.size() - 1)
+            pose.theta = 0;
+            if (i == path.size()-1)
             {
-                pose.theta = atan2(path[i+1].y - path[i].y, path[i+1].x - path[i].x);
+                pose.theta = goal.theta;
             }
             path_poses.push_back(pose);
         }
@@ -340,7 +344,7 @@ public:
 
         bool first_op = true;
         int nav_count = 0;
-        string dir = "/home/lx_autonomy/lx_autonomy_ws/src/lx_packages/lx_planning/paths/";
+        string dir = ament_index_cpp::get_package_share_directory("lx_planning") + "/paths/";
 
         vector<int> visited_berm_counts(D, 0);
 
