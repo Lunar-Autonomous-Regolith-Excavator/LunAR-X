@@ -32,6 +32,7 @@ class PointCloudHandler : public rclcpp::Node
         const bool debug_mode_ = false;
         double tool_height_wrt_base_link_;
         bool need_ground_height_ = false;
+        const double CROP_DISTANCE_FROM_TOP_M = 0.24; //more value, more crop from top
         geometry_msgs::msg::TransformStamped cam2map_transform;
         // Transforms
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;

@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# Sample points for berm evaluation
-berm_eval_points=(
-    '{header: {frame_id: "map"}, point: {x: 1.0, y: 2.0, z: 0.0}}',
-    '{header: {frame_id: "map"}, point: {x: 3.0, y: 4.0, z: 0.0}}',
-    '{header: {frame_id: "map"}, point: {x: 5.0, y: 6.0, z: 0.0}}'
-)
-
 # Call the berm evaluation service
 ros2 service call berm_evaluation/requested_berm_points lx_msgs/srv/BermService "{
     berm: {
@@ -16,8 +9,8 @@ ros2 service call berm_evaluation/requested_berm_points lx_msgs/srv/BermService 
             "frame_id": "map"
         },
         "point": {
-            "x": 5.22,
-            "y": 3.81,
+            "x": 6.0,
+            "y": 3.97,
             "z": 0.0
         }
     },
@@ -26,8 +19,8 @@ ros2 service call berm_evaluation/requested_berm_points lx_msgs/srv/BermService 
             "frame_id": "map"
         },
         "point": {
-            "x": 5.22,
-            "y": 3.28,
+            "x": 6.0,
+            "y": 3.57,
             "z": 0.0
         }
     },
@@ -36,8 +29,8 @@ ros2 service call berm_evaluation/requested_berm_points lx_msgs/srv/BermService 
             "frame_id": "map"
         },
         "point": {
-            "x": 5.0,
-            "y": 6.0,
+            "x": 6.0,
+            "y": 3.17,
             "z": 0.0
         }
     }

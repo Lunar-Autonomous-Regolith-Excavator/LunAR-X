@@ -21,9 +21,6 @@
 
 VisualServoing::VisualServoing() : Node("visual_servoing_node")
 {   
-    // Set false for dry runs, set true for commands and to publish debug data
-    debug_mode_ = true;
-
     // Setup Communications
     setupCommunications();
 
@@ -84,11 +81,22 @@ void VisualServoing::startStopVSCallback(const std::shared_ptr<lx_msgs::srv::Swi
                                         std::bind(&VisualServoing::pointCloudCallback, this, std::placeholders::_1));
         this->current_berm_segment = req->current_berm_segment;
         this->prev_berm_segment = req->prev_berm_segment;
+        // print perv_berm_segment
+        RCLCPP_INFO(this->get_logger(), "prev_berm_segment: x: %f, y: %f, theta: %f", prev_berm_segment.x, prev_berm_segment.y, prev_berm_segment.theta);
         // if all values in current_berm_segment are 0, set transform_mode_ to false
         if(this->current_berm_segment.x == 0 && this->current_berm_segment.y == 0 && this->current_berm_segment.theta == 0){
             transform_mode_ = false;
         }
-        else{
+        // else if (req->first_seg_dump == false) // only run transform points for first segment
+        // {
+        //     transform_mode_ = false;
+        // }
+        else if(prev_berm_segment.x < -900 && prev_berm_segment.y < -900 && prev_berm_segment.theta < -900) // if prev_berm_segment is not defined, set transform_mode_ to false
+        {
+            transform_mode_ = false;
+        }
+        else
+        {
             transform_mode_ = true;
         }
         node_state_ = true;
@@ -105,6 +113,67 @@ void VisualServoing::pointCloudCallback(const sensor_msgs::msg::PointCloud2::Sha
     pointcloud_thread_ = std::thread(std::bind(&VisualServoing::getVisualServoError, this, msg));
 
     pointcloud_thread_.detach();
+}
+
+double VisualServoing::getMedianElevation(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+    if(cloud->points.size() < 30){
+        RCLCPP_INFO(this->get_logger(), "No berm, as could not find ground plane");
+        return 0;
+    }
+    // bin the points in z direction to count the number of points in each bin
+    std::vector<int> bin_values(NUM_BINS, 0); // vector of bin values
+    for(long unsigned int i = 0; i < cloud->points.size(); i++){
+        int bin_idx = int((cloud->points[i].z-PCL_Z_MIN_M)/(PCL_Z_MAX_M-PCL_Z_MIN_M)*NUM_BINS);
+        if(bin_idx<0 || bin_idx>=NUM_BINS){
+            continue;
+        }
+        bin_values[bin_idx]++;
+    }
+    // get the median elevation fof the points
+    int median_bin_idx = cloud->points.size()/2;
+    int sum = 0;
+    for(int i = 0; i < NUM_BINS; i++){
+        sum += bin_values[i];
+        if(sum > median_bin_idx){
+            median_bin_idx = i;
+            break;
+        }
+    }
+    double median_elevation = (double)median_bin_idx*(PCL_Z_MAX_M-PCL_Z_MIN_M)/NUM_BINS + PCL_Z_MIN_M;
+
+    // if number of points more than median_elevation plus PEAK_LINE_DISTANCE_M, then no berm
+    int num_points_above_threshold = 0;
+    int threshold_bin_idx = int((median_elevation+PEAK_LINE_DISTANCE_M-PCL_Z_MIN_M)/(PCL_Z_MAX_M-PCL_Z_MIN_M)*NUM_BINS);
+    // calculate using bins
+    for(int i = threshold_bin_idx; i < NUM_BINS; i++){
+        num_points_above_threshold += bin_values[i];
+    }
+    if(num_points_above_threshold < 10){
+        RCLCPP_INFO(this->get_logger(), "No berm, as height of berm is too small");
+        visual_servo_fail_ = true;
+        return -100;
+    }
+
+    return median_elevation;
+}
+
+void VisualServoing::getGroundIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double median_elevation, pcl::PointIndices::Ptr ground_indices){
+    // get the indices of the points in the ground plane using cropbox
+    pcl::CropBox<pcl::PointXYZ> cropbox;
+    cropbox.setMin(Eigen::Vector4f(PCL_X_MIN_M, PCL_Y_MIN_M, PCL_Z_MIN_M, 1.0));
+    cropbox.setMax(Eigen::Vector4f(PCL_X_MAX_M, PCL_Y_MAX_M, median_elevation, 1.0));
+    cropbox.setInputCloud(cloud);
+    cropbox.filter(ground_indices->indices);
+}
+
+
+void VisualServoing::getBermIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, double median_elevation, pcl::PointIndices::Ptr berm_indices){
+    // get the indices of the points in the berm plane
+    pcl::CropBox<pcl::PointXYZ> cropbox;
+    cropbox.setMin(Eigen::Vector4f(PCL_X_MIN_M, PCL_Y_MIN_M, median_elevation, 1.0));
+    cropbox.setMax(Eigen::Vector4f(PCL_X_MAX_M, PCL_Y_MAX_M, PCL_Z_MAX_M, 1.0));
+    cropbox.setInputCloud(cloud);
+    cropbox.filter(berm_indices->indices);
 }
 
 //function to apply RANSAC to fit ground plane on a pointcloud
@@ -269,17 +338,8 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     marker_array_msg.scale.y = 0.05;
     marker_array_msg.color.r = 1.0;
     marker_array_msg.color.a = 1.0;
-    for(int i = 0; i < NUM_BINS; i++){
-        geometry_msgs::msg::Point p;
-        p.x = ((double)peak_x[i]*(PCL_X_MAX_M-PCL_X_MIN_M)/NUM_BINS) + PCL_X_MIN_M;
-        p.y = (double)i*(PCL_Y_MAX_M-PCL_Y_MIN_M)/NUM_BINS + PCL_Y_MIN_M;
-        p.z = peak_z[i];
-        marker_array_msg.points.push_back(p);
-    }
 
-    if(debug_mode_){
-        peakpoints_marker_publisher_->publish(marker_array_msg);    
-    }
+
     // Make a new PCL pointcloud with only the points in the bins
     pcl::PointCloud<pcl::PointXYZ>::Ptr binned_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for(int i = 0; i < NUM_BINS; i++){
@@ -310,13 +370,20 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     for(long unsigned int i=0; i < binned_cloud->points.size(); i++){
         if(abs(distances[i]-max_distance)<PEAK_LINE_DISTANCE_M){
             binned_cloud_filtered->points.push_back(binned_cloud->points[i]);
+            geometry_msgs::msg::Point p;
+            p.x = binned_cloud->points[i].x;
+            p.y = binned_cloud->points[i].y;
+            p.z = binned_cloud->points[i].z;
+            marker_array_msg.points.push_back(p);
         }
     }
     if (binned_cloud_filtered->points.size() < 2){
         RCLCPP_INFO(this->get_logger(), "No berm, as could not find peak line");
         return {};
     }
-
+    if(debug_mode_){
+        peakpoints_marker_publisher_->publish(marker_array_msg);    
+    }
     // fit a line to the binned cloud
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_peakline(new pcl::PointIndices);
@@ -363,6 +430,18 @@ vector<double> VisualServoing::binPoints(pcl::PointCloud<pcl::PointXYZ>::Ptr in_
     for(int i=0;i<6;i++){
         line_coefficients.push_back(coefficients->values[i]);
     }
+    
+    // In the inliers of the peak line, find the average x and y values
+    double avg_x = 0.0, avg_y = 0.0;
+    for(long unsigned int i = 0; i < inliers_peakline->indices.size(); i++){
+        avg_x += binned_cloud_filtered->points[inliers_peakline->indices[i]].x;
+        avg_y += binned_cloud_filtered->points[inliers_peakline->indices[i]].y;
+    }
+    avg_x = avg_x/inliers_peakline->indices.size();
+
+    // append to line_coefficients
+    line_coefficients.push_back(avg_x); line_coefficients.push_back(avg_y);
+
     return line_coefficients;
 }
 
@@ -414,111 +493,195 @@ vector<geometry_msgs::msg::PoseStamped> VisualServoing::getTransformedBermSegmen
     return ans;
 }
 
+double VisualServoing::getTargetZ(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud){
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::CropBox<pcl::PointXYZ> crop;
+    crop.setMin(Eigen::Vector4f(-10, -0.2, -10, 1.0));
+    crop.setMax(Eigen::Vector4f(10, 0.2, 10, 1.0));
+    crop.setInputCloud(cloud);
+    crop.filter(*cropped_cloud);
+    // reomove noise
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    sor.setInputCloud(cropped_cloud);
+    sor.setMeanK(50);
+    sor.setStddevMulThresh(1.0);
+    sor.filter(*cropped_cloud);
+
+    double max_z = 0.0;
+    std::for_each(cropped_cloud->points.begin(), cropped_cloud->points.end(), [&max_z](pcl::PointXYZ p){if(p.z>max_z){max_z = p.z;}});
+    return max_z;
+}
+
 void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::SharedPtr msg){
 
+    visual_servo_fail_ = false;
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *input_cloud);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_minus_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::ModelCoefficients::Ptr coefficients_1(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
-    fitBestPlane(input_cloud, 100, 0.02, 1, inliers_1, coefficients_1);
-    // delete inliers from cloud
-    pcl::ExtractIndices<pcl::PointXYZ> extract;
-    extract.setInputCloud(input_cloud);
-    extract.setIndices(inliers_1);
-    extract.setNegative(true);
-    extract.filter(*cloud_minus_plane1);
-
-    // if no points in cloud_minus_plane1, then no berm
-    if(cloud_minus_plane1->points.size() < 30){
-        RCLCPP_INFO(this->get_logger(), "No berm, as could not find second plane");
-        return;
-    }
-    pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
-    fitBestPlane(cloud_minus_plane1, 100, 0.02, 2, inliers_2, coefficients_2);
-
-    std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
-    std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
-    auto cross_product = crossProduct(normal_1, normal_2);
-    auto sin_theta = sqrt(cross_product[0]*cross_product[0] + cross_product[1]*cross_product[1] + cross_product[2]*cross_product[2]);
-    auto theta = asin(sin_theta);
-    
-    // create 2 vector pointers
-    std::vector<double> *ground_plane_vec = &normal_1;
-    std::vector<double> *berm_plane_vec = &normal_2;
-    std::vector<double> ground_plane_equation;
     std::vector<double> line_coefficients;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane1(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane2(new pcl::PointCloud<pcl::PointXYZ>);
     sensor_msgs::msg::PointCloud2 groundplane_msg;
     sensor_msgs::msg::PointCloud2 bermplane_msg;
+    std::vector<double> ground_plane_equation;
 
-    if(debug_mode_){
-        pcl::ExtractIndices<pcl::PointXYZ> extract_d1, extract_d2;
+    if(!USE_MEDIAN_SEGMENTATION){
+        fitBestPlane(input_cloud, 100, 0.01, 1, inliers_1, coefficients_1);
+        // delete inliers from cloud
+        pcl::ExtractIndices<pcl::PointXYZ> extract;
+        extract.setInputCloud(input_cloud);
+        extract.setIndices(inliers_1);
+        extract.setNegative(true);
+        extract.filter(*cloud_minus_plane1);
 
+        // if no points in cloud_minus_plane1, then no berm
+        if(cloud_minus_plane1->points.size() < 30){
+            RCLCPP_INFO(this->get_logger(), "No berm, as could not find second plane");
+            visual_servo_fail_ = true;
+            return;
+        }
+        pcl::ModelCoefficients::Ptr coefficients_2(new pcl::ModelCoefficients);
+        pcl::PointIndices::Ptr inliers_2(new pcl::PointIndices);
+        fitBestPlane(cloud_minus_plane1, 100, 0.01, 2, inliers_2, coefficients_2);
+
+        std::vector<double> normal_1 = calculateNormalVector(coefficients_1);
+        std::vector<double> normal_2 = calculateNormalVector(coefficients_2);
+        auto cross_product = crossProduct(normal_1, normal_2);
+        auto sin_theta = sqrt(cross_product[0]*cross_product[0] + cross_product[1]*cross_product[1] + cross_product[2]*cross_product[2]);
+        auto theta = asin(sin_theta);
+        
+        // create 2 vector pointers
+        std::vector<double> *ground_plane_vec = &normal_1;
+        std::vector<double> *berm_plane_vec = &normal_2;    
+
+        if(debug_mode_){
+            pcl::ExtractIndices<pcl::PointXYZ> extract_d1, extract_d2;
+
+            extract_d1.setInputCloud(input_cloud);
+            extract_d1.setIndices(inliers_1);
+            extract_d1.setNegative(false);
+            extract_d1.filter(*cloud_plane1);
+            groundplane_msg.header.frame_id = "base_link";
+
+            extract_d2.setInputCloud(cloud_minus_plane1);
+            extract_d2.setIndices(inliers_2);
+            extract_d2.setNegative(false);
+            extract_d2.filter(*cloud_plane2);
+            bermplane_msg.header.frame_id = "base_link";
+        }
+
+        if (theta < MIN_PLANE_ANGLE_DEG*M_PI/180.0){
+            // no berm
+            ground_plane_vec = &normal_1;
+            berm_plane_vec = &normal_1;
+            RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small %f", theta);
+            // publish ground plane
+            if(debug_mode_){
+                pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }
+            visual_servo_fail_ = true;
+        }
+        else if(cross_product[1]<0){
+            ground_plane_vec = &normal_1;
+            berm_plane_vec = &normal_2;
+            ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
+            line_coefficients = binPoints(cloud_minus_plane1, inliers_2, ground_plane_equation);
+            if(debug_mode_)
+            {
+                pcl::toROSMsg(*cloud_plane1, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane2, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }
+        }
+        else{
+            ground_plane_vec = &normal_2;
+            berm_plane_vec = &normal_1;
+            ground_plane_equation = {coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]};
+            line_coefficients = binPoints(input_cloud, inliers_1, ground_plane_equation);
+            if(debug_mode_)
+            {
+                pcl::toROSMsg(*cloud_plane2, groundplane_msg);
+                groundplane_publisher_->publish(groundplane_msg);
+                pcl::toROSMsg(*cloud_plane1, bermplane_msg);
+                bermplane_publisher_->publish(bermplane_msg);
+            }    
+        }
+        publishVector(*ground_plane_vec, "groundplane");
+        publishVector(*berm_plane_vec, "bermplane");
+    }
+    else{
+        // get median elevation
+        double median_elevation = getMedianElevation(input_cloud);
+        // get ground indices
+        pcl::PointIndices::Ptr ground_indices(new pcl::PointIndices);
+        getGroundIndices(input_cloud, median_elevation, ground_indices);
+        // get berm indices
+        pcl::PointIndices::Ptr berm_indices(new pcl::PointIndices);
+        getBermIndices(input_cloud, median_elevation, berm_indices);
+
+        // if no points in berms, then no berm
+        if(berm_indices->indices.size() < 30){
+            RCLCPP_INFO(this->get_logger(), "No berm, as no points in berm indices");
+            visual_servo_fail_ = true;
+            return;
+        }
+        
+        // fit plane thorugh ground indices
+        pcl::ExtractIndices<pcl::PointXYZ> extract_d1;
         extract_d1.setInputCloud(input_cloud);
-        extract_d1.setIndices(inliers_1);
+        extract_d1.setIndices(ground_indices);
         extract_d1.setNegative(false);
         extract_d1.filter(*cloud_plane1);
         groundplane_msg.header.frame_id = "base_link";
-
-        extract_d2.setInputCloud(cloud_minus_plane1);
-        extract_d2.setIndices(inliers_2);
-        extract_d2.setNegative(false);
-        extract_d2.filter(*cloud_plane2);
-        bermplane_msg.header.frame_id = "base_link";
-    }
-
-    if (theta < MIN_PLANE_ANGLE_DEG*M_PI/180.0){
-        // no berm
-        ground_plane_vec = &normal_1;
-        berm_plane_vec = &normal_1;
-        RCLCPP_INFO(this->get_logger(), "No berm, as angle between planes is too small %f", theta);
-        // publish ground plane
+        pcl::PointIndices::Ptr inliers_1(new pcl::PointIndices);
+        fitBestPlane(cloud_plane1, 100, 0.01, 1, inliers_1, coefficients_1);
         if(debug_mode_){
-            pcl::toROSMsg(*cloud_plane1, groundplane_msg);
-            groundplane_publisher_->publish(groundplane_msg);
-            pcl::toROSMsg(*cloud_plane2, bermplane_msg);
-            bermplane_publisher_->publish(bermplane_msg);
+            // RCLCPP_INFO(this->get_logger(), "Ground plane coefficients: %f, %f, %f, %f", coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]);
+            // RCLCPP_INFO(this->get_logger(), "cloud_plane1 size: %ld", cloud_plane1->points.size());
         }
-    }
-    else if(cross_product[1]<0){
-        ground_plane_vec = &normal_1;
-        berm_plane_vec = &normal_2;
+        // get ground plane equation
         ground_plane_equation = {coefficients_1->values[0], coefficients_1->values[1], coefficients_1->values[2], coefficients_1->values[3]};
-        line_coefficients = binPoints(cloud_minus_plane1, inliers_2, ground_plane_equation);
+
+        // call binPoints to get line coefficients
+        line_coefficients = binPoints(input_cloud, berm_indices, ground_plane_equation);
+        if(line_coefficients.size() == 0){
+            RCLCPP_INFO(this->get_logger(), "No berm, as could not find peak line");
+            visual_servo_fail_ = true;
+            return;
+        }
         if(debug_mode_)
-        {
+        {   
+            // cloud_plane2 is berm plane
+            pcl::ExtractIndices<pcl::PointXYZ> extract_d2;
+            extract_d2.setInputCloud(input_cloud);
+            extract_d2.setIndices(berm_indices);
+            extract_d2.setNegative(false);
+            extract_d2.filter(*cloud_plane2);
+            bermplane_msg.header.frame_id = "base_link";
             pcl::toROSMsg(*cloud_plane1, groundplane_msg);
             groundplane_publisher_->publish(groundplane_msg);
             pcl::toROSMsg(*cloud_plane2, bermplane_msg);
             bermplane_publisher_->publish(bermplane_msg);
         }
-    }
-    else{
-        ground_plane_vec = &normal_2;
-        berm_plane_vec = &normal_1;
-        ground_plane_equation = {coefficients_2->values[0], coefficients_2->values[1], coefficients_2->values[2], coefficients_2->values[3]};
-        line_coefficients = binPoints(input_cloud, inliers_1, ground_plane_equation);
-        if(debug_mode_)
-        {
-            pcl::toROSMsg(*cloud_plane2, groundplane_msg);
-            groundplane_publisher_->publish(groundplane_msg);
-            pcl::toROSMsg(*cloud_plane1, bermplane_msg);
-            bermplane_publisher_->publish(bermplane_msg);
-        }    
-    }
-
+    }        
+    
     // check if line_coefficients is empty
     if(line_coefficients.size() > 0){
 
         geometry_msgs::msg::Point error_msg, curr_error;
         std::vector<double> target_point(3,0.0);
         // find the point on the line given by line_coefficients that is closest to the tool (origin). 
-        // The coefficients are the form (x0, y0, z0, x1, y1, z1) where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
+        // The coefficients are the form (x0, y0, z0, x1, y1, z1, xmid, ymid)
+        // where (x0, y0, z0) is a point on the line and (x1, y1, z1) is the direction vector of the line
+        // (xmid, ymid) is the midpoint of the inliers of the peak line
         double t = -(line_coefficients[0]*line_coefficients[3] + line_coefficients[1]*line_coefficients[4] + line_coefficients[2]*line_coefficients[5])/
                         (line_coefficients[3]*line_coefficients[3] + line_coefficients[4]*line_coefficients[4] + line_coefficients[5]*line_coefficients[5]);
         target_point[0] = line_coefficients[0] + line_coefficients[3]*t;  // x
@@ -543,13 +706,20 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
         {
             curr_segment_pose = transformed_berm_segments[0];
             prev_segment_pose = transformed_berm_segments[1];
-            dist_to_curr_segment = sqrt(pow(target_point[0] - curr_segment_pose.pose.position.x, 2) + pow(target_point[1] - curr_segment_pose.pose.position.y, 2));
-            dist_to_prev_segment = sqrt(pow(target_point[0] - prev_segment_pose.pose.position.x, 2) + pow(target_point[1] - prev_segment_pose.pose.position.y, 2));
+            double x_inlier = line_coefficients[6], y_inlier = line_coefficients[7]; // midpoint of the inliers of the peak line
+            dist_to_curr_segment = sqrt(pow(x_inlier - curr_segment_pose.pose.position.x, 2) + pow(y_inlier - curr_segment_pose.pose.position.y, 2));
+            dist_to_prev_segment = sqrt(pow(x_inlier - prev_segment_pose.pose.position.x, 2) + pow(y_inlier - prev_segment_pose.pose.position.y, 2));
+            // print distance to curr and prev segments
+            RCLCPP_INFO(this->get_logger(), "Distance to curr segment: %f, Distance to prev segment: %f", dist_to_curr_segment, dist_to_prev_segment);
+        }
+
+        if(transform_mode_ == false)
+        {
+            RCLCPP_INFO(this->get_logger(), "Transform mode is false, resorting to default behavior");
         }
 
         if(dist_to_prev_segment>dist_to_curr_segment || transform_mode_ == false)
         {
-            RCLCPP_INFO(this->get_logger(), "Servoing to detected berm");
             // calculate yaw error by projecting the direction vector into the x-y plane
             double yaw_error = atan2(line_coefficients[3], line_coefficients[4]);
             // shift yaw error to -pi/2 to pi/2
@@ -562,11 +732,11 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             curr_error.x = target_point[0] - tool_distance_wrt_base_link_;
             curr_error.y = yaw_error;
             curr_error.z = target_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            RCLCPP_INFO(this->get_logger(), "Servoing to detected berm with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(target_point, "targetpoint");
         }
         else
         {
-            RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point");
             // Detected berm is previous berm
             // Find closest point on line line_coefficients to the point previous_berm_segment
             vector<double> dir_vect = { line_coefficients[0] - prev_segment_pose.pose.position.x, 
@@ -586,7 +756,7 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             double prev_segment_theta = tf2::getYaw(q);
 
             // get intersection point
-            double SEG_LEN=0.4;
+            double SEG_LEN=GLOBAL_BERM_LENGTH_M;
             vector<double> intersection_point{3, 0.0};
             intersection_point[0] = closest_point[0] + cos(prev_segment_theta)*SEG_LEN/2.0;
             intersection_point[1] = closest_point[1] + sin(prev_segment_theta)*SEG_LEN/2.0;
@@ -602,15 +772,17 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
             projected_point[1] = intersection_point[1] + sin(curr_segment_theta)*SEG_LEN/2.0;
             projected_point[2] = intersection_point[2];
 
-            curr_error.x = - tool_distance_wrt_base_link_;
-            curr_error.y = curr_segment_theta;
-            if (curr_segment_theta > M_PI/2){
+            curr_error.x = projected_point[0] - tool_distance_wrt_base_link_;
+            curr_error.y = M_PI/2 - curr_segment_theta;
+            if (curr_error.y > M_PI/2){
                 curr_error.y = curr_error.y - M_PI;
             }
-            else if (curr_segment_theta < -M_PI/2){
+            else if (curr_error.y < -M_PI/2){
                 curr_error.y = curr_error.y + M_PI;
             }
-            curr_error.z = projected_point[2] - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            double z_approach = getTargetZ(input_cloud);
+            curr_error.z = z_approach - std::min(0.5, tool_height_wrt_base_link_) - DRUM_Z_BASELINK_M;
+            RCLCPP_INFO(this->get_logger(), "Previous berm segment is closer to target point, servoing with errors: x: %f, y: %f, z: %f", curr_error.x, curr_error.y, curr_error.z);
             publishVector(projected_point, "targetpoint");
             if(debug_mode_)
             {
@@ -667,8 +839,6 @@ void VisualServoing::getVisualServoError(const sensor_msgs::msg::PointCloud2::Sh
     else
     {
         RCLCPP_INFO(this->get_logger(), "No line coefficients");
+        visual_servo_fail_ = true;
     }
-
-    publishVector(*ground_plane_vec, "groundplane");
-    publishVector(*berm_plane_vec, "bermplane");
 }

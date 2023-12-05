@@ -244,7 +244,8 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     {
         // Start Visual Servoing
         if(!callVisualServoSwitch(true, std::make_shared<lx_msgs::msg::BermSection>(goal->current_berm_segment), 
-                                    std::make_shared<lx_msgs::msg::BermSection>(goal->prev_berm_segment))){
+                                    std::make_shared<lx_msgs::msg::BermSection>(goal->prev_berm_segment), goal->first_seg_dump))
+        {
             RCLCPP_ERROR(this->get_logger(), "[AUTODUMP] Failed to SWITCH ON visual servoing");
             exec_visual_servoing = false;
         }
@@ -263,6 +264,7 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
     lx_msgs::msg::RoverCommand rover_cmd;
     rclcpp::Rate loop_rate(10);
     bool print_once = false;
+    int reached_target_count = 0;
     while(rclcpp::ok() && !goal_handle->is_canceling())
     {
         rclcpp::Time action_curr_time = this->get_clock()->now();
@@ -329,7 +331,11 @@ void AutoDumpHandler::executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> 
         // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover x: Error: %f, Command: %f", dx, x_vel);
         // RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Rover y: Error: %f, Command: %f", dy, yaw_vel);
 
-        if (abs(dz) < 0.02 && abs(dx) < 0.02 && abs(dy) < 0.03)
+        if (abs(dz) < 0.02 && abs(dx) < 0.02 && abs(dy) < 0.03) reached_target_count++;  
+        else reached_target_count = 0;
+
+        // If reached target 5 consecutive times, break
+        if(reached_target_count > 5)
         {
             RCLCPP_INFO(this->get_logger(), "[AUTODUMP] Reached targets");
             break;
@@ -449,7 +455,10 @@ void AutoDumpHandler::visualServoErrorCB(const geometry_msgs::msg::Point::Shared
 }
 
 bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state, const lx_msgs::msg::BermSection::SharedPtr current_berm_segment,
-                                            const lx_msgs::msg::BermSection::SharedPtr prev_berm_segment){
+                                            const lx_msgs::msg::BermSection::SharedPtr prev_berm_segment, 
+                                            const bool first_seg_dump
+                                            )
+{
     auto switch_request = std::make_shared<lx_msgs::srv::Switch::Request>();
     switch_request->switch_state = request_switch_state;
     if(current_berm_segment != nullptr){
@@ -458,6 +467,7 @@ bool AutoDumpHandler::callVisualServoSwitch(bool request_switch_state, const lx_
     if(prev_berm_segment != nullptr){
         switch_request->prev_berm_segment = *prev_berm_segment;
     }
+    switch_request->first_seg_dump = first_seg_dump;
 
     while(!visual_servo_client_->wait_for_service(std::chrono::seconds(2))){
         RCLCPP_INFO(this->get_logger(), "Could not contact visual servo switch");

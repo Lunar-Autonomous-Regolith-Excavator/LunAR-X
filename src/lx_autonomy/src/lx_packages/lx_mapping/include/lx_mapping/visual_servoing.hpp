@@ -16,6 +16,8 @@
 #include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/filters/crop_box.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <geometry_msgs/msg/point.hpp>
 #include "rclcpp/logger.hpp"
 #include <vector>
@@ -33,17 +35,20 @@ class VisualServoing : public rclcpp::Node
 {
     private:
         // Variables & pointers -----------------
-        bool debug_mode_;
-        bool transform_mode_; // if true, then projects the berm points to the current_berm_segmen t
+        bool debug_mode_ = true;
+        bool transform_mode_; // if true, then projects the berm points to the current_berm_segment
+        const bool USE_MEDIAN_SEGMENTATION = true; // if true, then uses median segmentation
+        bool visual_servo_fail_ = false;
         double tool_height_wrt_base_link_, tool_distance_wrt_base_link_;
         const double PCL_X_MIN_M = 0.5, PCL_X_MAX_M = 1.5; // region of interest in x direction
         const double PCL_Y_MIN_M = -0.5, PCL_Y_MAX_M = 1.0; // region of interest in y direction
+        const double PCL_Z_MIN_M = -0.5, PCL_Z_MAX_M = 0.5; // region of interest in z direction
         const int NUM_BINS = 100; // number of bins in each dim the ROI
         const double MIN_PLANE_ANGLE_DEG = 10.0; // minimum angle of the plane wrt the ground plane
         const double PEAK_LINE_DISTANCE_M = 0.06; // min dist between ground plane and peak line points
         // const double DRUM_X_BASELINK_M = 0.9; // higher value -> rover stops more towards the berm
         const double DRUM_Y_BASELINK_M = 0.0; // y coordinate of the drum wrt base_link
-        const double DRUM_Z_BASELINK_M = -0.32; // more negative-> higher drum
+        const double DRUM_Z_BASELINK_M = -0.28; // more negative-> higher drum
         bool node_state_ = false; // state of the node
         lx_msgs::msg::BermSection current_berm_segment, prev_berm_segment;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
@@ -109,6 +114,16 @@ class VisualServoing : public rclcpp::Node
         /*
         *
         * */
+
+        double getMedianElevation(pcl::PointCloud<pcl::PointXYZ>::Ptr);
+        /*
+        *
+        */
+        void getGroundIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr , 
+                                                            double , pcl::PointIndices::Ptr);
+        void getBermIndices(pcl::PointCloud<pcl::PointXYZ>::Ptr , 
+                                                            double , pcl::PointIndices::Ptr);
+        
         vector<double> crossProduct(std::vector<double>, std::vector<double>);
 
         /*
@@ -131,6 +146,8 @@ class VisualServoing : public rclcpp::Node
         void toolDistanceCallback(const std_msgs::msg::Float64::SharedPtr );
 
         vector<geometry_msgs::msg::PoseStamped> getTransformedBermSegments();
+
+        double getTargetZ(pcl::PointCloud<pcl::PointXYZ>::Ptr);
 
 
     public:

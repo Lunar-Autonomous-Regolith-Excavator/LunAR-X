@@ -132,10 +132,12 @@ void PointCloudHandler::processPointCloud(const sensor_msgs::msg::PointCloud2::S
     
     // TODO: check for z direction
     if(this->tool_height_wrt_base_link_ == 1000.0){
+        // When no tool height has been received, use a default value
         cropFilter.setMax(Eigen::Vector4f(1000, 1000, 0.28, 1.0));
     }
     else{
-        cropFilter.setMax(Eigen::Vector4f(1000, 1000, tool_height_wrt_base_link_-0.21, 1.0));
+        // Crop region above the tool
+        cropFilter.setMax(Eigen::Vector4f(1000, 1000, tool_height_wrt_base_link_-CROP_DISTANCE_FROM_TOP_M, 1.0));
     }
     cropFilter.setMin(Eigen::Vector4f(-1000, -1000, -20.0, 1.0));
     cropFilter.filter(*result_cloud);

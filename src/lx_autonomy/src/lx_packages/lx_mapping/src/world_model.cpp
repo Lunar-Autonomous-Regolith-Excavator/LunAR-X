@@ -70,13 +70,12 @@ void WorldModel::setupInitialMaps(){
     }
 
     updateTraversibilityCostmapWorldModel();
-
 }
 
 void WorldModel::setupCommunications(){
     rclcpp::QoS qos(10);  // initialize to default QoS
     qos.transient_local();
-    qos.reliable();
+    qos.reliable(); 
     qos.keep_last(1);
 
     // Publishers
@@ -320,32 +319,35 @@ void WorldModel::publishGlobalMap(){
 
 void WorldModel::updateBermZonesWorldModel(std::vector<geometry_msgs::msg::PointStamped> berm_zone_coordinates){
 
+    double x_first = berm_zone_coordinates[0].point.x;
+    double y_first = berm_zone_coordinates[0].point.y;
+    double x_last = berm_zone_coordinates.back().point.x;
+    double y_last = berm_zone_coordinates.back().point.y;
+
     // berm_zone_coordinates is a vector of points that define the berm line segment. it is not a polygon. set berm_zone to 100 if point is within 0.3m of berm line
     for(size_t i = 0; i < berm_costmap_.info.width*berm_costmap_.info.height; i++){
         geometry_msgs::msg::Point32 point;
         point.x = berm_costmap_.info.origin.position.x + (i%berm_costmap_.info.width)*berm_costmap_.info.resolution;
         point.y = berm_costmap_.info.origin.position.y + (i/berm_costmap_.info.width)*berm_costmap_.info.resolution;
         point.z = 0.0;
-        for(size_t j = 0; j < berm_zone_coordinates.size()-1; j++){
+        for(size_t j = 1; j < berm_zone_coordinates.size()-1; j++){
             double x1 = berm_zone_coordinates[j].point.x;
             double y1 = berm_zone_coordinates[j].point.y;
             double x2 = berm_zone_coordinates[j+1].point.x;
             double y2 = berm_zone_coordinates[j+1].point.y;
-            double dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
-            double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-            if(dist < 0.2 && dist1 < 0.2){
+            double line_dist = abs((y2-y1)*point.x - (x2-x1)*point.y + x2*y1 - y2*x1)/sqrt(pow(y2-y1, 2) + pow(x2-x1, 2));
+            double point_dist = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
+            if(line_dist < (GLOBAL_BERM_LENGTH_M/2) && point_dist < (GLOBAL_BERM_LENGTH_M*1.2)){
                 berm_costmap_.data[i] = 100;
                 break;
             }
         }
-        double x1 = berm_zone_coordinates.back().point.x;
-        double y1 = berm_zone_coordinates.back().point.y;
-        double dist1 = sqrt(pow(point.x - x1, 2) + pow(point.y - y1, 2));
-        if(dist1 < 0.2){
+        double dist_first = sqrt(pow(point.x - x_first, 2) + pow(point.y - y_first, 2));
+        double dist_last = sqrt(pow(point.x - x_last, 2) + pow(point.y - y_last, 2));
+        if(dist_first < GLOBAL_BERM_LENGTH_M/2 || dist_last < GLOBAL_BERM_LENGTH_M/2){
             berm_costmap_.data[i] = 100;
-        }
+        }        
     }
-
 }
 
 

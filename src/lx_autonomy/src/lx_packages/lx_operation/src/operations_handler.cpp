@@ -792,12 +792,12 @@ std::vector<geometry_msgs::msg::Point> OperationsHandler::createVizRectangle(flo
     // Add the four corners to the points
     geometry_msgs::msg::Point point;
     point.z = 0.0;
-    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
-    point.y = y - 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
-    point.y = y - 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x - 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
-    point.y = y + 0.4/2*sin(theta) + 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + GLOBAL_BERM_LENGTH_M/2*sin(theta) - 0.2/2*cos(theta); point.x = x + GLOBAL_BERM_LENGTH_M/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - GLOBAL_BERM_LENGTH_M/2*sin(theta) - 0.2/2*cos(theta); point.x = x - GLOBAL_BERM_LENGTH_M/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y - GLOBAL_BERM_LENGTH_M/2*sin(theta) + 0.2/2*cos(theta); point.x = x - GLOBAL_BERM_LENGTH_M/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + GLOBAL_BERM_LENGTH_M/2*sin(theta) + 0.2/2*cos(theta); point.x = x + GLOBAL_BERM_LENGTH_M/2*cos(theta) - 0.2/2*sin(theta); polygon.push_back(point);
     // Repeat first point to close the rectangle
-    point.y = y + 0.4/2*sin(theta) - 0.2/2*cos(theta); point.x = x + 0.4/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
+    point.y = y + GLOBAL_BERM_LENGTH_M/2*sin(theta) - 0.2/2*cos(theta); point.x = x + GLOBAL_BERM_LENGTH_M/2*cos(theta) + 0.2/2*sin(theta); polygon.push_back(point);
 
     return polygon;
 }
@@ -1037,27 +1037,35 @@ void OperationsHandler::bermEvalCB(rclcpp::Client<lx_msgs::srv::BermProgressEval
         berm_progress_marker.id = 0;
         berm_progress_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
         berm_progress_marker.action = visualization_msgs::msg::Marker::ADD;
-        berm_progress_marker.scale.z = 0.2;
+        berm_progress_marker.scale.x = 0.3;
+        berm_progress_marker.scale.y = 0.3;
+        berm_progress_marker.scale.z = 0.3;
         berm_progress_marker.color.r = 0.0;
         berm_progress_marker.color.g = 0.0;
         berm_progress_marker.color.b = 1.0;
         berm_progress_marker.color.a = 1.0;
         berm_progress_marker.lifetime = rclcpp::Duration(0, 0);
         berm_progress_marker.pose.position.x = 3.75;
-        berm_progress_marker.pose.position.y = 3.5;
+        berm_progress_marker.pose.position.y = 2.5;
         berm_progress_marker.pose.position.z = 0.2;
         berm_progress_marker.pose.orientation.x = 0.0;
         berm_progress_marker.pose.orientation.y = 0.0;
 
         // Create text
-        std::string berm_progress_text = "Berm Progress: \n";
-        for(auto& height_point: berm_progress.heights){
-            berm_progress_text += std::to_string(height_point) + "\n";
-        }
-        berm_progress_marker.text = berm_progress_text;
+        if(berm_progress.heights.size() > 0){
+            std::string berm_progress_text = "Berm_Progress:\nHeight:";
+            // double heights_avg = 0.0;
+            // for(auto& height_point: berm_progress.heights){
+            //     heights_avg += height_point;
+            // }
+            // heights_avg /= berm_progress.heights.size();
+            berm_progress_text += std::to_string(berm_progress.average_height) + "m\nLength:";
+            berm_progress_text += std::to_string(berm_progress.length) + "m";
+            berm_progress_marker.text = berm_progress_text;
 
-        // Publish marker
-        progress_viz_publisher_->publish(berm_progress_marker);
+            // Publish marker
+            progress_viz_publisher_->publish(berm_progress_marker);
+        }
 
     } 
     else{

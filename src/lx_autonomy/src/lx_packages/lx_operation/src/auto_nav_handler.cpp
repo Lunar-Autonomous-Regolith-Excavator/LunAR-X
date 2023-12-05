@@ -221,6 +221,9 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
     // Update new goal
     this->goal_pose_ = goal->goal;
     this->next_action_ = goal->next;
+
+    // Print goal
+    RCLCPP_INFO(this->get_logger(), "Goal pose: %f %f %f", this->goal_pose_.pose.position.x, this->goal_pose_.pose.position.y, tf2::getYaw(this->goal_pose_.pose.orientation));
     
     // Navigate to goal pose
     if (!this->navigateThroughPoses()) {
@@ -254,7 +257,7 @@ void AutoNavHandler::executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> goa
         current_yaw = tf2::getYaw(this->rover_current_pose_.pose.pose.orientation);
         yaw_error = goal_yaw - current_yaw;
         yaw_error = fmod((yaw_error + M_PI), (2 * M_PI)) - M_PI;
-        RCLCPP_INFO(this->get_logger(), "Yaw error: %f, Current Yaw: %f, Goal Yaw: %f", yaw_error, current_yaw, goal_yaw);
+        // RCLCPP_INFO(this->get_logger(), "Yaw error: %f, Current Yaw: %f, Goal Yaw: %f", yaw_error, current_yaw, goal_yaw);
         
         // Break out if yaw error within tolerance
         if (abs(yaw_error) < this->YAW_TOLERANCE) {

@@ -105,8 +105,8 @@ void ParamServer::updateModeMarker(){
     lock_marker.id = 0;
     lock_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
     lock_marker.action = visualization_msgs::msg::Marker::ADD;
-    lock_marker.pose.position.x = 6.9;
-    lock_marker.pose.position.y = 7.0;
+    lock_marker.pose.position.x = 6.3;
+    lock_marker.pose.position.y = 6.8;
     lock_marker.pose.position.z = 0.0;
     lock_marker.pose.orientation.x = 0.0;
     lock_marker.pose.orientation.y = 0.0;
@@ -147,8 +147,8 @@ void ParamServer::updateModeMarker(){
     op_marker.id = 0;
     op_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
     op_marker.action = visualization_msgs::msg::Marker::ADD;
-    op_marker.pose.position.x = 6.9;
-    op_marker.pose.position.y = 6.7;
+    op_marker.pose.position.x = 6.3;
+    op_marker.pose.position.y = 6.5;
     op_marker.pose.position.z = 0.0;
     op_marker.pose.orientation.x = 0.0;
     op_marker.pose.orientation.y = 0.0;
@@ -199,8 +199,8 @@ void ParamServer::updateModeMarker(){
     task_marker.id = 0;
     task_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
     task_marker.action = visualization_msgs::msg::Marker::ADD;  
-    task_marker.pose.position.x = 6.9;
-    task_marker.pose.position.y = 6.4;
+    task_marker.pose.position.x = 6.3;
+    task_marker.pose.position.y = 6.2;
     task_marker.pose.position.z = 0.0;
     task_marker.pose.orientation.x = 0.0;
     task_marker.pose.orientation.y = 0.0;

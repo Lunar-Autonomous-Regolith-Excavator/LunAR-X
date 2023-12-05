@@ -25,7 +25,7 @@ class GoalHandler: public rclcpp::Node
         std::vector<geometry_msgs::msg::PointStamped> user_requested_restricted_points_;
         std::vector<geometry_msgs::msg::PointStamped> processed_berm_points_;
         const double ANGLE_LIMIT = 50.0;
-        const double INTERPOLATION_DIST = 0.4;
+        const double INTERPOLATION_DIST = GLOBAL_BERM_LENGTH_M;
         bool operation_running_ = false;
         // Servers
         rclcpp::Service<lx_msgs::srv::RequestRoverService>::SharedPtr user_berm_request_server_;
