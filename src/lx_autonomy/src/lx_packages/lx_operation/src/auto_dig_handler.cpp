@@ -127,6 +127,7 @@ void AutoDigHandler::setupCommunications(){
     // Publishers
     rover_auto_cmd_pub_ = this->create_publisher<lx_msgs::msg::RoverCommand>("/rover_auto_cmd", 10);
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
+    weight_estimate_pub_ = this->create_publisher<geometry_msgs::msg::Point>("/weight_estimate_data", 10);
     if(debugging_publish_){ 
         drum_desired_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_desired_current", 10);
         drum_current_current_pub_ = this->create_publisher<std_msgs::msg::Float64>("/drum_current_current", 10);
@@ -364,21 +365,25 @@ void AutoDigHandler::executeAutoDig(const std::shared_ptr<GoalHandleAutoDig> goa
         loop_rate.sleep();
     }
 
-    // Stop drum and rover movement
+    // Stop the rover movement
     target_rover_velocity = 0;
-    target_drum_command = 0;
-    integral_error_current = 0;
-    integral_error_height = 0;
 
     // Raise the drum to END_TOOL_HEIGHT
+    integral_error_height = 0;
     target_drum_height = END_TOOL_HEIGHT;
+    target_drum_command = -0.5;
+    geometry_msgs::msg::Point weight_estimate_msg;
     while(rclcpp::ok() && !goal_handle->is_canceling()){
         if(std::abs(drum_height_-target_drum_height) < 0.02){
             break;
         }
+        weight_estimate_msg.x = tool_info_msg_.drum_pos; weight_estimate_msg.y = tool_info_msg_.drum_current; weight_estimate_msg.z = tool_info_msg_.acc_current;
+        weight_estimate_pub_->publish(weight_estimate_msg);
+        loop_rate.sleep();
     }
     // Set targets to 0 to stop the rover
     target_drum_height = -1;
+    target_drum_command = 0;
     integral_error_current = 0;
     integral_error_height = 0;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
