@@ -213,8 +213,8 @@ public:
 
         // Convert to cv::Mat
         cv::Mat img(map.info.height, map.info.width, CV_8UC1);
-        for (int i = 0; i < map.info.height; i++) {
-            for (int j = 0; j < map.info.width; j++) {
+        for (uint i = 0; i < map.info.height; i++) {
+            for (uint j = 0; j < map.info.width; j++) {
                 int idx = GETMAPINDEX(j, i, map.info.width);
                 if (map.data[idx] == -1) {
                     img.at<uint8_t>(i, j) = UNKNOWN;

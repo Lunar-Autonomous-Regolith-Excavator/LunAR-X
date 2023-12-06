@@ -17,7 +17,8 @@ int main(int /*argc*/, char* /*argv*/[]) {
         {2145, 357, 1453, 1280, 586, 887, 1114, 2300, 653, 1272, 1017, 0, 504},
         {1972, 579, 1260, 987, 371, 999, 701, 2099, 600, 1162, 1200, 504, 0},
     };
-    int final_cost = operations_research::solve_tsp(distance_matrix, true);
+    GoogleTSPSolver tsp_solver;
+    int final_cost = tsp_solver.solve(distance_matrix, 0, true);
     std::cout << "Final cost: " << final_cost << "\n";
     return EXIT_SUCCESS;
 }

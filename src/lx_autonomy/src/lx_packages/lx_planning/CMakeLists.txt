@@ -21,7 +21,7 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(ompl REQUIRED)
 
-set(ORTOOLS_DIR "/home/hariharan/or-tools")
+set(ORTOOLS_DIR "/home/or-tools")
 
 include_directories(
   include
@@ -40,7 +40,7 @@ ament_target_dependencies(task_planner_node rclcpp lx_msgs lx_library geometry_m
 
 add_executable(task_optimizer_node src/task_optimizer_node.cpp src/task_optimizer.cpp src/node_se2.cpp)
 ament_target_dependencies(task_optimizer_node rclcpp lx_msgs lx_library geometry_msgs tf2_geometry_msgs nav_msgs)
-target_link_libraries(task_optimizer_node ompl ceres ${OpenCV_LIBS} Eigen3::Eigen)
+target_link_libraries(task_optimizer_node ompl ceres ${OpenCV_LIBS} Eigen3::Eigen ortools)
 
 add_executable(map_pub src/temp_map_pub_node.cpp)
 ament_target_dependencies(map_pub rclcpp nav2_msgs)

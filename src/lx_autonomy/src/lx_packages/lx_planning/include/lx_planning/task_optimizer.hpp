@@ -3,6 +3,7 @@
 
 #include "base.hpp"
 #include "edge_cost_search.hpp"
+#include "tsp_solver.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -27,6 +28,7 @@ public:
     bool DEBUG = false;
     double EXCAVATION_DIST_M = 1.5; 
     const double TOOL_DISTANCE_TO_DUMP = 0.85;
+    const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -40,6 +42,7 @@ public:
     vector<Action> actions_taken; // action taken to reach state i from state parents[i]
     priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> pq;
     unordered_map<TaskState, int, StateHasher> state_to_idx;
+    GoogleTSPSolver tsp_solver;
 
     OptimalSequencePlanner(const nav_msgs::msg::OccupancyGrid& map, const vector<Pose2D>& berm_inputs, const vector<Pose2D>& excavation_poses, int num_dumps_per_segment)
     {
@@ -152,6 +155,113 @@ public:
         if (reset_cost == DBL_MAX) return DBL_MAX;
         double total_cost = excavation_cost + dump_cost + reset_cost;
         return total_cost;
+    }
+
+    double get_octal_distance(const Pose2D& start, const Pose2D& goal)
+    {
+        double dx = abs(start.x - goal.x), dy = abs(start.y - goal.y);
+        return (1.414*(min(dx, dy))) + (max(dx, dy) - min(dx, dy));
+    }
+
+    double compute_min_octal_cost_pose(const Pose2D& curr_pose, const Pose2D& final_pose, const vector<bool>& visited_excavations)
+    {
+        // Compute the min cost to go from curr_pose to final_pose through all unvisited excavations
+        double min_cost = DBL_MAX;
+        for(u_int i=0; i<visited_excavations.size(); i++)
+        {
+            if(visited_excavations[i]==true) continue;
+            Pose2D excavation_pose = excavation_poses[i];
+            double cost = get_octal_distance(curr_pose, excavation_pose) + get_octal_distance(excavation_pose, final_pose);
+            if(cost<min_cost) min_cost = cost;
+        }
+        return min_cost;
+    }
+
+    double compute_min_octal_cost(const int di, const int dj, const vector<bool> & visited_excavations)
+    {
+        // Compute the min cost to go from dump site di to dump site dj through all unvisited excavations
+        // Takes min across all possible dump poses for di and dj
+        double min_cost = DBL_MAX;
+        for(int pi=0; pi<=1; pi++)
+        {
+            for(int pj=0; pj<=1; pj++)
+            {
+                Pose2D start_pose = getDumpPose(berm_inputs[di], pi);
+                Pose2D end_pose = getDumpPose(berm_inputs[dj], pj);
+                double cost = compute_min_octal_cost_pose(start_pose, end_pose, visited_excavations);
+                if(cost<min_cost) min_cost = cost;
+            } 
+        }
+    }
+
+    double compute_TSP_heuristic(const TaskState& state)
+    {
+        // Computes an underestimate for the cost to visit all remaining dump zones starting from the current excavation zone
+        // Assumes that the unvisited excavation zones can be used any number of times
+
+        // Iterate through all unvisited excavation zones
+        // Add the node idx to unvisited_nodes_idx K times, where K is the number of times the node has to be visited 
+        vector<int> unvisited_nodes_idx;
+        for(u_int i=0; i<state.visited_berm_count.size(); i++)
+        {
+            // Add the node idx to unvisited_nodes_idx K times, where K is the number of times the node has to be visited
+            for(int j=0; j<state.num_dumps_per_segment-state.visited_berm_count[i]; j++)
+            {
+                unvisited_nodes_idx.push_back(i);
+            }
+        }
+
+        // Compute costs from each unvisited node to all other unvisited nodes
+        // Extra entry for excavation zone (last row and column)
+        vector<vector<double>> cost_matrix(unvisited_nodes_idx.size()+1, vector<double>(unvisited_nodes_idx.size()+1, 0)); // Convention cost_matrix[from_node][to_node] = cost
+
+        for (u_int i = 0; i < unvisited_nodes_idx.size() + 1; i++)
+        {
+            for (u_int j = 0; j < unvisited_nodes_idx.size() + 1; j++)
+            {
+                if (i == j) continue;
+                if (i == unvisited_nodes_idx.size()) // start excavation zone to each unvisited_node_idx
+                {
+                    double min_cost = DBL_MAX;
+                    Pose2D start_pose = excavation_poses[state.current_exc_site];
+                    for(int p=0; p<=1; p++)
+                    {
+                        Pose2D end_pose = getDumpPose(berm_inputs[unvisited_nodes_idx[j]], p);
+                        double cost = get_octal_distance(start_pose, end_pose);
+                        if(cost<min_cost) min_cost = cost;
+                    }
+                    cost_matrix[i][j] = min_cost;
+                }
+                else if (j == unvisited_nodes_idx.size()) // terminal cost to go to any excavation zone = 0
+                {
+                    cost_matrix[i][j] = 0;
+                }
+                else
+                {
+                    // Compute min octal cost from unvisited_nodes_idx[i] to unvisited_nodes_idx[j]
+                    int di = unvisited_nodes_idx[i], dj = unvisited_nodes_idx[j];
+                    double cost = compute_min_octal_cost(di, dj, state.visited_excavations);
+                    cost_matrix[i][j] = cost;
+                }
+            }
+        }
+
+        // Convert cost matrix to int using HEURISTIC_RESOLUTION
+        vector<vector<int64_t>> tsp_cost_matrix(cost_matrix.size(), vector<int64_t>(cost_matrix.size(), 0));
+        for (u_int i = 0; i < cost_matrix.size(); i++)
+        {
+            for (u_int j = 0; j < cost_matrix.size(); j++)
+            {
+                tsp_cost_matrix[i][j] = static_cast<int64_t>(cost_matrix[i][j] / HEURISTIC_RESOLUTION);
+            }
+        }
+
+        // Call TSP solver and get cost
+        int final_cost = tsp_solver.solve(tsp_cost_matrix, unvisited_nodes_idx.size());
+
+        // Multiply final_cost by HEURISTIC_RESOLUTION
+        double final_cost_double = (double)final_cost * HEURISTIC_RESOLUTION;
+        return final_cost_double;
     }
 
     void update_neighbor(const int &u, const int &dj, const int &pj, const int &ej)
