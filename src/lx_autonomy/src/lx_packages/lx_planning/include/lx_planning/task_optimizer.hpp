@@ -16,6 +16,7 @@
 #include "lx_msgs/msg/berm_section.hpp"
 
 #include "ament_index_cpp/get_package_share_directory.hpp"
+#include <chrono>
 
 
 
@@ -24,6 +25,7 @@ class OptimalSequencePlanner
 public:
     // number of dump locations and excavation locations
     int D, E;
+    int num_dumps_per_segment;
     Pose2D robot_start_pose;
     bool DEBUG = false;
     double EXCAVATION_DIST_M = 1.5; 
@@ -31,6 +33,7 @@ public:
     const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
     const bool USE_TSP_HEURISTIC = true;
     const double HEURISTIC_WEIGHT = 1.5;
+    const int COLLISION_THRESH = 100; // grid value below which a cell is considered an obstacle
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -47,13 +50,14 @@ public:
     GoogleTSPSolver tsp_solver;
 
     OptimalSequencePlanner(const nav_msgs::msg::OccupancyGrid& map, const vector<Pose2D>& berm_inputs, const vector<Pose2D>& excavation_poses, int num_dumps_per_segment)
-    {
+    {   
         // Assumes that the robot starts from excavation_poses[0]
         this->map = map;
         this->berm_inputs = berm_inputs;
         this->excavation_poses = excavation_poses;
         this->D = berm_inputs.size();
         this->E = excavation_poses.size();
+        this->num_dumps_per_segment = num_dumps_per_segment;
         // Push initial state to queue
         TaskState initial_state(D, E, num_dumps_per_segment);
         initial_state.visited_excavations[0] = true;
@@ -96,7 +100,7 @@ public:
         Astar2D astar(map.info.width, map.info.height, resolution);
         Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
         Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-        double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map.data.data()), 50);
+        double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map.data.data()), COLLISION_THRESH);
         if (move_cost == DBL_MAX) return DBL_MAX;
         return move_cost * resolution;
     }
@@ -107,7 +111,7 @@ public:
         Astar2D astar(map.info.width, map.info.height, resolution);
         Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
         Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-        vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map.data.data()), 50);
+        vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map.data.data()), COLLISION_THRESH);
         // Multiply path by resolution
         Pose2D pose;
         vector<Pose2D> path_poses;
@@ -402,6 +406,16 @@ public:
 
     vector<lx_msgs::msg::PlannedTask> get_plan()
     {
+        // Check if num dumps < num available excavations
+        int num_dumps_required = berm_inputs.size() * this->num_dumps_per_segment;
+        int num_excavations = excavation_poses.size();
+        if (num_dumps_required > num_excavations)
+        {
+            cout<<"ERROR: Number of dumps required is greater than number of excavations available"<<endl;
+            return vector<lx_msgs::msg::PlannedTask>();
+        }
+
+        auto init_time = chrono::high_resolution_clock::now();
         vector<lx_msgs::msg::PlannedTask> final_plan;
         int goal_idx = -100;  
         int itr = 0;
@@ -495,6 +509,7 @@ public:
             cout<<"No path found"<<endl;
             return final_plan;
         }
+        auto final_time = chrono::high_resolution_clock::now();
 
         // Print path and cost (backtrack from goal)
         int curr_idx = goal_idx;
@@ -516,6 +531,14 @@ public:
             if (i<path.size()-1) actions_taken[path[i+1]].print();
             cout<<"************"<<endl;
         }
+
+        // Print Solution Stats:
+        cout<<"\nSolution Stats: "<<endl;
+        cout<<"Heuristic Used: "<<(USE_TSP_HEURISTIC ? "TSP" : "None")<<endl;
+        cout<<"Heuristic Weight: "<<HEURISTIC_WEIGHT<<endl;
+        cout<<"Num Nodes Generated: "<<states.size()<<endl;
+        cout<<"Solution Cost: "<<g_values[goal_idx]<<endl;
+        cout<<"Time (s)"<< chrono::duration_cast<chrono::milliseconds>(final_time - init_time).count()/1000.0<<endl;
 
         int nav_count = 0;
         string dir = ament_index_cpp::get_package_share_directory("lx_planning") + "/paths/";

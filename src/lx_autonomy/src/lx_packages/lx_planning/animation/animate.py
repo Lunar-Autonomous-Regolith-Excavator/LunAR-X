@@ -232,7 +232,7 @@ if __name__ == '__main__':
         
     map_yaml_file = sys.argv[1]
 
-    save_anim = False
+    save_anim = True
 
     if save_anim:
         exc_time = 15
@@ -360,12 +360,13 @@ if __name__ == '__main__':
     animation = FuncAnimation(fig, getFrame, frames=len(height_grid_arr), fargs=(berm_pts_arr, excavation_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr))
     
     if save_anim:
-        animation.save('bags/animation.mp4', writer='ffmpeg', fps=60)
+        animation.save('bags/animation_' + map_yaml_file + '.mp4', \
+                       writer='ffmpeg', fps=60)
         # save the height map in png
         plt.imshow(height_grid.T, cmap='Greys', origin='lower')
         # colorbar bottom
         plt.colorbar(label='Value', orientation='horizontal')
-        plt.savefig('bags/height_map.png')
+        plt.savefig('bags/height_map_' + map_yaml_file + '.png')
     else:
         # see animation in real time
         plt.show()

@@ -11,7 +11,7 @@ def generate_circle_points(a, b, r, theta, offset_theta, max_theta=360):
 
 
 # pts = generate_circle_points(6, 1.5, 1.25, 90, 180)
-pts = generate_circle_points(6, 1.5, 1, 90, 180)
+pts = generate_circle_points(6, 1.5, 1.25, 20, -60, 140)
 
 
 # plot points
