@@ -30,6 +30,7 @@ public:
     const double TOOL_DISTANCE_TO_DUMP = 0.85;
     const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
     const bool USE_TSP_HEURISTIC = true;
+    const double HEURISTIC_WEIGHT = 1.5;
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -315,7 +316,7 @@ public:
             cout<<"Final Cost Double: "<<final_cost_double<<endl;
         }
 
-        return final_cost_double;
+        return final_cost_double*HEURISTIC_WEIGHT;
     }
 
     void update_neighbor(const int &u, const int &dj, const int &pj, const int &ej)
@@ -404,6 +405,7 @@ public:
         vector<lx_msgs::msg::PlannedTask> final_plan;
         int goal_idx = -100;  
         int itr = 0;
+        int min_num_berms_to_build= INT_MAX;
         while(!pq.empty())
         {
             // pop topmost element
@@ -416,6 +418,14 @@ public:
             //     cout<<"Popped: "<<u<<endl;
             //     states[u].print();
             // }
+            // after every 20 itrs, print num states required to flip
+            int num_berms_to_build = 0;
+            for(u_int i=0; i<states[u].visited_berm_count.size(); i++)
+            {
+                num_berms_to_build += states[u].num_dumps_per_segment - states[u].visited_berm_count[i];
+            }
+            min_num_berms_to_build = min(min_num_berms_to_build, num_berms_to_build);
+            cout<<"Min num berms to build: "<<min_num_berms_to_build<<" Nodes in PQ: "<<pq.size()<<endl;
             
             pq.pop();
 
