@@ -1,7 +1,7 @@
-Steps to run task optimizer:
+Steps to run task optimizer: \\
 0. Build the package with symlink install
 ```
-colcon build --packages-select lx_planning --symlink-install
+colcon build --packages-up-to lx_planning --symlink-install
 ```
 1. Start the task optimizer node:
 ```
@@ -13,6 +13,6 @@ python3 src/lx_packages/lx_planning/src/call_task_optimizer.py small_circle (or 
 ```
 3. Run the animation script:
 ```
-python3 src/lx_packages/lx_planning/animation/animate.py 
+python3 src/lx_packages/lx_planning/animation/animate.py small_circle (or any yaml file)
 ```
 Video is saved as `animation.mp4` in the bags folder
