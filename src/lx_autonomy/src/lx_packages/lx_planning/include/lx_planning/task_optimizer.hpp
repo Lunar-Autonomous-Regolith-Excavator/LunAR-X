@@ -33,7 +33,7 @@ public:
     const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
     const bool USE_TSP_HEURISTIC = true;
     const double HEURISTIC_WEIGHT = 1.5;
-    const int COLLISION_THRESH = 100; // grid value below which a cell is considered an obstacle
+    const int COLLISION_THRESH = 50; // grid value below which a cell is considered an obstacle, range -128 to 127
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -100,7 +100,7 @@ public:
         Astar2D astar(map.info.width, map.info.height, resolution);
         Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
         Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-        double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map.data.data()), COLLISION_THRESH);
+        double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
         if (move_cost == DBL_MAX) return DBL_MAX;
         return move_cost * resolution;
     }
@@ -111,7 +111,7 @@ public:
         Astar2D astar(map.info.width, map.info.height, resolution);
         Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
         Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-        vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, reinterpret_cast<const u_int8_t*>(map.data.data()), COLLISION_THRESH);
+        vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
         // Multiply path by resolution
         Pose2D pose;
         vector<Pose2D> path_poses;

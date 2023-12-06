@@ -56,18 +56,38 @@ public:
             return true;
         return false;
     }
-
-    bool check_if_obstacle(const Point2D& point, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const u_int8_t* map, const int collision_thresh)
+    bool check_if_obstacle(const Point2D& point, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const nav_msgs::msg::OccupancyGrid& map, const int collision_thresh)
     {   
         // If already computed, return value
         if (is_obstacle[point.x][point.y] != -1) return is_obstacle[point.x][point.y];
 
         // Check if it is a map obstacle
-        bool result = map[GETMAPINDEX(point.x, point.y, x_size)] < collision_thresh;
+        bool result = map.data[point.x*map.info.height + point.y] < collision_thresh;
         if(result == true)
         {
             is_obstacle[point.x][point.y] = result;
             return result;
+        }
+
+        // Check if it is a map obstacle within ROBOT_RADIUS_M
+        bool is_obstacle_within_radius = false;
+        int min_left = std::floor(-ROBOT_RADIUS_M/resolution), max_right = std::ceil(ROBOT_RADIUS_M/resolution);
+        for (int i = min_left; i <= max_right; i++){
+            for (int j = min_left; j <= max_right; j++)
+            {
+                if (isvalid({point.x + i, point.y + j}, map.info.width, map.info.height)
+                    && map.data[(point.x + i)*map.info.height + point.y + j] < collision_thresh)
+                {
+                    is_obstacle_within_radius = true;
+                    break;
+                }
+            }
+            if (is_obstacle_within_radius) break;
+        }
+        if (is_obstacle_within_radius)
+        {
+            is_obstacle[point.x][point.y] = true;
+            return true;
         }
 
         // Check if it is a berm obstacle
@@ -94,7 +114,7 @@ public:
     }
 
     //TODO: collision checker with respect to the berms built till now
-    double get_plan_cost(const Point2D& start, const Point2D& goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const u_int8_t* map, const int collision_thresh)
+    double get_plan_cost(const Point2D& start, const Point2D& goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const nav_msgs::msg::OccupancyGrid& map, const int collision_thresh)
     {
         //insert start node with distance 0
         pq.push({0, start});
@@ -142,7 +162,7 @@ public:
         return DBL_MAX;
     }
 
-    vector<Point2D> get_path(const Point2D& start, const Point2D& goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const u_int8_t* map, const int collision_thresh)
+    vector<Point2D> get_path(const Point2D& start, const Point2D& goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berm_counts, const nav_msgs::msg::OccupancyGrid& map, const int collision_thresh)
     {
         vector<Point2D> path;
 

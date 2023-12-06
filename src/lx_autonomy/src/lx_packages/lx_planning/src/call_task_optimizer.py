@@ -46,7 +46,14 @@ class PlanTaskNode(Node):
         # Load the map image from lx_planning/maps/mapstring.png
         map_string = params['map_image']
         map_string= package_directory + "/maps/" + map_string
-        map_image = cv2.imread(map_string, cv2.IMREAD_GRAYSCALE) # 0 to 255
+        map_image = cv2.imread(map_string, cv2.IMREAD_GRAYSCALE) # 0 to 255, shape (60, 160 for horizontal map)
+        
+        # original origin at top left corner
+        # shift origin of image to bottom left corner
+        map_image = cv2.flip(map_image, 0)
+        
+        # put x axis to the right
+        map_image = cv2.flip(map_image, 1)
         
         # put into np int array and shift to -128 to 127
         map_image = map_image.astype(int)
