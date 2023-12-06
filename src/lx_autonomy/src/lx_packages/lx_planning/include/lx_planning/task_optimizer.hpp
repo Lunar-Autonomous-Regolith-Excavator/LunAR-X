@@ -517,43 +517,25 @@ public:
             cout<<"************"<<endl;
         }
 
-        bool first_op = true;
         int nav_count = 0;
         string dir = ament_index_cpp::get_package_share_directory("lx_planning") + "/paths/";
 
         vector<int> visited_berm_counts(D, 0);
 
-        Pose2D robot_cur_pose = excavation_poses[0], robot_next_pose;
+        // Excavation Task
         lx_msgs::msg::PlannedTask task;
+        task.task_type = int(TaskTypeEnum::AUTODIG);
+        task.pose = excavation_poses[0].getPose();
+        final_plan.push_back(task);
+        Pose2D robot_cur_pose = excavation_poses[0];
+        robot_cur_pose.x += EXCAVATION_DIST_M*cos(robot_cur_pose.theta);
+        robot_cur_pose.y += EXCAVATION_DIST_M*sin(robot_cur_pose.theta);
+
         for (u_int i = 0; i < path.size() -1; i++)
         {
             Action action_to_take = actions_taken[path[i+1]];
             int berm_idx = action_to_take.dj;
             int excavation_idx = action_to_take.ek;
-
-            if (!first_op) {
-                // Navigation Task to Excavation
-                task.task_type = int(TaskTypeEnum::AUTONAV);
-                task.pose = excavation_poses[excavation_idx].getPose();
-                final_plan.push_back(task);
-
-                vector<Pose2D> path = get_astar_path(robot_cur_pose, excavation_poses[excavation_idx], berm_inputs, visited_berm_counts);
-                robot_cur_pose = excavation_poses[excavation_idx];
-
-                // Save path to file
-                save_path(path, dir + "path_" + to_string(nav_count++) + ".txt");
-            }
-            else {
-                first_op = false;
-            }
-
-            // Excavation Task
-            task.task_type = int(TaskTypeEnum::AUTODIG);
-            task.pose = excavation_poses[excavation_idx].getPose();
-            final_plan.push_back(task);
-            robot_cur_pose = excavation_poses[excavation_idx];
-            robot_cur_pose.x += EXCAVATION_DIST_M*cos(robot_cur_pose.theta);
-            robot_cur_pose.y += EXCAVATION_DIST_M*sin(robot_cur_pose.theta);
 
             // Navigation Task to Berm
             task.task_type = int(TaskTypeEnum::AUTONAV);
@@ -569,6 +551,26 @@ public:
             task.task_type = int(TaskTypeEnum::AUTODUMP);
             task.pose = berm_inputs[berm_idx].getPose();
             final_plan.push_back(task);
+
+            // Navigation Task to Excavation
+            task.task_type = int(TaskTypeEnum::AUTONAV);
+            task.pose = excavation_poses[excavation_idx].getPose();
+            final_plan.push_back(task);
+
+            path = get_astar_path(robot_cur_pose, excavation_poses[excavation_idx], berm_inputs, visited_berm_counts);
+            robot_cur_pose = excavation_poses[excavation_idx];
+
+            // Save path to file
+            save_path(path, dir + "path_" + to_string(nav_count++) + ".txt");
+
+            if (i == path.size() - 2) break;
+            // Excavation Task
+            task.task_type = int(TaskTypeEnum::AUTODIG);
+            task.pose = excavation_poses[excavation_idx].getPose();
+            final_plan.push_back(task);
+            robot_cur_pose = excavation_poses[excavation_idx];
+            robot_cur_pose.x += EXCAVATION_DIST_M*cos(robot_cur_pose.theta);
+            robot_cur_pose.y += EXCAVATION_DIST_M*sin(robot_cur_pose.theta);
 
             visited_berm_counts[berm_idx] += 1;
         }
