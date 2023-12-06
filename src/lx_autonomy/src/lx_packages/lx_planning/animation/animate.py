@@ -150,12 +150,12 @@ def getFrame(i, berm_pts_arr, excavation_pts_arr, height_grid_arr, corners_arr, 
     artists.append(plt.imshow(height_grid_arr[i].T, cmap='Greys', origin='lower'))
     # artists.append(plt.colorbar(label='Value'))
 
-    # visualize the robot as rectangle
-    artists.append(plt.gca().add_patch(patches.Polygon(corners_arr[i], color='r')))
-    # visualize the tool
-    artists.append(plt.gca().add_patch(patches.Polygon(corners_tool_arr[i], color='r')))
     # join robot and tool
-    artists.append(plt.plot([robot_pose_arr[i][0], robot_pose_arr[i][2]], [robot_pose_arr[i][1], robot_pose_arr[i][3]], 'r'))
+    artists.append(plt.plot([robot_pose_arr[i][0], robot_pose_arr[i][2]], [robot_pose_arr[i][1], robot_pose_arr[i][3]], '0.5'))
+    # visualize the robot as rectangle
+    artists.append(plt.gca().add_patch(patches.Polygon(corners_arr[i], color='0.5')))
+    # visualize the tool
+    artists.append(plt.gca().add_patch(patches.Polygon(corners_tool_arr[i], color='0.5')))
 
     # visualize the path
     if len(path_arr[i]) > 0:
@@ -231,6 +231,17 @@ if __name__ == '__main__':
         sys.exit(1)
         
     map_yaml_file = sys.argv[1]
+
+    save_anim = False
+
+    if save_anim:
+        exc_time = 15
+        dump_time = 15
+        dump_flip_time = 10
+    else:
+        exc_time = 5
+        dump_time = 5
+        dump_flip_time = 4
 
     # Read parameters from YAML file
     package_directory = get_package_share_directory("lx_planning")
@@ -318,7 +329,7 @@ if __name__ == '__main__':
             dx = x + 50 * np.cos(robot.theta) - robot.x
             dy = y + 50 * np.sin(robot.theta) - robot.y
             dtheta = theta - robot.theta
-            for i in range(0, 30):
+            for i in range(0, exc_time):
                 height_grid_arr.append(height_grid.copy())
                 corners_arr.append(robot.get_corners())
                 corners_tool_arr.append(robot.get_corners_tool())
@@ -333,8 +344,8 @@ if __name__ == '__main__':
         elif task == 2: # dump
             berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
             height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
-            for i in range(0, 20):
-                if i == 15:
+            for i in range(0, dump_time):
+                if i == dump_flip_time:
                     robot.shift(0, 0, -robot.theta)
                     dtheta = 0
                 height_grid_arr.append(height_grid.copy())
@@ -347,10 +358,14 @@ if __name__ == '__main__':
                 task_arr.append(task_types[task])
 
     animation = FuncAnimation(fig, getFrame, frames=len(height_grid_arr), fargs=(berm_pts_arr, excavation_arr, height_grid_arr, corners_arr, corners_tool_arr, robot_pose_arr, path_arr, task_arr))
-    animation.save('bags/animation.mp4', writer='ffmpeg', fps=30)
-
-    # save the height map in png
-    plt.imshow(height_grid.T, cmap='Greys', origin='lower')
-    # colorbar bottom
-    plt.colorbar(label='Value', orientation='horizontal')
-    plt.savefig('bags/height_map.png')
+    
+    if save_anim:
+        animation.save('bags/animation.mp4', writer='ffmpeg', fps=60)
+        # save the height map in png
+        plt.imshow(height_grid.T, cmap='Greys', origin='lower')
+        # colorbar bottom
+        plt.colorbar(label='Value', orientation='horizontal')
+        plt.savefig('bags/height_map.png')
+    else:
+        # see animation in real time
+        plt.show()
