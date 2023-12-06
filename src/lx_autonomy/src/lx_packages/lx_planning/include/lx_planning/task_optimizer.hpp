@@ -29,6 +29,7 @@ public:
     double EXCAVATION_DIST_M = 1.5; 
     const double TOOL_DISTANCE_TO_DUMP = 0.85;
     const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
+    const bool USE_TSP_HEURISTIC = true;
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -194,13 +195,19 @@ public:
         }
     }
 
-    double compute_TSP_heuristic(const TaskState& state)
+    double compute_TSP_heuristic(const TaskState& state, bool tsp_debug=false)
     {
+        if (USE_TSP_HEURISTIC == false) return 0;
         // Computes an underestimate for the cost to visit all remaining dump zones starting from the current excavation zone
         // Assumes that the unvisited excavation zones can be used any number of times
 
         // Iterate through all unvisited excavation zones
         // Add the node idx to unvisited_nodes_idx K times, where K is the number of times the node has to be visited 
+        if(tsp_debug==true)
+        {
+            cout<<"\nComputing TSP Heuristic from:"<<endl;
+            state.print();   
+        }
         vector<int> unvisited_nodes_idx;
         for(u_int i=0; i<state.visited_berm_count.size(); i++)
         {
@@ -209,6 +216,16 @@ public:
             {
                 unvisited_nodes_idx.push_back(i);
             }
+        }
+
+        if(tsp_debug==true)
+        {
+            cout<<"Unvisited Nodes: ";
+            for(u_int i=0; i<unvisited_nodes_idx.size(); i++)
+            {
+                cout<<unvisited_nodes_idx[i]<<" ";
+            }
+            cout<<endl;
         }
 
         // Compute costs from each unvisited node to all other unvisited nodes
@@ -246,6 +263,19 @@ public:
             }
         }
 
+        if(tsp_debug==true)
+        {
+            cout<<"Cost Matrix: "<<endl;
+            for(u_int i=0; i<cost_matrix.size(); i++)
+            {
+                for(u_int j=0; j<cost_matrix.size(); j++)
+                {
+                    cout<<cost_matrix[i][j]<<" ";
+                }
+                cout<<endl;
+            }
+        }
+
         // Convert cost matrix to int using HEURISTIC_RESOLUTION
         vector<vector<int64_t>> tsp_cost_matrix(cost_matrix.size(), vector<int64_t>(cost_matrix.size(), 0));
         for (u_int i = 0; i < cost_matrix.size(); i++)
@@ -256,17 +286,42 @@ public:
             }
         }
 
+        if(tsp_debug==true)
+        {
+            cout<<"TSP Cost Matrix: "<<endl;
+            for(u_int i=0; i<tsp_cost_matrix.size(); i++)
+            {
+                for(u_int j=0; j<tsp_cost_matrix.size(); j++)
+                {
+                    cout<<tsp_cost_matrix[i][j]<<" ";
+                }
+                cout<<endl;
+            }
+        }
+
         // Call TSP solver and get cost
         int final_cost = tsp_solver.solve(tsp_cost_matrix, unvisited_nodes_idx.size());
 
+        if (tsp_debug==true)
+        {
+            cout<<"Final Cost: "<<final_cost<<endl;
+        }
+
         // Multiply final_cost by HEURISTIC_RESOLUTION
         double final_cost_double = (double)final_cost * HEURISTIC_RESOLUTION;
+
+        if (tsp_debug==true)
+        {
+            cout<<"Final Cost Double: "<<final_cost_double<<endl;
+        }
+
         return final_cost_double;
     }
 
     void update_neighbor(const int &u, const int &dj, const int &pj, const int &ej)
     {
         // Function adds neighbor to search if it is not already visited or if it has a lower g value
+        
         // Get next state
         auto new_state = get_next_state(states[u], dj, ej);
 
@@ -286,13 +341,13 @@ public:
         if(new_state_idx==-1)
         {
             // Heuristics 
-            double h_val = 0;
-            // if (DEBUG)
-            // {
-            //     cout<<"adding new state: "<<states.size()<<endl;
-            //     cout<<"g_val: "<<g_val<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
-            //     new_state.print();
-            // }
+            double h_val = compute_TSP_heuristic(new_state, false);
+            if (DEBUG)
+            {
+                cout<<"adding new state: "<<states.size()<<endl;
+                cout<<"g_val: "<<g_val<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
+                new_state.print();
+            }
 
             // Add state to search
             states.push_back(new_state);
@@ -309,19 +364,19 @@ public:
             if (g_val < g_values[new_state_idx])
             {
                 // Heuristics 
-                double h_val = 0;
+                double h_val = compute_TSP_heuristic(new_state, false);
 
                 // If we reach a state with lower g value, update it
                 g_values[new_state_idx] = g_val;
                 parents[new_state_idx] = u;
                 actions_taken[new_state_idx] = Action(dj, pj, ej);
                 pq.push(make_pair(g_val+h_val, new_state_idx));
-                // if(DEBUG)
-                // {
-                //     cout<<"updating state: "<<new_state_idx<<endl;
-                //     cout<<"g_val: "<<g_val<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
-                //     new_state.print();
-                // }
+                if(DEBUG)
+                {
+                    cout<<"updating state: "<<new_state_idx<<endl;
+                    cout<<"g_val: "<<g_val<<" dj: "<<dj<<" pj: "<<pj<<" ej: "<<ej<<endl;
+                    new_state.print();
+                }
             }
         }
       

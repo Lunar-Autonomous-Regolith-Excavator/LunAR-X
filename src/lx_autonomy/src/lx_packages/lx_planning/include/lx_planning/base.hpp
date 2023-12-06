@@ -125,7 +125,7 @@ struct TaskState
     }
 
     // Print function
-    void print()
+    void print() const
     {
         cout<<"-------State: "<<endl;
         cout<<"Visited Berm Counts: ";
