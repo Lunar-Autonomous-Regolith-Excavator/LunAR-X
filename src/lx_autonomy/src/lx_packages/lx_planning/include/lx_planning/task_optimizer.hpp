@@ -692,7 +692,11 @@ public:
             vector<Pose2D> nav_path = get_astar_path(robot_cur_pose, dump_pose, berm_inputs, visited_berm_counts);
             robot_cur_pose = dump_pose;
 
-            save_path(path, dir + "path_" + to_string(nav_count++) + ".txt");
+            if (nav_path.size() == 0) {
+                cout << "ERROR: No path found for " << nav_count + 1 << endl;
+            }
+
+            save_path(nav_path, dir + "path_" + to_string(nav_count++) + ".txt");
 
             // Dump Task
             task.task_type = int(TaskTypeEnum::AUTODUMP);
@@ -704,11 +708,16 @@ public:
             task.pose = excavation_poses[excavation_idx].getPose();
             final_plan.push_back(task);
 
+            nav_path.clear();
             nav_path = get_astar_path(robot_cur_pose, excavation_poses[excavation_idx], berm_inputs, visited_berm_counts);
             robot_cur_pose = excavation_poses[excavation_idx];
 
+            if (nav_path.size() == 0) {
+                cout << "ERROR: No path found for " << nav_count + 1 << endl;
+            }
+
             // Save path to file
-            save_path(path, dir + "path_" + to_string(nav_count++) + ".txt");
+            save_path(nav_path, dir + "path_" + to_string(nav_count++) + ".txt");
 
             if (i == path.size() - 2) break;
             // Excavation Task
