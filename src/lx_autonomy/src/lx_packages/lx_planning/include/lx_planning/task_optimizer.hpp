@@ -5,6 +5,10 @@
 #include "edge_cost_search.hpp"
 #include "tsp_solver.hpp"
 
+#include "collision_checker.hpp"
+#include "a_star.hpp"
+// #include "smoother.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "lx_library/lx_utils.hpp"
@@ -14,11 +18,12 @@
 #include "rcl_interfaces/srv/set_parameters.hpp"
 #include "rcl_interfaces/msg/parameter.hpp"
 #include "lx_msgs/msg/berm_section.hpp"
-
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include <chrono>
 
-
+using namespace fcc;
+using namespace std;
+using namespace nav2_smac_planner;
 
 class OptimalSequencePlanner
 {
@@ -32,12 +37,18 @@ public:
     const double TOOL_DISTANCE_TO_DUMP = 0.85;
     const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
     const bool USE_TSP_HEURISTIC = true;
-    const double HEURISTIC_WEIGHT = 1.5;
+    const double HEURISTIC_WEIGHT = 100;
     const int COLLISION_THRESH = 50; // grid value below which a cell is considered an obstacle, range -128 to 127
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
     nav_msgs::msg::OccupancyGrid map;
+    
+    // Hybrid A* variables
+    Map2D *map_2d;
+    FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
+    SearchInfo info;
+    unsigned int size_theta = 72;
     
     // variables for graph search
     vector<TaskState> states;
@@ -69,6 +80,17 @@ public:
         actions_taken.push_back(Action(-1, -1, -1));
         state_to_idx[initial_state] = 0;
         pq.push({0, 0});
+
+        // Hybrid A*
+        this->map_2d = new Map2D(map);
+        this->footprint.push_back({0.5, 0.35});
+        this->footprint.push_back({-0.5, 0.35});
+        this->footprint.push_back({-0.5, -0.35});
+        this->footprint.push_back({0.5, -0.35});
+        this->info.change_penalty = 1.2;
+        this->info.non_straight_penalty = 1.4;
+        this->info.reverse_penalty = 2.1;
+        this->info.minimum_turning_radius = static_cast<unsigned int>(2.0 / map.info.resolution);
     }
     
     // Functions
@@ -94,40 +116,142 @@ public:
         return dump_pose;
     }
 
+    void call_hybrid_astar(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms, double &cost, vector<Pose2D> &path_world)
+    {
+        AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, this->info);
+        int max_iterations = 1000;
+        int it_on_approach = 100;
+
+        unsigned int start_x, start_y, start_theta, goal_x, goal_y, goal_theta;
+        if (!this->map_2d->worldToMap(start.x, start.y, start_x, start_y)) return;
+        if (!this->map_2d->worldToMap(goal.x, goal.y, goal_x, goal_y)) return;
+        
+        double theta_p = start.theta;
+        if (theta_p < 0) theta_p += 2 * M_PI;
+        // cout << "theta_p: " << theta_p << endl;
+        start_theta = static_cast<unsigned int>(theta_p / (2 * M_PI) * this->size_theta);
+        theta_p = goal.theta;
+        if (theta_p < 0) theta_p += 2 * M_PI;
+        // cout << "theta_p: " << theta_p << endl;
+        goal_theta = static_cast<unsigned int>(theta_p / (2 * M_PI) * this->size_theta);
+
+        if (DEBUG) {
+            cout << "world start: " << start.x << " " << start.y << " " << start.theta << endl;
+            cout << "start: " << start_x << " " << start_y << " " << start_theta << endl;
+            cout << "world goal: " << goal.x << " " << goal.y << " " << goal.theta << endl;
+            cout << "goal: " << goal_x << " " << goal_y << " " << goal_theta << endl;
+        }
+
+        a_star.initialize(false, max_iterations, it_on_approach);
+        a_star.setFootprint(footprint, false);
+        a_star.createGraph(map_2d->getSizeInCellsX(), map_2d->getSizeInCellsY(), size_theta, map_2d);
+        a_star.setStart(start_x, start_y, start_theta);
+        a_star.setGoal(goal_x, goal_y, goal_theta);
+
+        NodeSE2::CoordinateVector path;
+
+        float tolerance = 5.0;
+        int num_it = 0;
+        bool found = false;
+        cost = DBL_MAX;
+
+        try {
+            found = a_star.createPath(path, num_it, tolerance, cost);
+        }
+        catch (const std::runtime_error & e)
+        {
+            if (DEBUG) cerr << "failed to plan: " << e.what() << endl;
+            cost = DBL_MAX;
+            return;
+        }
+
+        if (DEBUG) {
+            cout << "found path: " << found << endl;
+            cout << "num_it " << num_it << " of max " << max_iterations << endl;
+            cout << "path size " << path.size() << endl;
+            cout << "cost " << cost << endl;
+        }
+
+        if (!found) return;
+
+        // Convert to world coordinates
+        path_world.clear();
+
+        for (int i = path.size() - 1; i >= 0; --i)
+        {
+            double wx, wy;
+            map_2d->mapToWorld(path[i].x, path[i].y, wx, wy);
+            double wtheta = path[i].theta / size_theta * 2 * M_PI;
+            path_world.push_back(Pose2D(wx, wy, wtheta));
+        }
+        
+        // cv::Mat img = map_2d->data.clone();
+        // threshold(img, img, 127, 254, cv::THRESH_BINARY);
+
+        // img = ~img;
+
+        // for (size_t i = 0; i != path_world.size(); ++i) {
+        //     unsigned int x, y;
+        //     map_2d->worldToMap(path_world[i].x(), path_world[i].y(), x, y);
+        //     cv::circle(img, cv::Point(x, y), 5, 127, 1);
+        // }
+
+        // cv::imshow("map", img);
+
+	    // if (cv::waitKey(0) == 27)
+        //     cv::destroyAllWindows();
+    }
+
     double get_astar_cost(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
     {
-        double resolution = map.info.resolution; // meters per pixel
-        Astar2D astar(map.info.width, map.info.height, resolution);
-        Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
-        Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-        double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
-        if (move_cost == DBL_MAX) return DBL_MAX;
-        return move_cost * resolution;
+        double cost = DBL_MAX;
+        vector<Pose2D> path;
+        call_hybrid_astar(start, goal, berm_inputs, visited_berms, cost, path);
+        return cost;
     }
+
+    // double get_astar_cost(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
+    // {
+    //     double resolution = map.info.resolution; // meters per pixel
+    //     Astar2D astar(map.info.width, map.info.height, resolution);
+    //     Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
+    //     Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
+    //     double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
+    //     if (move_cost == DBL_MAX) return DBL_MAX;
+    //     return move_cost * resolution;
+    // }
 
     vector<Pose2D> get_astar_path(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
     {
-        double resolution = map.info.resolution; // meters per pixel
-        Astar2D astar(map.info.width, map.info.height, resolution);
-        Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
-        Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-        vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
-        // Multiply path by resolution
-        Pose2D pose;
-        vector<Pose2D> path_poses;
-        for(u_int i=0; i<path.size(); i++)
-        {
-            pose.x = path[i].x*resolution;
-            pose.y = path[i].y*resolution;
-            pose.theta = 0;
-            if (i == path.size()-1)
-            {
-                pose.theta = goal.theta;
-            }
-            path_poses.push_back(pose);
-        }
-        return path_poses;
+        double cost;
+        vector<Pose2D> path;
+        call_hybrid_astar(start, goal, berm_inputs, visited_berms, cost, path);
+        return path;
     }
+
+    // vector<Pose2D> get_astar_path(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
+    // {
+    //     double resolution = map.info.resolution; // meters per pixel
+    //     Astar2D astar(map.info.width, map.info.height, resolution);
+    //     Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
+    //     Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
+    //     vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
+    //     // Multiply path by resolution
+    //     Pose2D pose;
+    //     vector<Pose2D> path_poses;
+    //     for(u_int i=0; i<path.size(); i++)
+    //     {
+    //         pose.x = path[i].x*resolution;
+    //         pose.y = path[i].y*resolution;
+    //         pose.theta = 0;
+    //         if (i == path.size()-1)
+    //         {
+    //             pose.theta = goal.theta;
+    //         }
+    //         path_poses.push_back(pose);
+    //     }
+    //     return path_poses;
+    // }
 
     TaskState get_next_state(const TaskState& state, const int &dj, const int &ek)
     {
@@ -565,7 +689,7 @@ public:
             Pose2D dump_pose = getDumpPose(berm_inputs[berm_idx], action_to_take.pj);
             task.pose = dump_pose.getPose();
             final_plan.push_back(task);
-            vector<Pose2D> path = get_astar_path(robot_cur_pose, dump_pose, berm_inputs, visited_berm_counts);
+            vector<Pose2D> nav_path = get_astar_path(robot_cur_pose, dump_pose, berm_inputs, visited_berm_counts);
             robot_cur_pose = dump_pose;
 
             save_path(path, dir + "path_" + to_string(nav_count++) + ".txt");
@@ -580,7 +704,7 @@ public:
             task.pose = excavation_poses[excavation_idx].getPose();
             final_plan.push_back(task);
 
-            path = get_astar_path(robot_cur_pose, excavation_poses[excavation_idx], berm_inputs, visited_berm_counts);
+            nav_path = get_astar_path(robot_cur_pose, excavation_poses[excavation_idx], berm_inputs, visited_berm_counts);
             robot_cur_pose = excavation_poses[excavation_idx];
 
             // Save path to file

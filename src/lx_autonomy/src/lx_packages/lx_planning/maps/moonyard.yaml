@@ -11,9 +11,6 @@ excavation_input:
 - x: 1.0
   y: 1.0
   z: 0.0
-- x: 0.0
-  y: 0.0
-  z: 0.0
 - x: 1.0
   y: 3.0
   z: 0.0
@@ -32,7 +29,7 @@ excavation_input:
 - x: 1.0
   y: 3.0
   z: 0.0
-berm_height: 0.14
+berm_height: 0.09
 section_length: 0.4
 map_image: moonyard.png
 output_file: animation/output.csv

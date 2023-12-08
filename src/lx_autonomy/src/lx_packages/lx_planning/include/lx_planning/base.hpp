@@ -81,6 +81,11 @@ struct Point2D {
     }
 };
 
+struct PointMock {
+    double x;
+    double y;
+};
+
 // define a custom comparator for priority queue
 template <class T>
 struct compare_pair
@@ -216,16 +221,14 @@ public:
         for (uint i = 0; i < map.info.height; i++) {
             for (uint j = 0; j < map.info.width; j++) {
                 int idx = GETMAPINDEX(j, i, map.info.width);
-                if (map.data[idx] == -1) {
-                    img.at<uint8_t>(i, j) = UNKNOWN;
-                } else if (map.data[idx] > 100) {
+                if (map.data[idx] > 100) {
                     img.at<uint8_t>(i, j) = OCCUPIED;
                 } else {
                     img.at<uint8_t>(i, j) = FREE;
                 }
             }
         }
-        this->data = img;
+        this->data = ~img;
     }
 
 	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my)
@@ -269,20 +272,6 @@ public:
 	unsigned int getSizeInCellsY()
 	{
 		return size_y;
-	}
-
-	bool fromImage(const std::string &filename)
-	{
-		using namespace cv;
-
-		data = imread(filename, IMREAD_GRAYSCALE);
-
-		if(data.empty())
-			return false;
-		
-		threshold(data, data, 127, 254, THRESH_BINARY_INV);
-
-		return true;
 	}
 
     void display() {

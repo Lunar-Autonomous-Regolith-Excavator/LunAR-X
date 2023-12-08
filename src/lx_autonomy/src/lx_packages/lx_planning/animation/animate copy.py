@@ -297,20 +297,20 @@ if __name__ == '__main__':
         if task == 0: # navigation
             # read path from file
             path = np.genfromtxt(package_directory + '/paths/path_' + str(nav_count) + '.txt', delimiter=',')
-            if len(path) == 0:
-                print("No path found")
-                exit()
             path[:, :2] *= 100
 
-            # path_len = len(path)
-            # short_path = path[::path_len//15, :].tolist()
-            # short_path.append(path[-1, :].tolist())
-            # path = np.array(short_path)
+            path_len = len(path)
+            short_path = path[::path_len//15, :].tolist()
+            short_path.append(path[-1, :].tolist())
+            path = np.array(short_path)
 
             for i in range(len(path)):
                 dx = path[i, 0] - robot.x
                 dy = path[i, 1] - robot.y
-                dtheta = path[i, 2] - robot.theta
+                if i == len(path)-1:
+                    dtheta = path[i, 2] - robot.theta
+                else:
+                    dtheta = 0
 
                 height_grid_arr.append(height_grid.copy())
                 corners_arr.append(robot.get_corners())
@@ -345,9 +345,9 @@ if __name__ == '__main__':
             berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
             height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
             for i in range(0, dump_time):
-                # if i == dump_flip_time:
-                #     robot.shift(0, 0, -robot.theta)
-                #     dtheta = 0
+                if i == dump_flip_time:
+                    robot.shift(0, 0, -robot.theta)
+                    dtheta = 0
                 height_grid_arr.append(height_grid.copy())
                 corners_arr.append(robot.get_corners())
                 corners_tool_arr.append(robot.get_corners_tool())
