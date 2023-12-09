@@ -47,17 +47,21 @@ class PlanTaskNode(Node):
         map_string = params['map_image']
         map_string= package_directory + "/maps/" + map_string
         map_image = cv2.imread(map_string, cv2.IMREAD_GRAYSCALE) # 0 to 255, shape (60, 160 for horizontal map)
+
+        _, map_image = cv2.threshold(map_image, 127, 254, cv2.THRESH_BINARY_INV)
         
         # original origin at top left corner
         # shift origin of image to bottom left corner
         map_image = cv2.flip(map_image, 0)
         
-        # put x axis to the right
-        map_image = cv2.flip(map_image, 1)
+        # # put x axis to the right
+        # map_image = cv2.flip(map_image, 1)
         
-        # put into np int array and shift to -128 to 127
-        map_image = map_image.astype(int)
-        map_image = map_image - 128
+        # threshold to 0 and 100
+        map_image[map_image < 128] = 0
+        map_image[map_image >= 128] = 100
+
+        map_image = map_image.astype('int8')
 
         # Create OccupancyGrid message
         self.occupancy_grid = OccupancyGrid()

@@ -114,7 +114,7 @@ void TaskOptimizer::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> g
     berm_section_heights_.resize(this->berm_inputs_.size(), 0.0);
 
     // Call optimization function
-    OptimalSequencePlanner optimal_sequence_planner = OptimalSequencePlanner(this->map_, this->berm_inputs_, this->excavation_poses_, num_dumps_per_segment);
+    OptimalSequencePlanner optimal_sequence_planner = OptimalSequencePlanner(this->map_, this->berm_inputs_, this->excavation_poses_, num_dumps_per_segment, this->section_length_, this->desired_berm_height_);
     vector<lx_msgs::msg::PlannedTask> plan = optimal_sequence_planner.get_plan();
 
     // Return result

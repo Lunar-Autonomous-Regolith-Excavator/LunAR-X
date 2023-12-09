@@ -209,6 +209,10 @@ public:
         this->size_y = size_y;
     }
 
+    Map2D(cv::Mat data) {
+        this->data = data;
+    }
+
     Map2D(nav_msgs::msg::OccupancyGrid map) {
         this->resolution = map.info.resolution;
         this->origin_x = map.info.origin.position.x;
@@ -221,14 +225,17 @@ public:
         for (uint i = 0; i < map.info.height; i++) {
             for (uint j = 0; j < map.info.width; j++) {
                 int idx = GETMAPINDEX(j, i, map.info.width);
-                if (map.data[idx] > 100) {
-                    img.at<uint8_t>(i, j) = OCCUPIED;
-                } else {
+                if (static_cast<int>(map.data[idx]) < 50) {
                     img.at<uint8_t>(i, j) = FREE;
+                } else {
+                    img.at<uint8_t>(i, j) = OCCUPIED;
                 }
             }
         }
-        this->data = ~img;
+        // Flip image
+        cv::flip(img, img, 0);
+        
+        this->data = img;
     }
 
 	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my)

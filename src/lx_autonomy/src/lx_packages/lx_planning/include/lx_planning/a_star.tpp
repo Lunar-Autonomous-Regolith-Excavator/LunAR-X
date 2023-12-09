@@ -263,6 +263,8 @@ bool AStarAlgorithm<CostmapT, CollisionCheckerT>::createPath(
     }
   }
 
+  // No path found
+  cost = std::numeric_limits<double>::max();
   return false;
 }
 

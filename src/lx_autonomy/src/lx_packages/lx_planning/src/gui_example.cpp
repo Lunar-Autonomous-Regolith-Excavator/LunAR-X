@@ -284,12 +284,18 @@ void MainLoop(State *state)
 
 int main(int argc, char **argv)
 {
+	// Get map name from arguments
+	std::string map_name = "maze";
+	if (argc > 1){
+		map_name = argv[1];
+	}
+
 	bool enableSmoother = false; //change to true to enable smoother
 
 	Map2D *map = new Map2D();
 	Smoother<Map2D> *smoother = nullptr;
 
-	if(!map->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/maze.png"))
+	if(!map->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/" + map_name + ".png"))
 	{
 		cerr << "failed to load map, terminating" << endl;
 		return 1;

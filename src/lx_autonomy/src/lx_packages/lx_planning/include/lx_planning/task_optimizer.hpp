@@ -43,12 +43,17 @@ public:
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
     nav_msgs::msg::OccupancyGrid map;
+    unsigned int berm_length;
+    unsigned int berm_width;
     
     // Hybrid A* variables
     Map2D *map_2d;
     FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
     SearchInfo info;
     unsigned int size_theta = 72;
+
+    // Vector of costmap for each berm input
+    vector<cv::Mat> berm_costmaps;
     
     // variables for graph search
     vector<TaskState> states;
@@ -60,7 +65,7 @@ public:
     unordered_map<TaskState, int, StateHasher> state_to_idx;
     GoogleTSPSolver tsp_solver;
 
-    OptimalSequencePlanner(const nav_msgs::msg::OccupancyGrid& map, const vector<Pose2D>& berm_inputs, const vector<Pose2D>& excavation_poses, int num_dumps_per_segment)
+    OptimalSequencePlanner(const nav_msgs::msg::OccupancyGrid& map, const vector<Pose2D>& berm_inputs, const vector<Pose2D>& excavation_poses, int num_dumps_per_segment, double berm_length, double berm_height)
     {   
         // Assumes that the robot starts from excavation_poses[0]
         this->map = map;
@@ -90,7 +95,78 @@ public:
         this->info.change_penalty = 1.2;
         this->info.non_straight_penalty = 1.4;
         this->info.reverse_penalty = 2.1;
-        this->info.minimum_turning_radius = static_cast<unsigned int>(2.0 / map.info.resolution);
+        this->info.minimum_turning_radius = static_cast<unsigned int>(1.0 / map.info.resolution);
+
+        // Berm parameters for berm cost map
+        this->berm_length = static_cast<unsigned int>(berm_length / map.info.resolution);
+        this->berm_width = static_cast<unsigned int>((2 * (berm_height / tan(M_PI / 6))) / map.info.resolution);
+        // Make berm parameters even
+        if (this->berm_length % 2 == 1) this->berm_length += 1;
+        if (this->berm_width % 2 == 1) this->berm_width += 1;
+
+        generateBermCostmaps();
+    }
+
+    cv::Mat generateBerm(const Pose2D &berm_input)
+    {
+        using namespace cv;
+
+        unsigned int box_length = ceil(sqrt(this->berm_length * this->berm_length + this->berm_width * this->berm_width)) + 2;
+        // make odd
+        if (box_length % 2 == 0) box_length += 1;
+
+        Mat berm(box_length, box_length, CV_8UC1, cv::Scalar(0));
+        int center = (box_length - 1) / 2;
+        double angle = -berm_input.theta;
+
+        // Make all points inside rectangle occupied
+        for (int i = 0; i < box_length; ++i) {
+            for (int j = 0; j < box_length; ++j) {
+                int y = i - center;
+                int x = j - center;
+                if (abs(y) <= this->berm_width / 2 && abs(x) <= this->berm_length / 2) {
+                    berm.at<char>(i, j) = Map2D::OCCUPIED;
+                }
+            }
+        }
+
+        Mat rot_berm(box_length, box_length, CV_8UC1, cv::Scalar(0));
+        Mat rot_mat = getRotationMatrix2D(Point2f(center, center), angle * 180 / M_PI, 1);
+        warpAffine(berm, rot_berm, rot_mat, rot_berm.size());
+
+        // Make mat of map size and place berm in its position
+        Mat map_mat(this->map.info.height, this->map.info.width, CV_8UC1, cv::Scalar(0));
+
+        int berm_center_x = static_cast<int>(berm_input.x / this->map.info.resolution);
+        int berm_center_y = static_cast<int>(berm_input.y / this->map.info.resolution);
+        
+        for (int i = 0; i < box_length; ++i) {
+            for (int j = 0; j < box_length; ++j) {
+                int y = i - center + berm_center_y;
+                int x = j - center + berm_center_x;
+                if (y >= 0 && y < this->map.info.height && x >= 0 && x < this->map.info.width) {
+                    map_mat.at<char>(y, x) = rot_berm.at<char>(i, j);
+                }
+            }
+        }
+
+        // cv::Mat img;
+        // resize(map_mat, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
+        // img = ~img;
+        // cv::imshow("map", img);
+
+	    // if (cv::waitKey(0) == 27)
+        //     cv::destroyAllWindows();
+        
+        return map_mat;
+    }
+
+    void generateBermCostmaps()
+    {
+        for (u_int i = 0; i < berm_inputs.size(); ++i)
+        {
+            berm_costmaps.push_back(generateBerm(berm_inputs[i]));
+        }
     }
     
     // Functions
@@ -118,6 +194,30 @@ public:
 
     void call_hybrid_astar(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms, double &cost, vector<Pose2D> &path_world)
     {
+        cv::Mat map_iter = this->map_2d->data;
+    
+        // Loop through visited berms
+        // for (int i = 0; i < visited_berms.size(); ++i)
+        // {
+        //     if (visited_berms[i] == 0) continue;
+        //     cv::Mat berm_costmap = this->berm_costmaps[i];
+        //     // Add berm to map
+        //     cv::add(map_iter, berm_costmap, map_iter);
+        // }
+
+        // Limit map to 0-254
+        cv::threshold(map_iter, map_iter, COLLISION_THRESH, Map2D::OCCUPIED, cv::THRESH_BINARY);
+
+        // cv::Mat img;
+        // resize(map_iter, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
+        // img = ~img;
+        // cv::imshow("map", img);
+
+	    // if (cv::waitKey(0) == 27)
+        //     cv::destroyAllWindows();
+
+        this->map_2d->data = map_iter;
+
         AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, this->info);
         int max_iterations = 1000;
         int it_on_approach = 100;
@@ -716,7 +816,6 @@ public:
                 cout << "ERROR: No path found for " << nav_count + 1 << endl;
             }
 
-            // Save path to file
             save_path(nav_path, dir + "path_" + to_string(nav_count++) + ".txt");
 
             if (i == path.size() - 2) break;
