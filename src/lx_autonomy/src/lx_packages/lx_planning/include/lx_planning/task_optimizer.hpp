@@ -7,7 +7,6 @@
 
 #include "collision_checker.hpp"
 #include "a_star.hpp"
-// #include "smoother.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -55,8 +54,8 @@ public:
     // HYBRID A* constants
     const double MIN_TURNING_RAD = 1.0; // meters
     const double MAX_TIMEOUT = 300; // seconds
-    const bool HYBRID_BERM_COLLISIONS = false;
-    const unsigned int size_theta = 36;
+    const bool HYBRID_BERM_COLLISIONS = true;
+    const unsigned int size_theta = 72;
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -156,6 +155,8 @@ public:
                 }
             }
         }
+
+        flip(map_mat, map_mat, 0);
 
         // cv::Mat img;
         // resize(map_mat, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
