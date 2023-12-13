@@ -35,29 +35,33 @@ public:
     bool DEBUG = false;
     double EXCAVATION_DIST_M = 1.5; // meters
     const double TOOL_DISTANCE_TO_DUMP = 0.85; // meters
-    const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
+    const int COLLISION_THRESH = 50; // grid value above which a cell is considered an obstacle
+    // const string EDGE_COST = "2D_A*"; // 2D or HYBRID_A*
+    const string EDGE_COST = "HYBRID_A*"; // 2D or HYBRID_A*
+    
+    // Heuristic parameters
     const bool USE_TSP_HEURISTIC = true;
-    const double HEURISTIC_WEIGHT = 100;
-    const int COLLISION_THRESH = 50; // grid value below which a cell is considered an obstacle
-    const double MIN_TURNING_RAD = 0.5; // meters
-    const bool BERM_COLLISIONS = true;
+    const double TSP_HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
+    const double TSP_HEURISTIC_WEIGHT = 5;
+
+    // HYBRID A* variables
+    Map2D *map_2d;
+    FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
+    SearchInfo info;
+    unsigned int berm_length;
+    unsigned int berm_width;
+    vector<cv::Mat> berm_costmaps;
+
+    // HYBRID A* constants
+    const double MIN_TURNING_RAD = 1.0; // meters
     const double MAX_TIMEOUT = 300; // seconds
+    const bool HYBRID_BERM_COLLISIONS = false;
+    const unsigned int size_theta = 36;
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
     nav_msgs::msg::OccupancyGrid map;
-    unsigned int berm_length;
-    unsigned int berm_width;
-    
-    // Hybrid A* variables
-    Map2D *map_2d;
-    FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
-    SearchInfo info;
-    unsigned int size_theta = 36;
-
-    // Vector of costmap for each berm input
-    vector<cv::Mat> berm_costmaps;
-    
+        
     // variables for graph search
     vector<TaskState> states;
     vector<int> parents;
@@ -200,7 +204,7 @@ public:
         cv::Mat map_iter = this->map_2d->data;
     
         // Loop through visited berms for collisions
-        if (BERM_COLLISIONS)
+        if (HYBRID_BERM_COLLISIONS)
         {
             for (int i = 0; i < visited_berms.size(); ++i)
             {
@@ -225,7 +229,7 @@ public:
         this->map_2d->data = map_iter;
 
         AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, this->info);
-        int max_iterations = 1000;
+        int max_iterations = 200;
         int it_on_approach = 100;
 
         unsigned int start_x, start_y, start_theta, goal_x, goal_y, goal_theta;
@@ -310,54 +314,61 @@ public:
 
     double get_astar_cost(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
     {
-        double cost = DBL_MAX;
-        vector<Pose2D> path;
-        call_hybrid_astar(start, goal, berm_inputs, visited_berms, cost, path);
-        return cost;
+        if(EDGE_COST == "HYBRID_A*")
+        {
+            double cost = DBL_MAX;
+            vector<Pose2D> path;
+            call_hybrid_astar(start, goal, berm_inputs, visited_berms, cost, path);
+            if (cost == DBL_MAX) return DBL_MAX;
+            return cost*(double)map.info.resolution;
+        }
+        if(EDGE_COST == "2D_A*")
+        {
+            double resolution = map.info.resolution; // meters per pixel
+            Astar2D astar(map.info.width, map.info.height, resolution);
+            Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
+            Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
+            double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
+            if (move_cost == DBL_MAX) return DBL_MAX;
+            return move_cost * resolution;
+        }
+        cout<<"ERROR: EDGE_COST not recognized"<<endl;
     }
-
-    // double get_astar_cost(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
-    // {
-    //     double resolution = map.info.resolution; // meters per pixel
-    //     Astar2D astar(map.info.width, map.info.height, resolution);
-    //     Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
-    //     Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-    //     double move_cost = astar.get_plan_cost(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
-    //     if (move_cost == DBL_MAX) return DBL_MAX;
-    //     return move_cost * resolution;
-    // }
 
     vector<Pose2D> get_astar_path(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
     {
-        double cost;
-        vector<Pose2D> path;
-        call_hybrid_astar(start, goal, berm_inputs, visited_berms, cost, path);
-        return path;
+        if(EDGE_COST == "HYBRID_A*")
+        {
+            double cost;
+            vector<Pose2D> path;
+            call_hybrid_astar(start, goal, berm_inputs, visited_berms, cost, path);
+            return path;
+        }
+        if(EDGE_COST == "2D_A*")
+        {
+            double resolution = map.info.resolution; // meters per pixel
+            Astar2D astar(map.info.width, map.info.height, resolution);
+            Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
+            Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
+            vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
+            // Multiply path by resolution
+            Pose2D pose;
+            vector<Pose2D> path_poses;
+            for(u_int i=0; i<path.size(); i++)
+            {
+                pose.x = path[i].x*resolution;
+                pose.y = path[i].y*resolution;
+                pose.theta = 0;
+                if (i == path.size()-1)
+                {
+                    pose.theta = goal.theta;
+                }
+                path_poses.push_back(pose);
+            }
+            return path_poses;
+        }
+        cout<<"ERROR: EDGE_COST not recognized"<<endl;
     }
-
-    // vector<Pose2D> get_astar_path(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
-    // {
-    //     double resolution = map.info.resolution; // meters per pixel
-    //     Astar2D astar(map.info.width, map.info.height, resolution);
-    //     Point2D start_grid = {(int) round(start.x/resolution), (int) round(start.y/resolution)};
-    //     Point2D goal_grid = {(int) round(goal.x/resolution), (int) round(goal.y/resolution)};
-    //     vector<Point2D> path = astar.get_path(start_grid, goal_grid, berm_inputs, visited_berms, map, COLLISION_THRESH);
-    //     // Multiply path by resolution
-    //     Pose2D pose;
-    //     vector<Pose2D> path_poses;
-    //     for(u_int i=0; i<path.size(); i++)
-    //     {
-    //         pose.x = path[i].x*resolution;
-    //         pose.y = path[i].y*resolution;
-    //         pose.theta = 0;
-    //         if (i == path.size()-1)
-    //         {
-    //             pose.theta = goal.theta;
-    //         }
-    //         path_poses.push_back(pose);
-    //     }
-    //     return path_poses;
-    // }
 
     TaskState get_next_state(const TaskState& state, const int &dj, const int &ek)
     {
@@ -511,13 +522,13 @@ public:
             }
         }
 
-        // Convert cost matrix to int using HEURISTIC_RESOLUTION
+        // Convert cost matrix to int using TSP_HEURISTIC_RESOLUTION
         vector<vector<int64_t>> tsp_cost_matrix(cost_matrix.size(), vector<int64_t>(cost_matrix.size(), 0));
         for (u_int i = 0; i < cost_matrix.size(); i++)
         {
             for (u_int j = 0; j < cost_matrix.size(); j++)
             {
-                tsp_cost_matrix[i][j] = static_cast<int64_t>(cost_matrix[i][j] / HEURISTIC_RESOLUTION);
+                tsp_cost_matrix[i][j] = static_cast<int64_t>(cost_matrix[i][j] / TSP_HEURISTIC_RESOLUTION);
             }
         }
 
@@ -543,14 +554,14 @@ public:
         }
 
         // Multiply final_cost by HEURISTIC_RESOLUTION
-        double final_cost_double = (double)final_cost * HEURISTIC_RESOLUTION;
+        double final_cost_double = (double)final_cost * TSP_HEURISTIC_RESOLUTION;
 
         if (tsp_debug==true)
         {
             cout<<"Final Cost Double: "<<final_cost_double<<endl;
         }
 
-        return final_cost_double*HEURISTIC_WEIGHT;
+        return final_cost_double*TSP_HEURISTIC_WEIGHT;
     }
 
     void update_neighbor(const int &u, const int &dj, const int &pj, const int &ej)
@@ -565,10 +576,16 @@ public:
         if(state_to_idx.find(new_state)!=state_to_idx.end()) new_state_idx = state_to_idx[new_state];
         
         // If new state is already closed, continue
-        if(new_state_idx!=-1 && visited_states[new_state_idx]==true) return;
+        if(new_state_idx!=-1 && visited_states[new_state_idx]==true) 
+        {
+            return;
+        }
 
         double next_state_cost = get_next_state_cost(states[u], dj, pj, ej);
-        if (next_state_cost == DBL_MAX) return;
+        if (next_state_cost == DBL_MAX)
+        {
+            return;
+        }
         
         double g_val = g_values[u] + next_state_cost;
 
@@ -774,7 +791,7 @@ public:
         // Print Solution Stats:
         cout<<"\nSolution Stats: "<<endl;
         cout<<"Heuristic Used: "<<(USE_TSP_HEURISTIC ? "TSP" : "None")<<endl;
-        cout<<"Heuristic Weight: "<<HEURISTIC_WEIGHT<<endl;
+        cout<<"Heuristic Weight: "<<TSP_HEURISTIC_WEIGHT<<endl;
         cout<<"Num Nodes Generated: "<<states.size()<<endl;
         cout<<"Solution Cost: "<<g_values[goal_idx]<<endl;
         cout<<"Time (s)"<< chrono::duration_cast<chrono::milliseconds>(final_time - init_time).count()/1000.0<<endl;

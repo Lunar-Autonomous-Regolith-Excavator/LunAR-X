@@ -62,7 +62,7 @@ public:
         if (is_obstacle[point.x][point.y] != -1) return is_obstacle[point.x][point.y];
 
         // Check if it is a map obstacle
-        bool result = map.data[point.x*map.info.height + point.y] < collision_thresh;
+        bool result = map.data[point.x*map.info.height + point.y] > collision_thresh;
         if(result == true)
         {
             is_obstacle[point.x][point.y] = result;
@@ -76,7 +76,7 @@ public:
             for (int j = min_left; j <= max_right; j++)
             {
                 if (isvalid({point.x + i, point.y + j}, map.info.width, map.info.height)
-                    && map.data[(point.x + i)*map.info.height + point.y + j] < collision_thresh)
+                    && map.data[(point.x + i)*map.info.height + point.y + j] > collision_thresh)
                 {
                     is_obstacle_within_radius = true;
                     break;
