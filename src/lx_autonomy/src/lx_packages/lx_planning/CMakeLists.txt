@@ -80,6 +80,7 @@ install(DIRECTORY
   launch
   maps
   animation
+  outputs
   paths
   DESTINATION share/${PROJECT_NAME}
 )

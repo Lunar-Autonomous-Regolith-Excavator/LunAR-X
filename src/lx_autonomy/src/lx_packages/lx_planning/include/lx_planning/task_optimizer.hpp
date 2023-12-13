@@ -196,14 +196,14 @@ public:
     {
         cv::Mat map_iter = this->map_2d->data;
     
-        // Loop through visited berms
-        // for (int i = 0; i < visited_berms.size(); ++i)
-        // {
-        //     if (visited_berms[i] == 0) continue;
-        //     cv::Mat berm_costmap = this->berm_costmaps[i];
-        //     // Add berm to map
-        //     cv::add(map_iter, berm_costmap, map_iter);
-        // }
+        // Loop through visited berms for collisions
+        for (int i = 0; i < visited_berms.size(); ++i)
+        {
+            if (visited_berms[i] == 0) continue;
+            cv::Mat berm_costmap = this->berm_costmaps[i];
+            // Add berm to map
+            cv::add(map_iter, berm_costmap, map_iter);
+        }
 
         // Limit map to 0-254
         cv::threshold(map_iter, map_iter, COLLISION_THRESH, Map2D::OCCUPIED, cv::THRESH_BINARY);
