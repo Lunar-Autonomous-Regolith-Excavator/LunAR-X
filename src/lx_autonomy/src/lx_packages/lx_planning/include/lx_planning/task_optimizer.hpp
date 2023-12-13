@@ -33,12 +33,15 @@ public:
     int num_dumps_per_segment;
     Pose2D robot_start_pose;
     bool DEBUG = false;
-    double EXCAVATION_DIST_M = 1.5; 
-    const double TOOL_DISTANCE_TO_DUMP = 0.85;
+    double EXCAVATION_DIST_M = 1.5; // meters
+    const double TOOL_DISTANCE_TO_DUMP = 0.85; // meters
     const double HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
     const bool USE_TSP_HEURISTIC = true;
     const double HEURISTIC_WEIGHT = 100;
-    const int COLLISION_THRESH = 50; // grid value below which a cell is considered an obstacle, range -128 to 127
+    const int COLLISION_THRESH = 50; // grid value below which a cell is considered an obstacle
+    const double MIN_TURNING_RAD = 0.5; // meters
+    const bool BERM_COLLISIONS = true;
+    const double MAX_TIMEOUT = 300; // seconds
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -50,7 +53,7 @@ public:
     Map2D *map_2d;
     FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
     SearchInfo info;
-    unsigned int size_theta = 72;
+    unsigned int size_theta = 36;
 
     // Vector of costmap for each berm input
     vector<cv::Mat> berm_costmaps;
@@ -95,7 +98,7 @@ public:
         this->info.change_penalty = 1.2;
         this->info.non_straight_penalty = 1.4;
         this->info.reverse_penalty = 2.1;
-        this->info.minimum_turning_radius = static_cast<unsigned int>(1.0 / map.info.resolution);
+        this->info.minimum_turning_radius = static_cast<unsigned int>(MIN_TURNING_RAD / map.info.resolution);
 
         // Berm parameters for berm cost map
         this->berm_length = static_cast<unsigned int>(berm_length / map.info.resolution);
@@ -197,12 +200,15 @@ public:
         cv::Mat map_iter = this->map_2d->data;
     
         // Loop through visited berms for collisions
-        for (int i = 0; i < visited_berms.size(); ++i)
+        if (BERM_COLLISIONS)
         {
-            if (visited_berms[i] == 0) continue;
-            cv::Mat berm_costmap = this->berm_costmaps[i];
-            // Add berm to map
-            cv::add(map_iter, berm_costmap, map_iter);
+            for (int i = 0; i < visited_berms.size(); ++i)
+            {
+                if (visited_berms[i] == 0) continue;
+                cv::Mat berm_costmap = this->berm_costmaps[i];
+                // Add berm to map
+                cv::add(map_iter, berm_costmap, map_iter);
+            }
         }
 
         // Limit map to 0-254
@@ -646,6 +652,15 @@ public:
         int min_num_berms_to_build= INT_MAX;
         while(!pq.empty())
         {
+            // Check for timeout
+            auto curr_time = chrono::high_resolution_clock::now();
+            double time_elapsed = chrono::duration_cast<chrono::milliseconds>(curr_time - init_time).count()/1000.0;
+            if(time_elapsed>MAX_TIMEOUT)
+            {
+                cout<<"ERROR: Max timeout reached"<<endl;
+                return final_plan;
+            }
+            
             // pop topmost element
             int u = pq.top().second;
             if(DEBUG) cout<<"*************Iteration: "<<itr<<endl;

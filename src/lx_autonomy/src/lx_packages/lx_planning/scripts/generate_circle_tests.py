@@ -42,6 +42,7 @@ print('Number of excavation points: {}'.format(len(exc_pts)))
 
 plt.axis('equal')
 # plt.show()
+# exit()
 
 env_name = 'env_{}'.format(env_width)
 yaml_dict = {}
