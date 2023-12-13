@@ -134,5 +134,5 @@ excavation_input:
   y: 1.5
   z: 0.0
 map_image: env_4.png
-output_file: outputs/output_env_4.csv
+output_file: outputs/output_env_4_23.csv
 section_length: 0.4

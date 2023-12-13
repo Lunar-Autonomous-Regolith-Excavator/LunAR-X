@@ -215,10 +215,12 @@ def get_berm(theta: float, length: int, height: int):
 
 def overlay_berm(berm, berm_x, berm_y, height_grid):
     lx, ly = berm.shape
-    min_x = int(berm_x) - lx//2
-    min_y = int(berm_y) - ly//2
-    max_x = min_x + lx
-    max_y = min_y + ly
+    min_x = max(int(berm_x) - lx//2, 0)
+    min_y = max(int(berm_y) - ly//2, 0)
+    max_x = min(min_x + lx, height_grid.shape[0])
+    max_y = min(min_y + ly, height_grid.shape[1])
+
+    berm = berm[:max_x-min_x, :max_y-min_y]
 
     # overlay the berm on the height map
     height_grid[min_x:max_x, min_y:max_y] = np.maximum(height_grid[min_x:max_x, min_y:max_y], berm)
@@ -344,7 +346,7 @@ if __name__ == '__main__':
         
         elif task == 2: # dump
             berm = get_berm(robot.theta, berm_section_length, desired_berm_height)
-            # height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
+            height_grid = overlay_berm(berm, robot.tool_x, robot.tool_y, height_grid)
             for i in range(0, dump_time):
                 height_grid_arr.append(height_grid.copy())
                 corners_arr.append(robot.get_corners())
