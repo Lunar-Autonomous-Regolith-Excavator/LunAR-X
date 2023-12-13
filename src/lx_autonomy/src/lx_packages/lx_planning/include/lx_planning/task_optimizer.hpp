@@ -31,7 +31,7 @@ public:
     int D, E;
     int num_dumps_per_segment;
     Pose2D robot_start_pose;
-    bool DEBUG = false;
+    bool DEBUG = true;
     double EXCAVATION_DIST_M = 1.5; // meters
     const double TOOL_DISTANCE_TO_DUMP = 0.85; // meters
     const int COLLISION_THRESH = 50; // grid value above which a cell is considered an obstacle
@@ -44,7 +44,6 @@ public:
     const double TSP_HEURISTIC_WEIGHT = 5;
 
     // HYBRID A* variables
-    Map2D *map_2d;
     FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
     SearchInfo info;
     unsigned int berm_length;
@@ -53,7 +52,7 @@ public:
 
     // HYBRID A* constants
     const double MIN_TURNING_RAD = 1.0; // meters
-    const double MAX_TIMEOUT = 300; // seconds
+    const double MAX_TIMEOUT = 6000; // seconds
     const bool HYBRID_BERM_COLLISIONS = true;
     const unsigned int size_theta = 72;
 
@@ -93,7 +92,6 @@ public:
         pq.push({0, 0});
 
         // Hybrid A*
-        this->map_2d = new Map2D(map);
         this->footprint.push_back({0.5, 0.35});
         this->footprint.push_back({-0.5, 0.35});
         this->footprint.push_back({-0.5, -0.35});
@@ -110,7 +108,7 @@ public:
         if (this->berm_length % 2 == 1) this->berm_length += 1;
         if (this->berm_width % 2 == 1) this->berm_width += 1;
 
-        generateBermCostmaps();
+        if (HYBRID_BERM_COLLISIONS) generateBermCostmaps();
     }
 
     cv::Mat generateBerm(const Pose2D &berm_input)
@@ -156,7 +154,7 @@ public:
             }
         }
 
-        flip(map_mat, map_mat, 0);
+        // flip(map_mat, map_mat, 0);
 
         // cv::Mat img;
         // resize(map_mat, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
@@ -193,16 +191,18 @@ public:
         int sign = (pj==0 ? 1 : -1);
         Pose2D dump_pose;
         // Calculate dump poses on either side of the berm section with TOOL_DISTANCE_TO_DUMP from the berm section center
-        double angle = berm_section.theta + sign*M_PI / 2;
+        double angle = berm_section.theta + sign * M_PI / 2;
         dump_pose.x = berm_section.x + this->TOOL_DISTANCE_TO_DUMP * cos(angle);
         dump_pose.y = berm_section.y + this->TOOL_DISTANCE_TO_DUMP * sin(angle);
-        dump_pose.theta = angle - M_PI;
+        // dump_pose.theta = angle - M_PI;
+        dump_pose.theta = atan2(berm_section.y - dump_pose.y, berm_section.x - dump_pose.x);
         return dump_pose;
     }
 
     void call_hybrid_astar(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms, double &cost, vector<Pose2D> &path_world)
     {
-        cv::Mat map_iter = this->map_2d->data;
+        Map2D *map_2d = new Map2D(map);
+        cv::Mat map_iter = map_2d->data;
     
         // Loop through visited berms for collisions
         if (HYBRID_BERM_COLLISIONS)
@@ -227,24 +227,36 @@ public:
 	    // if (cv::waitKey(0) == 27)
         //     cv::destroyAllWindows();
 
-        this->map_2d->data = map_iter;
+        map_2d->data = map_iter;
 
         AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, this->info);
         int max_iterations = 200;
         int it_on_approach = 100;
 
         unsigned int start_x, start_y, start_theta, goal_x, goal_y, goal_theta;
-        if (!this->map_2d->worldToMap(start.x, start.y, start_x, start_y)) return;
-        if (!this->map_2d->worldToMap(goal.x, goal.y, goal_x, goal_y)) return;
+        if (!map_2d->worldToMap(start.x, start.y, start_x, start_y)) return;
+        if (!map_2d->worldToMap(goal.x, goal.y, goal_x, goal_y)) return;
         
         double theta_p = start.theta;
+        if (theta_p < -M_PI || theta_p > M_PI) {
+            cout << "--------------------------------------------Wrong start theta: " << theta_p << endl;
+        }
         if (theta_p < 0) theta_p += 2 * M_PI;
         // cout << "theta_p: " << theta_p << endl;
         start_theta = static_cast<unsigned int>(theta_p / (2 * M_PI) * this->size_theta);
+        if (start_theta > this->size_theta) {
+            cout << "--------------------------------------------Wrong start theta: " << start_theta << endl;
+        }
         theta_p = goal.theta;
+        if (theta_p < -M_PI || theta_p > M_PI) {
+            cout << "--------------------------------------------Wrong goal theta: " << theta_p << endl;
+        }
         if (theta_p < 0) theta_p += 2 * M_PI;
         // cout << "theta_p: " << theta_p << endl;
         goal_theta = static_cast<unsigned int>(theta_p / (2 * M_PI) * this->size_theta);
+        if (goal_theta > this->size_theta) {
+            cout << "--------------------------------------------Wrong goal theta: " << goal_theta << endl;
+        }
 
         if (DEBUG) {
             cout << "world start: " << start.x << " " << start.y << " " << start.theta << endl;
@@ -266,6 +278,11 @@ public:
         bool found = false;
         cost = DBL_MAX;
 
+        cv::Mat img = map_2d->data.clone();
+        threshold(img, img, 127, 254, cv::THRESH_BINARY);
+
+        img = ~img;
+
         try {
             found = a_star.createPath(path, num_it, tolerance, cost);
         }
@@ -273,6 +290,13 @@ public:
         {
             if (DEBUG) cerr << "failed to plan: " << e.what() << endl;
             cost = DBL_MAX;
+
+            resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
+
+            cv::imshow("map", img);
+
+            cv::waitKey(1);
+
             return;
         }
 
@@ -283,7 +307,17 @@ public:
             cout << "cost " << cost << endl;
         }
 
-        if (!found) return;
+        if (!found) {
+            resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
+
+            cv::imshow("map", img);
+
+            cv::waitKey(1);
+
+            cost = DBL_MAX;
+            return;
+        }
+            
 
         // Convert to world coordinates
         path_world.clear();
@@ -295,22 +329,16 @@ public:
             double wtheta = path[i].theta / size_theta * 2 * M_PI;
             path_world.push_back(Pose2D(wx, wy, wtheta));
         }
-        
-        // cv::Mat img = map_2d->data.clone();
-        // threshold(img, img, 127, 254, cv::THRESH_BINARY);
 
-        // img = ~img;
+        for (size_t i = 0; i != path_world.size(); ++i) {
+            cv::circle(img, cv::Point(path[i].x, path[i].y), 2, 127, 1);
+        }
 
-        // for (size_t i = 0; i != path_world.size(); ++i) {
-        //     unsigned int x, y;
-        //     map_2d->worldToMap(path_world[i].x(), path_world[i].y(), x, y);
-        //     cv::circle(img, cv::Point(x, y), 5, 127, 1);
-        // }
+        resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
 
-        // cv::imshow("map", img);
+        cv::imshow("map", img);
 
-	    // if (cv::waitKey(0) == 27)
-        //     cv::destroyAllWindows();
+	    cv::waitKey(1);
     }
 
     double get_astar_cost(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)

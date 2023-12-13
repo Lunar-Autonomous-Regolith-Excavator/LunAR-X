@@ -87,6 +87,14 @@ void TaskOptimizer::findBermSequence(const std::shared_ptr<GoalHandlePlanTask> g
         geometry_msgs::msg::Point point_1 = goal->berm_input[i];
         geometry_msgs::msg::Point point_2 = goal->berm_input[i + 1];
 
+        // Check the distance between the two points
+        double distance = std::sqrt(std::pow(point_2.x - point_1.x, 2) + std::pow(point_2.y - point_1.y, 2));
+        if (abs(distance - this->section_length_) > 0.1)
+        {
+            cout << "Ignoring berm section " << i << endl;
+            continue;
+        }
+
         // Calculate center and angle of berm section
         Pose2D berm_section;
         berm_section.x = (point_1.x + point_2.x) / 2;

@@ -2,24 +2,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yaml
 
-def generate_x_points(cx, cy, angle, section_length, n_per_arm):
+def generate_circle_points(cx, cy, r, dtheta, offset_theta, max_theta=360):
     points = []
-    angles = [angle, 180 - angle, 180 + angle, 360 - angle]
-    for i in range(4):
-        for j in range(0, n_per_arm+1):
-            r = j * section_length
-            x = float(cx + r * np.cos(np.deg2rad(angles[i])))
-            y = float(cy + r * np.sin(np.deg2rad(angles[i])))
-            points.append({'x': x, 'y': y})
+    for i in range(0, int(max_theta/dtheta)+1):
+        x = float(cx + r * np.cos(np.deg2rad(i * dtheta + offset_theta)))
+        y = float(cy + r * np.sin(np.deg2rad(i * dtheta + offset_theta)))
+        points.append({'x': x, 'y': y})
     return points
 
-
-env_width = 5
+# env_width_dict = {1.25: 3, 1.5: 4, 2.0: 5, 1.2: 3}
+circle_radius = 1.25
+env_width = 4
 section_length = 0.4
+section_angle = np.rad2deg(np.arccos(1 - (section_length**2)/(2 * circle_radius**2)))
 
 # generate points
-berm_inputs = generate_x_points(6, env_width/2, 60, section_length, 3)
-num_berm_points = len(berm_inputs) - 4
+num_berm_points = 19
+berm_inputs = generate_circle_points(6, env_width/2, circle_radius, section_angle, -num_berm_points/2 * section_angle, num_berm_points * section_angle)
+# berm_inputs = generate_circle_points(5.5, env_width - 0.5, circle_radius, section_angle, 180, 190)
+# num_berm_points = len(berm_inputs)
 
 # plot points
 plt.plot([x['x'] for x in berm_inputs], [x['y'] for x in berm_inputs], 'ro-')
@@ -45,14 +46,14 @@ plt.axis('equal')
 # plt.show()
 # exit()
 
-env_name = 'X'
+env_name = 'env_{}'.format(env_width)
 yaml_dict = {}
 yaml_dict['berm_input'] = berm_inputs
 yaml_dict['excavation_input'] = exc_pts
 yaml_dict['berm_height'] = 0.09
 yaml_dict['section_length'] = section_length
-yaml_dict['map_image'] = 'env_{}.png'.format(env_width)
-yaml_dict['output_file'] = 'outputs/output_{}.csv'.format(env_name)
+yaml_dict['map_image'] = env_name + '.png'
+yaml_dict['output_file'] = 'outputs/output_{}_{}.csv'.format(env_name, num_berm_points)
 
-with open('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/maps/env_{}.yaml'.format(env_name), 'w') as outfile:
+with open('/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/maps/env_{}_{}.yaml'.format(env_width, num_berm_points), 'w') as outfile:
     yaml.dump(yaml_dict, outfile, default_flow_style=False)
