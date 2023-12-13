@@ -238,6 +238,14 @@ public:
         this->data = img;
     }
 
+    void mark_all_free() {
+        for (uint i = 0; i < this->size_y; i++) {
+            for (uint j = 0; j < this->size_x; j++) {
+                this->data.at<uint8_t>(i, j) = FREE;
+            }
+        }
+    }
+
 	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my)
 	{
 	  if (wx < origin_x || wy < origin_y)

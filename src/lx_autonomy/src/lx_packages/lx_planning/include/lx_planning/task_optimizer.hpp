@@ -31,7 +31,7 @@ public:
     int D, E;
     int num_dumps_per_segment;
     Pose2D robot_start_pose;
-    bool DEBUG = false;
+    bool DEBUG = true;
     double EXCAVATION_DIST_M = 1.5; // meters
     const double TOOL_DISTANCE_TO_DUMP = 0.85; // meters
     const int COLLISION_THRESH = 50; // grid value above which a cell is considered an obstacle
@@ -54,7 +54,7 @@ public:
     // HYBRID A* constants
     const double MIN_TURNING_RAD = 1.0; // meters
     const double MAX_TIMEOUT = 6000; // seconds
-    const bool HYBRID_BERM_COLLISIONS = false;
+    const bool HYBRID_BERM_COLLISIONS = true;
     const unsigned int size_theta = 36;
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
@@ -203,7 +203,20 @@ public:
 
     void call_hybrid_astar(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms, double &cost, vector<Pose2D> &path_world)
     {
+        // New
+        // Map2D *map_2d = new Map2D(map);
+        // cv::Mat map_iter = map_2d->data;
+
+        // Old
+        this->map_2d->mark_all_free();
         cv::Mat map_iter = this->map_2d->data;
+        
+
+        // print map_iter size rows and cols
+        // cout<<"map data size: "<<map.data.size()<<" width: "<<map.info.width<<" height: "<<map.info.height<<endl; // " resolution: "<<map.info.resolution<<endl;
+        // cout<<"map_iter size: "<<map_iter.rows<<" "<<map_iter.cols<<endl;
+        // cout<<"start: "<<start.x<<" "<<start.y<<" "<<start.theta<<endl;
+        // cout<<"goal: "<<goal.x<<" "<<goal.y<<" "<<goal.theta<<endl;
     
         // Loop through visited berms for collisions
         if (HYBRID_BERM_COLLISIONS)
@@ -228,15 +241,15 @@ public:
 	    // if (cv::waitKey(0) == 27)
         //     cv::destroyAllWindows();
 
-        this->map_2d->data = map_iter;
+        map_2d->data = map_iter;
 
         AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, this->info);
         int max_iterations = 200;
         int it_on_approach = 100;
 
         unsigned int start_x, start_y, start_theta, goal_x, goal_y, goal_theta;
-        if (!this->map_2d->worldToMap(start.x, start.y, start_x, start_y)) return;
-        if (!this->map_2d->worldToMap(goal.x, goal.y, goal_x, goal_y)) return;
+        if (!map_2d->worldToMap(start.x, start.y, start_x, start_y)) return;
+        if (!map_2d->worldToMap(goal.x, goal.y, goal_x, goal_y)) return;
         
         double theta_p = start.theta;
         if (theta_p < -M_PI || theta_p > M_PI) {
@@ -279,10 +292,19 @@ public:
         bool found = false;
         cost = DBL_MAX;
 
-        // cv::Mat img = map_2d->data.clone();
-        // threshold(img, img, 127, 254, cv::THRESH_BINARY);
+        cv::Mat img = map_2d->data.clone();
+        threshold(img, img, 127, 254, cv::THRESH_BINARY);
 
-        // img = ~img;
+        img = ~img;
+
+        // pub circles for start and end in the image
+        // cv::circle(img, cv::Point(start_x, start_y), 2, 127, 1);
+        // cv::circle(img, cv::Point(goal_x, goal_y), 2, 127, 1);
+        // resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
+
+        // cv::imshow("map", img);
+
+	    // cv::waitKey(100);
 
         try {
             found = a_star.createPath(path, num_it, tolerance, cost);
@@ -318,28 +340,6 @@ public:
             cost = DBL_MAX;
             return;
         }
-            
-
-        // Convert to world coordinates
-        path_world.clear();
-
-        for (int i = path.size() - 1; i >= 0; --i)
-        {
-            double wx, wy;
-            map_2d->mapToWorld(path[i].x, path[i].y, wx, wy);
-            double wtheta = path[i].theta / size_theta * 2 * M_PI;
-            path_world.push_back(Pose2D(wx, wy, wtheta));
-        }
-
-        // for (size_t i = 0; i != path_world.size(); ++i) {
-        //     cv::circle(img, cv::Point(path[i].x, path[i].y), 2, 127, 1);
-        // }
-
-        // resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
-
-        // cv::imshow("map", img);
-
-	    // cv::waitKey(1);
     }
 
     double get_astar_cost(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms)
