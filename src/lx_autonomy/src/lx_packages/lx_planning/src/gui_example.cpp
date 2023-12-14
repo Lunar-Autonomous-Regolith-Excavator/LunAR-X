@@ -233,8 +233,12 @@ void MainLoop(State *state)
 		a_star.setFootprint(footprint, false);
 
 		a_star.createGraph(map->getSizeInCellsX(), map->getSizeInCellsY(), size_theta, map);
-		a_star.setStart(state->start.x, state->start.y, 0u);
-		a_star.setGoal(state->end.x, state->end.y, 0u);
+
+		unsigned int start_theta = static_cast<unsigned int>((M_PI / 4) / (2 * M_PI) * (size_theta-1));
+		unsigned int end_theta = static_cast<unsigned int>((-M_PI / 4) / (2 * M_PI) * (size_theta-1));
+
+		a_star.setStart(state->start.x, state->start.y, start_theta);
+		a_star.setGoal(state->end.x, state->end.y, end_theta);
 
 		NodeSE2::CoordinateVector path;
 

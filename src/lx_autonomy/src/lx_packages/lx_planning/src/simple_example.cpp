@@ -119,7 +119,6 @@ void Display(Map2D *map,
              const std::vector<Eigen::Vector2d> &pathWorld)
 {
 	cv::Mat img = map->getData().clone();
-	// cv::resize(map->getData(), img, cv::Size(map->getSizeInCellsX(), map->getSizeInCellsY()));
 	threshold(img, img, 127, 254, cv::THRESH_BINARY);
 
 	img = ~img;
@@ -131,6 +130,7 @@ void Display(Map2D *map,
 		cv::circle(img, cv::Point(x, y), 5, 127, 1);
 	}
 
+	cv::resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
 	cv::imshow("map", img);
 }
 
@@ -138,7 +138,7 @@ int main(int argc, char **argv)
 {
 	Map2D *map = new Map2D();
 
-	if(!map->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/moonyard.png"))
+	if(!map->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/map_test.png"))
 	{
 		cerr << "failed to load map, terminating" << endl;
 		return 1;
@@ -157,28 +157,36 @@ int main(int argc, char **argv)
 	info.change_penalty = 1.2;
 	info.non_straight_penalty = 1.4;
 	info.reverse_penalty = 2.1;
-	info.minimum_turning_radius = 2.5 / 0.05;
+	info.minimum_turning_radius = static_cast<unsigned int>(1.0 / 0.05);
 
-	unsigned int size_theta = 72;
+	unsigned int size_theta = 36;
 
 	cv::namedWindow("map", 1);
 
 	AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, info);
-	int max_iterations = 100000;
+	int max_iterations = 200;
 	int it_on_approach = 100;
 
-	cv::Point start = cv::Point(2, 4);
-	cv::Point end = cv::Point(5, 4);
-	unsigned int start_x, start_y;
-	map->worldToMap(start.x, start.y, start_x, start_y);
-	unsigned int end_x, end_y;
-	map->worldToMap(end.x, end.y, end_x, end_y);
+	unsigned int start_x, start_y, start_theta;
+	map->worldToMap(6.09611, 1.23438, start_x, start_y);
+	double theta_p = -1.22361;
+	if (theta_p < 0) theta_p += 2 * M_PI;
+	start_theta = static_cast<unsigned int>(theta_p / (2 * M_PI) * (size_theta-1));
+
+	unsigned int end_x, end_y, end_theta;
+	map->worldToMap(1.0, 0.5, end_x, end_y);
+	theta_p = 0.0;
+	if (theta_p < 0) theta_p += 2 * M_PI;
+	end_theta = static_cast<unsigned int>(theta_p / (2 * M_PI) * (size_theta-1));
+
+	cout << "start: " << start_x << " " << start_y << endl;
+	cout << "goal: " << end_x << " " << end_y << endl;
 
 	a_star.initialize(false, max_iterations, it_on_approach);
 	a_star.setFootprint(footprint, false);
 	a_star.createGraph(map->getSizeInCellsX(), map->getSizeInCellsY(), size_theta, map);
-	a_star.setStart(start_x, start_y, 0u);
-	a_star.setGoal(end_x, end_y, 0u);
+	a_star.setStart(start_x, start_y, start_theta);
+	a_star.setGoal(end_x, end_y, end_theta);
 
 	NodeSE2::CoordinateVector path;
 

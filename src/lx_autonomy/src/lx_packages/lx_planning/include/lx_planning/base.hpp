@@ -201,16 +201,12 @@ public:
 
     Map2D() {}
 
-    Map2D(double resolution, double origin_x, double origin_y, double size_x, double size_y) {
+    Map2D(double resolution, double size_x, double size_y, double origin_x = 0.0, double origin_y = 0.0) {
         this->resolution = resolution;
         this->origin_x = origin_x;
         this->origin_y = origin_y;
         this->size_x = size_x;
         this->size_y = size_y;
-    }
-
-    Map2D(cv::Mat data) {
-        this->data = data;
     }
 
     Map2D(nav_msgs::msg::OccupancyGrid map) {
@@ -233,7 +229,7 @@ public:
             }
         }
         // Flip image
-        cv::flip(img, img, 0);
+        // cv::flip(img, img, 0);
         
         this->data = img;
     }
@@ -285,6 +281,38 @@ public:
         cv::imshow("map", this->data);
         cv::waitKey(0);
     }
+
+    bool fromImage(const std::string &filename)
+	{
+		using namespace cv;
+
+		this->data = imread(filename, IMREAD_GRAYSCALE);
+
+		if(this->data.empty())
+			return false;
+
+		this->size_x = this->data.cols;
+		this->size_y = this->data.rows;
+
+        this->resolution = 0.05;
+        this->origin_x = 0.0;
+        this->origin_y = 0.0;
+
+		threshold(this->data, this->data, 127, 254, THRESH_BINARY_INV);
+
+		return true;
+	}
+
+    const cv::Mat &getData()
+	{
+		return data;
+	}
+
+    void setData(const cv::Mat &data)
+    {
+        this->data = data;
+    }
+
 };
 
 #endif // BASE_H

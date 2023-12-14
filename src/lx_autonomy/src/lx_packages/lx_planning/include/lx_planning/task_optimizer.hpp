@@ -44,6 +44,8 @@ public:
     const double TSP_HEURISTIC_WEIGHT = 5;
 
     // HYBRID A* variables
+    Map2D *map_2d;
+    cv::Mat map_2d_data;
     FootprintCollisionChecker<Map2D, PointMock>::Footprint footprint;
     SearchInfo info;
     unsigned int berm_length;
@@ -54,7 +56,7 @@ public:
     const double MIN_TURNING_RAD = 1.0; // meters
     const double MAX_TIMEOUT = 6000; // seconds
     const bool HYBRID_BERM_COLLISIONS = true;
-    const unsigned int size_theta = 72;
+    const unsigned int size_theta = 36;
 
     // make shared pointers to store references to the map, berm inputs, and excavation poses
     vector<Pose2D> berm_inputs, excavation_poses;
@@ -92,6 +94,8 @@ public:
         pq.push({0, 0});
 
         // Hybrid A*
+        this->map_2d = new Map2D(map);
+        this->map_2d_data = this->map_2d->getData();
         this->footprint.push_back({0.5, 0.35});
         this->footprint.push_back({-0.5, 0.35});
         this->footprint.push_back({-0.5, -0.35});
@@ -201,8 +205,10 @@ public:
 
     void call_hybrid_astar(const Pose2D &start, const Pose2D &goal, const vector<Pose2D>& berm_inputs, const vector<int>& visited_berms, double &cost, vector<Pose2D> &path_world)
     {
-        Map2D *map_2d = new Map2D(map);
-        cv::Mat map_iter = map_2d->data;
+        // Map2D *map_2d = new Map2D(map);
+        // map_2d->fromImage("/home/hariharan/ros_ws/src/lx_planning/maps/big_circle_test.png");
+        // cv::Mat map_iter = this->map_2d->getData().clone();
+        cv::Mat map_iter = this->map_2d_data.clone();
     
         // Loop through visited berms for collisions
         if (HYBRID_BERM_COLLISIONS)
@@ -223,11 +229,9 @@ public:
         // resize(map_iter, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
         // img = ~img;
         // cv::imshow("map", img);
+	    // cv::waitKey(1);
 
-	    // if (cv::waitKey(0) == 27)
-        //     cv::destroyAllWindows();
-
-        map_2d->data = map_iter;
+        this->map_2d->setData(map_iter);
 
         AStarAlgorithm<Map2D, GridCollisionChecker<Map2D, PointMock>> a_star(nav2_smac_planner::MotionModel::REEDS_SHEPP, this->info);
         int max_iterations = 200;
@@ -280,10 +284,11 @@ public:
 
         cv::Mat img = map_2d->data.clone();
         threshold(img, img, 127, 254, cv::THRESH_BINARY);
-
         img = ~img;
 
         try {
+            // save image
+            cv::imwrite("/home/hariharan/lx_ws/LunAR-X/src/lx_autonomy/src/lx_packages/lx_planning/maps/map_test.png", img);
             found = a_star.createPath(path, num_it, tolerance, cost);
         }
         catch (const std::runtime_error & e)
@@ -292,9 +297,7 @@ public:
             cost = DBL_MAX;
 
             resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
-
             cv::imshow("map", img);
-
             cv::waitKey(1);
 
             return;
@@ -309,9 +312,7 @@ public:
 
         if (!found) {
             resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
-
             cv::imshow("map", img);
-
             cv::waitKey(1);
 
             cost = DBL_MAX;
@@ -333,11 +334,8 @@ public:
         for (size_t i = 0; i != path_world.size(); ++i) {
             cv::circle(img, cv::Point(path[i].x, path[i].y), 2, 127, 1);
         }
-
         resize(img, img, cv::Size(), 10, 10, cv::INTER_NEAREST);
-
         cv::imshow("map", img);
-
 	    cv::waitKey(1);
     }
 
