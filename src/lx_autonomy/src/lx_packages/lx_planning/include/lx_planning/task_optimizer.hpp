@@ -31,17 +31,19 @@ public:
     int D, E;
     int num_dumps_per_segment;
     Pose2D robot_start_pose;
-    bool DEBUG = true;
+    bool DEBUG = false;
     double EXCAVATION_DIST_M = 1.5; // meters
     const double TOOL_DISTANCE_TO_DUMP = 0.85; // meters
     const int COLLISION_THRESH = 50; // grid value above which a cell is considered an obstacle
     // const string EDGE_COST = "2D_A*"; // 2D or HYBRID_A*
     const string EDGE_COST = "HYBRID_A*"; // 2D or HYBRID_A*
+    // const string EDGE_COST = "2D_A*"; // 2D or HYBRID_A*
+
     
     // Heuristic parameters
     const bool USE_TSP_HEURISTIC = true;
     const double TSP_HEURISTIC_RESOLUTION = 0.05; // Costs are divided by this value before sending to TSP solver
-    const double TSP_HEURISTIC_WEIGHT = 5;
+    const double TSP_HEURISTIC_WEIGHT = 1;
 
     // HYBRID A* variables
     Map2D *map_2d;
@@ -339,6 +341,17 @@ public:
 
             cost = DBL_MAX;
             return;
+        }
+
+        // Convert to world coordinates
+        path_world.clear();
+
+        for (int i = path.size() - 1; i >= 0; --i)
+        {
+            double wx, wy;
+            map_2d->mapToWorld(path[i].x, path[i].y, wx, wy);
+            double wtheta = path[i].theta / size_theta * 2 * M_PI;
+            path_world.push_back(Pose2D(wx, wy, wtheta));
         }
     }
 
