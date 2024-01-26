@@ -1,5 +1,20 @@
 # LunAR-X
-The LunAR-X codebase
+CMU Robotics Institute MRSD Capstone Project on proof-of-concept autonomy for lunar excavation and construction using the bucket-drum mechanism.
+
+Sponsors: Dr. Red Whittaker & Caterpillar Inc.
+
+<img src="./media/curved_berm.gif" width="49%" height="50%"/>
+<img src="./media/lunarx.gif" width="49%" height="50%"/>
+<img src="./media/depiction.png" width="100%" height="100%">
+
+## Links
+
+[Autonomous Construction Video](https://youtu.be/K5EVVUZiYIY?si=wCoykAy380Cjhcy1 "Autonomous Construction Video") \
+[Fall Demo Video](https://youtu.be/73hYkyyXxlk?si=YuJS1wOkK5Dod5vl "LunAR-X Project Demo") \
+[Summary Video](https://youtu.be/YWWGcqENcMo?si=QFkfXnOt3Akx8KUg "Summary Video") \
+[Project Report](./media/Final_Report.pdf "LunAR-X Project Report") \
+[Project Website](https://mrsdprojects.ri.cmu.edu/2023teamc/ "LunAR-X Website")
+
 
 ## Instructions
 ### Initialization
@@ -8,9 +23,9 @@ The LunAR-X codebase
 3. Before unlocking rover, press both joystick triggers to start joy data stream
 4. Unlock rover using GUIDE button
 5. Verify system functionality using LED status indicators and teleoperation
-### Operation
-1. TODO
-
+6. Have Total station set up and calibrated for localization
+7. Use control station to provide berm goal configuration, excavation zones and restricted zones on Rviz2 screen
+8. Robot starts autonomous construction
 
 ## Joystick Layout
 - GUIDE Button : Lock/Unlock rover
@@ -23,26 +38,4 @@ The LunAR-X codebase
 - A Button : Start mapping switch
 - B Button : Stop mapping switch
 
-## Development Notes
-A few things to remember while developing code for this repository
-1. No file (especially ros packages and source code files) should be created from inside the container. This is due to the restricted access of files created inside the container, they can only be edited from the editors inside the container and no changes done outside the container (eg. on host vscode) will be saved. Create all packages and possible files from the host vscode instead.
-2. Every merge to devel should increase the version number mentioned in version.yaml. `feature/...` branches should increment by 0.1. `fix/...` branches should increment by 0.0.1.
-3. Add version features to Drive > LX Documents > Software > Software Version after every version number increase.
-4. Add the following style info to the top of every node
-```
-/* Author: 
- * Subscribers:
- *    - /topic: description
- * Publishers:
- *    - /topic: description
- * Services:
- *    - /name (type): description
- * Actions:
- *    - /name (type): description
- *
- * - Summary
- * 
- * TODO
- * - Add todos
- * */
-```
+

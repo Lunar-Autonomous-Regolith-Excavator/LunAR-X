@@ -44,7 +44,7 @@ class ParamServer: public rclcpp::Node
         void diagnosticPublish();
 
         /*
-        * 
+        * Display operation mode, task mode and lock status on Rviz
         * */
         void updateModeMarker();
         // --------------------------------------

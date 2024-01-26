@@ -1,13 +1,11 @@
 /* Author: Dhruv Tyagi
  * Subscribers:
- * Publishers:
+ *    - /lx_diagnostics (lx_msgs::msg::NodeDiagnostics): Diagnostic heartbeat from all crucial nodes
  * Services:
+ *    - /lx_param_server_node/set_parameters & /lx_param_server_node/get_parameters (rcl_interfaces): To set lock status of the rover
  *
- * - Run diagnostics on robot autonomy and hardware
+ * - Run diagnostics on robot autonomy and hardware. Make sure crucial nodes are up and running. Lock the rover if any node dies.
  * 
- * TODO:
- * - Add diagnostics to autodig, autonav, autodump
- * - Add diagnostics to mapping, localization, planning
  * */
 
 #include "lx_diagnostics/diagnostics.hpp"

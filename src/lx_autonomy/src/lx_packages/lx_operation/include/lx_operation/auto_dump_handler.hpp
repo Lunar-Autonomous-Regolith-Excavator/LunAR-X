@@ -97,12 +97,12 @@ class AutoDumpHandler: public rclcpp::Node
         void setupCommunications();
 
         /*
-        * 
+        * Callback function for tool height
         * */
         void drumHeightCB(const std_msgs::msg::Float64::SharedPtr);
 
         /*
-        * 
+        * Callback function to receive visual servoing error
         * */
         void visualServoErrorCB(const geometry_msgs::msg::Point::SharedPtr msg);
 
@@ -155,7 +155,7 @@ class AutoDumpHandler: public rclcpp::Node
         void executeAutoDump(const std::shared_ptr<GoalHandleAutoDump> );
 
         /*
-        * 
+        * Call visual servoing to be switched on/off
         * */
         bool callVisualServoSwitch(bool switch_state, 
                            const lx_msgs::msg::BermSection::SharedPtr current_berm_segment = nullptr,
@@ -163,7 +163,7 @@ class AutoDumpHandler: public rclcpp::Node
                            const bool first_seg_dump = false);
 
         /*
-        * 
+        * Callback function for visual servo switch
         * */
         void visualServoSwitchCB(rclcpp::Client<lx_msgs::srv::Switch>::SharedFuture );
 

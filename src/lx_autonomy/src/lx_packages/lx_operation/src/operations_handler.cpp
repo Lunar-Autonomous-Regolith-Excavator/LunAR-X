@@ -1,17 +1,19 @@
 /* Author: Dhruv Tyagi
- * Subscribers:
- *    - /topic: description
  * Publishers:
- *    - /topic: description
+ *    - /lx_diagnostics (lx_msgs::msg::NodeDiagnostics): Publishing diagnostic heartbeat for lx_diagnostics
+ *    - /lx_visualization/operations (visualization_msgs::msg::MarkerArray): Rviz visualization for the planned tasks
+ *    - /lx_visualization/progress (visualization_msgs::msg::Marker): Rviz visualization for progress
  * Services:
- *    - /name (type): description
+ *    - /plan_operation (lx_msgs::srv::Plan): Get plan for the autonomous nav, dig and dump tasks
+ *    - /mapping/map_switch (lx_msgs::srv::Switch): Switch on/off mapping pipeline
+ *    - /berm_evaluation/berm_progress (lx_msgs::srv::BermProgressEval): Call berm evaluation
+ * Actions:
+ *    - /operations/berm_build_action (lx_msgs::action::Operation): Action server for the operation to start all autonomous operations
+ *    - /operations/autonav_action (lx_msgs::action::AutoNav): Action client to call autonomous navigation
+ *    - /operations/autodig_action (lx_msgs::action::AutoDig): Action client to call autonomous digging
+ *    - /operations/autodump_action (lx_msgs::action::AutoDump): Action client to call autonomous dumping
  *
- * - Summary
- * 
- * TODO
- * - Add documentation
- * - Add start and stop mapping service
- * - Add visualization for Nav and Dig tasks
+ * - Handles coordination of all autonomous operations based on the requested berm coordinates and configuration.
  * */
 
 #include "lx_operation/operations_handler.hpp"
@@ -55,8 +57,6 @@ void OperationsHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
     auto status = future.wait_for(std::chrono::milliseconds(100));
     // If request successful, save all params in global variables
     if (status == std::future_status::ready) {
-        // params_timer_ = this->create_wall_timer(std::chrono::seconds(10), 
-        //                     std::bind(&LXGUIBackend::getParameters, this));
         
         rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
         RCLCPP_DEBUG(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
@@ -103,14 +103,11 @@ void OperationsHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
 }
 
 void OperationsHandler::setupCommunications(){
-    // Subscribers 
-
     // Publishers
     diagnostic_publisher_ = this->create_publisher<lx_msgs::msg::NodeDiagnostics>("lx_diagnostics", 10);
     plan_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/operations", 10);
     progress_viz_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("lx_visualization/progress", 10);
-    // Service servers
-
+    
     // Service clients
     set_params_client_ = this->create_client<rcl_interfaces::srv::SetParameters>("lx_param_server_node/set_parameters");
     get_params_client_ = this->create_client<rcl_interfaces::srv::GetParameters>("/lx_param_server_node/get_parameters");

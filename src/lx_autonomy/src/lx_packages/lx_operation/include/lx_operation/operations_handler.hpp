@@ -156,119 +156,77 @@ class OperationsHandler: public rclcpp::Node
         void executeOperation(const std::shared_ptr<GoalHandleOperation> );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO Get plan from Planning service
+        * Get the task plan from planner
         * */
         std::queue<Task, std::list<Task>> getPlan();
 
         /*
-        * 
+        * Callback function to get task plan
         * */
         void plannerClientCB(rclcpp::Client<lx_msgs::srv::Plan>::SharedFuture );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO Task Queue Execution
+        * Execute the received planned tasks
         * */
         bool executeTaskQueue();
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Call Autonomous navigation task
         * */
         bool callAutoNav(Task );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Call Autonomous digging task
         * */
         bool callAutoDig(Task );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Call Autonomous deposition task
         * */
         bool callAutoDump(Task );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Response callback function for Navigation
         * */
         void autoNavResponseCB(GoalHandleAutoNav::SharedPtr );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Feedback callback function for Navigation
         * */
         void autoNavFeedbackCB(GoalHandleAutoNav::SharedPtr, const std::shared_ptr<const AutoNav::Feedback> );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Result callback function for Navigation
         * */
         void autoNavResultCB(const GoalHandleAutoNav::WrappedResult& );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Response callback function for Digging
         * */
         void autoDigResponseCB(GoalHandleAutoDig::SharedPtr );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Feedback callback function for Digging
         * */
         void autoDigFeedbackCB(GoalHandleAutoDig::SharedPtr, const std::shared_ptr<const AutoDig::Feedback> );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Result callback function for Digging
         * */
         void autoDigResultCB(const GoalHandleAutoDig::WrappedResult& );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Response callback function for Dumping
         * */
         void autoDumpResponseCB(GoalHandleAutoDump::SharedPtr );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Feedback callback function for Dumping
         * */
         void autoDumpFeedbackCB(GoalHandleAutoDump::SharedPtr, const std::shared_ptr<const AutoDump::Feedback> );
 
         /*
-        * Argument(s):
-        *   - 
-        * 
-        * TODO
+        * Result callback function for Dumping
         * */
         void autoDumpResultCB(const GoalHandleAutoDump::WrappedResult& );
 
@@ -278,42 +236,42 @@ class OperationsHandler: public rclcpp::Node
         void diagnosticPublish();
 
         /*
-        * 
+        * Create rectangle for visualization of planned dumps
         * */
         std::vector<geometry_msgs::msg::Point> createVizRectangle(float , float , float );
 
         /*
-        * 
+        * Create visualization for current task to be executed
         * */
         void visualizeCurrentTask(Task );
 
         /*
-        * 
+        * Update visualization entities on Rviz
         * */
         void visualizationUpdate();
 
         /*
-        * 
+        * Cleanup visualization entities on Rviz
         * */
         void vizCleanup();
 
         /*
-        * 
+        * Check if 2 berm segments represent the same dump
         * */
         bool checkSameBermSegment(lx_msgs::msg::BermSection , lx_msgs::msg::BermSection );
 
         /*
-        * 
+        * Call map switch on/off service
         * */
         void callMapSwitch(bool );
 
         /*
-        * 
+        * CAll berm evaluation service
         * */
         void callBermEval();
 
         /*
-        *
+        * Callback function for berm evaluation
         * */
         void bermEvalCB(rclcpp::Client<lx_msgs::srv::BermProgressEval>::SharedFuture );
 

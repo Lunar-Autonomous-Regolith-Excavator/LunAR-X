@@ -57,9 +57,7 @@ def generate_launch_description():
     
     ld.add_action(operation_launch)
     ld.add_action(planning_launch)
-    # ld.add_action(foxglove_bridge_launch)
     ld.add_action(mapping_launch)
-    # ld.add_action(localization_launch)
     ld.add_action(goal_handler_node)
     
     return ld
