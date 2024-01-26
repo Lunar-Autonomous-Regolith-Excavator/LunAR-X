@@ -5,7 +5,6 @@ xhost +local:docker && # allow docker to access the X server
 # # Get the screen resolution
 # SCREEN_WIDTH=$(xrandr | grep '*' | awk '{print $1}' | cut -d 'x' -f1) 
 # SCREEN_HEIGHT=$(xrandr | grep '*' | awk '{print $1}' | cut -d 'x' -f2)
-
 # # Calculate the width, height and offsets
 # WINDOW_WIDTH=$(((SCREEN_WIDTH - 80)/ 2))
 # WINDOW_OFFSET_2=$((WINDOW_WIDTH + 75))
