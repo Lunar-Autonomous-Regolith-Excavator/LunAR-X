@@ -52,32 +52,32 @@ class GoalHandler: public rclcpp::Node
                                       const std::shared_ptr<lx_msgs::srv::RequestRoverService::Response>);
 
         /*
-        *
+        * Calculate angle between 2 points
         * */
         double calculateAngle(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2);
 
         /*
-        *
+        * Calculate if angles are within limits
         * */
         bool areAnglesWithinRange(const std::vector<geometry_msgs::msg::PointStamped>& points, double fixedAngle);
 
         /*
-        *
+        * Calculate distance between 2 points
         * */
         double distance(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2);
 
         /*
-        *
+        * Get point at a fixed distance between 2 points
         * */
         std::vector<geometry_msgs::msg::PointStamped> getPointsAtFixedDistance(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, double d);
 
         /*
-        *
+        * Check if a value is between a range
         * */
         bool isBetween(double val, double a, double b);
 
         /*
-        *
+        * Calculate intersection points
         * */
         geometry_msgs::msg::PointStamped findIntersectionPoints(const geometry_msgs::msg::PointStamped& p1, const geometry_msgs::msg::PointStamped& p2, const geometry_msgs::msg::PointStamped& p3, double d);
 
@@ -87,39 +87,39 @@ class GoalHandler: public rclcpp::Node
         void checkBermFeasibility();
 
         /*
-        *
+        * Send goal to rover operation handler
         * */
         void sendOperationGoal(std::vector<geometry_msgs::msg::PointStamped> );
 
         /*
-        *
+        * Handle response from operation handler
         * */
         void operationResponseCB(GoalHandleOperation::SharedPtr);
 
         /*
-        *
+        * Handle feedback from operation handler
         * */
         void operationFeedbackCB(GoalHandleOperation::SharedPtr, const std::shared_ptr<const Operation::Feedback> );
 
         /*
-        *
+        * Handle result from operation handler
         * */
         void operationResultCB(const GoalHandleOperation::WrappedResult&);
 
         /*
-        *
+        * Send special map points to mapping pipeline
         * */
         void sendMapPoints(std::vector<geometry_msgs::msg::PointStamped> , 
                             std::vector<geometry_msgs::msg::PointStamped> ,
                             std::vector<geometry_msgs::msg::PointStamped> );
 
         /*
-        *
+        * Callback for berm evaluation points from user
         * */
         void bermEvalPointsCB(rclcpp::Client<lx_msgs::srv::BermService>::SharedFuture );
 
         /*
-        *
+        * Callback for providing points to the mapping pipeline
         * */
         void worldModelPointsCB(rclcpp::Client<lx_msgs::srv::RequestRoverService>::SharedFuture );
 

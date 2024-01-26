@@ -4,15 +4,16 @@
  * Publishers:
  *    - /rover_teleop_cmd: [lx_msgs::msg::RoverCommand] Teleop command passthrough to command_mux_node
  * Services:
- *    - /lx_param_server_node/set_parameters - Client - [rcl_interfaces::srv::SetParameters] Client to set or change global params on lx_param_server_node
+ *    - /lx_param_server_node/set_parameters [rcl_interfaces::srv::SetParameters] Client to set or change global params on lx_param_server_node
+ *    - /mapping/map_switch [lx_msgs::srv::Switch]: Switching service to switch on mapping pipeline
+ * Action:
+ *    - /lx_localization/calibrate_imu [lx_msgs::action::CalibrateImu]: Call action to calibrate VectorNav IMU
  *
  * - Based on user inputs, guides the robot operation
  * - Joystick buttons set the lock, operation mode and task mode
  * - If the op mode is set to teleop, will passthrough the joystick teleop commands to the command mux via RoverCommand data type
  * - If no joystick data received for 3 seconds, will set the rover to lock for safety.
- * 
- * TODO
- * - Check start and stop mapping service with joystick and lx_mapping
+ *
  * */
 
 #include "lx_external_interface/external_interface.hpp"
@@ -103,8 +104,6 @@ void ExternalInterface::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameter
     auto status = future.wait_for(std::chrono::milliseconds(100));
     // If request successful, save all params in global variables
     if (status == std::future_status::ready) {
-        // params_timer_ = this->create_wall_timer(std::chrono::seconds(10), 
-        //                     std::bind(&LXGUIBackend::getParameters, this));
         
         rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
         RCLCPP_DEBUG(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));

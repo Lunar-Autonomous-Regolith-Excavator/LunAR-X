@@ -12,7 +12,7 @@ find_package(lx_msgs REQUIRED)
 
 include_directories(include)
 
-add_library(lx_library src/lx_utils.cpp src/task.cpp src/exceptions.cpp)
+add_library(lx_library src/lx_utils.cpp src/task.cpp)
 ament_export_targets(lx_library HAS_LIBRARY_TARGET)
 ament_target_dependencies(lx_library rclcpp geometry_msgs lx_msgs)
 

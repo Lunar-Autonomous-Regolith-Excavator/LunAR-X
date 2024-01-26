@@ -7,10 +7,6 @@
  *
  * - Switches between teleop and autonomous commands based on the operation mode
  * - Enforces actuation limits
- * 
- * TODO
- * - Test autonomous input handling
- * - Test acceleration clipping
  * */
 
 #include "lx_rover_command/command_mux.hpp"
@@ -72,8 +68,6 @@ void CommandMux::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>::Sha
     auto status = future.wait_for(std::chrono::milliseconds(100));
     // If request successful, save all params in global variables
     if (status == std::future_status::ready) {
-        // params_timer_ = this->create_wall_timer(std::chrono::seconds(10), 
-        //                     std::bind(&LXGUIBackend::getParameters, this));
         
         rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
         RCLCPP_DEBUG(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));
@@ -227,7 +221,7 @@ void CommandMux::roverTeleopCallBack(const lx_msgs::msg::RoverCommand::SharedPtr
 
 void CommandMux::teleopPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rover_teleop_msg){
     // If current op_mode is teleop & task_mode is not idle
-    if(current_rover_op_mode_ == OpModeEnum::TELEOP/* && current_rover_task_mode_ != TaskModeEnum::IDLE*/){
+    if(current_rover_op_mode_ == OpModeEnum::TELEOP){
         // Pass through teleop command
         sendCmdToHardware(rover_teleop_msg);
     } 
@@ -244,7 +238,7 @@ void CommandMux::roverAutoCallBack(const lx_msgs::msg::RoverCommand::SharedPtr r
 
 void CommandMux::autoPassthrough(const lx_msgs::msg::RoverCommand::SharedPtr rover_auto_msg){
     // If current op_mode is autonomous & task_mode is not idle
-    if(current_rover_op_mode_ == OpModeEnum::AUTONOMOUS /*&& current_rover_task_mode_ != TaskModeEnum::IDLE*/){
+    if(current_rover_op_mode_ == OpModeEnum::AUTONOMOUS){
         // Pass through autonomy command
         sendCmdToHardware(rover_auto_msg);
     } 

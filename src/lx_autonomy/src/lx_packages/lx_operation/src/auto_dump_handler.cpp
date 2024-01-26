@@ -1,15 +1,16 @@
 /* Author: Vibhakar Mohta
  * Subscribers:
- *    - /topic: description
+ *    - /tool_height (std_msgs::msg::Float64): Feedback on current height of the tool
+ *    - /mapping/visual_servo_error (geometry_msgs::msg::Point): Error values from the desired dumping point
  * Publishers:
- *    - /topic: description
+ *    - /rover_auto_cmd (lx_msgs::msg::RoverCommand): Command published to the command mux
  * Services:
- *    - /name (type): description
+ *    - /mapping/visual_servo_switch (lx_msgs::srv::Switch): Service to switch on/off visual servoing
+ * Actions:
+ *    - /operations/autodump_action (lx_msgs::action::AutoDump): Action client to execute autodump request
  *
- * - Auto Dump Action Server
+ * - Auto Dump Action Server. Execute autonomous dumping operation based on tool height and visual servoing from mapping pipeline
  * 
- * TODO
- * - Angular berm dump
  * */
 
 #include "lx_operation/auto_dump_handler.hpp"
@@ -60,8 +61,6 @@ void AutoDumpHandler::paramCB(rclcpp::Client<rcl_interfaces::srv::GetParameters>
     auto status = future.wait_for(std::chrono::milliseconds(100));
     // If request successful, save all params in global variables
     if (status == std::future_status::ready) {
-        // params_timer_ = this->create_wall_timer(std::chrono::seconds(10), 
-        //                     std::bind(&LXGUIBackend::getParameters, this));
         
         rover_soft_lock_.mobility_lock = future.get()->values.at(0).bool_value;
         RCLCPP_DEBUG(this->get_logger(), "Parameter set Mobility: %s", (rover_soft_lock_.mobility_lock?"Locked":"Unlocked"));

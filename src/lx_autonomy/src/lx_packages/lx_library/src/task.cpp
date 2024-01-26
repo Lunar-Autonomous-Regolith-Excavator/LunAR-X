@@ -1,17 +1,3 @@
-/* Author: 
- * Subscribers:
- *    - /topic: description
- * Publishers:
- *    - /topic: description
- * Services:
- *    - /name (type): description
- *
- * - Summary
- * 
- * TODO
- * - Add todos
- * */
-
 #include "lx_library/task.hpp"
 
 Task::Task(unsigned int id, TaskTypeEnum type, geometry_msgs::msg::PoseArray pose_array, lx_msgs::msg::BermSection berm_point){

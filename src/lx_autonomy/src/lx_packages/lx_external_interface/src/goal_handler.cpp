@@ -2,18 +2,14 @@
  * Subscribers:
  *    - /topic: description
  * Publishers:
- *    - /topic: description
+ *    - /lx_visualization/processed_berm (visualization_msgs::msg::MarkerArray): Rviz visualization for the processed input berm coordinates
  * Services:
- *    - /name (type): description
+ *    - /berm_evaluation/requested_berm_points (lx_msgs::srv::BermService): Get requested berm coordinates from the user
+ *    - /world_model/requested_points (lx_msgs::srv::RequestRoverService): Requested berm coordinates for the mapping and evaluation pipeline
  * Actions:
- *    - /name (type): description
+ *    - /operations/berm_build_action (lx_msgs::action::Operation): Call the operations handler to start autonomous operation
  *
- * - Summary
- * 
- * TODO
- * - Add Documentation
- * - Add check of already on-going operation
- * - Add Action Request
+ * - Check feasibility of the user requested berm coordinates and request action to start autonomous operation
  * */
 
 #include "lx_external_interface/goal_handler.hpp"
@@ -29,8 +25,6 @@ GoalHandler::GoalHandler(): Node("goal_handler_node"){
 }
 
 void GoalHandler::setupCommunications(){
-    // Subscribers
-
     // Publishers
     processed_berm_viz_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lx_visualization/processed_berm", 5);
 

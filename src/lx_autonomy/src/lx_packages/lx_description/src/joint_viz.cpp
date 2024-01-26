@@ -1,13 +1,12 @@
 /* Author: Dhruv Tyagi
  * Subscribers:
  *    - /tool_height (std_msgs::msg::Float64): Tool height from aruco markers
+ *    - /tool_info (lx_msgs::msg::ToolInfo): Tool rotation information from encoders
  * Publishers:
  *    - /joint_states (sensor_msgs::msg::JointState): Joint states for rviz/foxglove
  *
  * - Node to help rviz/foxglove visualization of indirect joint states
  * 
- * TODO
- * - Add drum rotation joint
  * */
 
 #include "lx_description/joint_viz.hpp"
