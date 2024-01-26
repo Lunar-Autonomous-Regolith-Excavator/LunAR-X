@@ -20,6 +20,7 @@
 #include <cmath>
 #include <limits>
 
+// Convert x, y coordinates to index
 #define GETMAXINDEX(x, y, width) (y * width + x)
 
 struct BermSection {
@@ -60,18 +61,6 @@ class TaskPlanner: public rclcpp::Node
         double section_length_;
         double desired_berm_height_;
 
-        // Map variables
-        // std::vector<int8_t> map_data_;
-        // nav_msgs::msg::OccupancyGrid map_msg_;
-        // rclcpp::TimerBase::SharedPtr timer_;
-
-        // Subscribers
-        
-        // Clients
-        
-        // Publishers
-        rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher_;
-
         // --------------------------------------
 
         // Functions ----------------------------
@@ -81,27 +70,30 @@ class TaskPlanner: public rclcpp::Node
         void setupCommunications();
 
         /*
-        * Put next function here
+        * Task planner service request callback
         * */
         void taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> ,
                                       std::shared_ptr<lx_msgs::srv::Plan::Response>);
 
+        /*
+        * Find berm section sequence to visit 
+        * */
         bool findBermSequence(const std::vector<geometry_msgs::msg::Point>& );
 
+        /*
+        * Find excavation pose for the given berm section
+        * */
         geometry_msgs::msg::Pose findExcavationPose(const BermSection& );
         
+        /*
+        * Find rover position to dump material for a given berm section
+        * */
         geometry_msgs::msg::Pose findDumpPose(const BermSection&, const geometry_msgs::msg::Pose& );
 
+        /*
+        * Function to calculate number of depositions per segment using desired berm height
+        * */
         int numOfDumps(const int );
-        
-        // Functions for map publishing
-        // void initializeMap();
-        
-        // void publishMap();
-
-        // void updateMap(const geometry_msgs::msg::Point& );
-
-        // void clearMap();
 
     public:
 
@@ -115,13 +107,6 @@ class TaskPlanner: public rclcpp::Node
         static constexpr double MAX_TOOL_DISTANCE_FROM_BASE = 1.0;  // m (conservative estimate for collision)
         static constexpr double TOOL_DISTANCE_TO_DUMP = 0.85;        // m
 
-        // Map parameters
-        static constexpr double MAP_WIDTH = 7.25;
-        static constexpr double MAP_HEIGHT = 7.00;
-        static constexpr double MAP_RESOLUTION = 0.05;
-        static constexpr double MAP_ORIGIN_X = 0.1;
-        static constexpr double MAP_ORIGIN_Y = 0.1;
-
         // Functions
         /*
         * Constructor
@@ -133,10 +118,14 @@ class TaskPlanner: public rclcpp::Node
         * */
         ~TaskPlanner(){};
 
-        // Function to get rover footprint
+        /*
+        * Function to get rover footprint
+        * */
         std::vector<geometry_msgs::msg::Point> getRoverFootprint(const geometry_msgs::msg::Pose& );
 
-        // Function to get bounds of rover footprint
+        /*
+        * Function to get bounds of rover footprint
+        * */
         Bounds getBounds(const std::vector<geometry_msgs::msg::Point>& );
 };
 

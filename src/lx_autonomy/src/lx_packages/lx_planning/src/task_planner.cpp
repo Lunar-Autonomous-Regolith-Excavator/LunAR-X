@@ -1,26 +1,27 @@
 /* Author: Hariharan Ravichandran
- * Subscribers:
- *    - /topic: description
- * Publishers:
- *    - /topic: description
  * Services:
- *    - /name (type): description
+ *    - /plan_operation: Service to generate plan for a given berm
  *
  * - Summary
- * 
- * TODO
+ * For a given berm configuration and height, the task planner plans actions that
+ * builds the berm in a sequential order
  * */
 
 #include "lx_planning/task_planner.hpp"
 
+/*
+* Calculate Euclidean distance between two poses
+* */
 double distanceBetweenPoses(const geometry_msgs::msg::Pose& pose_1, const geometry_msgs::msg::Pose& pose_2) {
     double x_diff = pose_1.position.x - pose_2.position.x;
     double y_diff = pose_1.position.y - pose_2.position.y;
     return std::sqrt(std::pow(x_diff, 2) + std::pow(y_diff, 2));
 }
 
+/*
+* Get rover footprint using current pose
+* */
 std::vector<geometry_msgs::msg::Point> TaskPlanner::getRoverFootprint(const geometry_msgs::msg::Pose& pose) {
-    
     // Generate footprint of the rover
     std::vector<geometry_msgs::msg::Point> footprint;
     geometry_msgs::msg::Point point;
@@ -52,6 +53,7 @@ std::vector<geometry_msgs::msg::Point> TaskPlanner::getRoverFootprint(const geom
     return footprint;
 }
 
+
 Bounds TaskPlanner::getBounds(const std::vector<geometry_msgs::msg::Point>& points) {
     Bounds bounds;
 
@@ -70,30 +72,13 @@ TaskPlanner::TaskPlanner(): Node("task_planner_node"){
     // Set up subscriptions, publishers, servers & clients
     setupCommunications();
 
-    // initializeMap();
-
     RCLCPP_INFO(this->get_logger(), "Task Planner initialized");
 }
 
 void TaskPlanner::setupCommunications(){
-    // Subscribers
-
-    // Publishers
-    rclcpp::QoS qos(10);  // initialize to default
-    qos.transient_local();
-    qos.reliable();
-    qos.keep_last(1);
-    map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("map", qos);
-
-    // Clients
-
-    // Servers
-
     // Service servers
     this->plan_service_server_ = this->create_service<lx_msgs::srv::Plan>("plan_operation",
                                         std::bind(&TaskPlanner::taskPlannerCallback, this, std::placeholders::_1, std::placeholders::_2));
-
-    
 }
 
 void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::Request> req, std::shared_ptr<lx_msgs::srv::Plan::Response> res) {
@@ -142,7 +127,7 @@ void TaskPlanner::taskPlannerCallback(const std::shared_ptr<lx_msgs::srv::Plan::
             random_offset = random_offset * (max_offset - min_offset) + min_offset; // 0.1 to 0.4
             random_offset = random_offset * sign; // change sign with each iteration
             sign *= -1;
-            // if (rand() % 2 == 0) random_offset = -random_offset; // change sign randomly
+            
             geometry_msgs::msg::Pose rand_excavation_pose = excavation_pose;
             rand_excavation_pose.position.y += random_offset;
             rand_excavation_pose.position.y = std::max(1.5, std::min(4.5, rand_excavation_pose.position.y));
@@ -207,6 +192,7 @@ bool TaskPlanner::findBermSequence(const std::vector<geometry_msgs::msg::Point> 
             center.x = (point_1.x + point_2.x) / 2;
             center.y = (point_1.y + point_2.y) / 2;
             double angle = atan2(point_2.y - point_1.y, point_2.x - point_1.x);
+            
             // print the x,y, angle of the berm section
             RCLCPP_INFO(this->get_logger(), "Berm section %d: (%f, %f), %f", i, center.x, center.y, angle);
 
@@ -310,50 +296,3 @@ int TaskPlanner::numOfDumps(int berm_section_index) {
 
     return num_dumps;
 }
-
-// Functions to publish map for costmap
-// Required for Nav2 hybrid A* planner
-// void TaskPlanner::initializeMap() {    
-//     map_msg_.header.frame_id = "map";
-//     map_msg_.info.resolution = TaskPlanner::MAP_RESOLUTION;
-//     map_msg_.info.width = (int)(TaskPlanner::MAP_WIDTH / TaskPlanner::MAP_RESOLUTION);
-//     map_msg_.info.height = (int)(TaskPlanner::MAP_HEIGHT / TaskPlanner::MAP_RESOLUTION);
-//     map_msg_.info.origin.position.x = TaskPlanner::MAP_ORIGIN_X;
-//     map_msg_.info.origin.position.y = TaskPlanner::MAP_ORIGIN_Y;
-//     map_msg_.info.origin.position.z = 0.0;
-//     map_msg_.info.origin.orientation.x = 0.0;
-//     map_msg_.info.origin.orientation.y = 0.0;
-//     map_msg_.info.origin.orientation.z = 0.0;
-//     map_msg_.info.origin.orientation.w = 1.0;
-
-//     // Set up map
-//     map_data_.resize(map_msg_.info.width * map_msg_.info.height, 0);
-//     // Make the borders of the map occupied
-//     for (int i = 0; i < map_msg_.info.width; i++) {
-//       map_msg_.data[GETMAXINDEX(i, 0, map_msg_.info.width)] = 100;
-//       map_msg_.data[GETMAXINDEX(i, map_msg_.info.height - 1, map_msg_.info.width)] = 100;
-//     }
-//     for (int i = 0; i < map_msg_.info.height; i++) {
-//       map_msg_.data[GETMAXINDEX(0, i, map_msg_.info.width)] = 100;
-//       map_msg_.data[GETMAXINDEX(map_msg_.info.width - 1, i, map_msg_.info.width)] = 100;
-//     }
-
-//     // Set up a timer to periodically publish map data
-//     timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&TaskPlanner::publishMap, this));
-// }
-
-// void TaskPlanner::publishMap() {
-//     map_msg_.header.stamp = this->get_clock()->now();
-//     map_msg_.info.map_load_time = this->get_clock()->now();
-//     map_msg_.data = map_data_;
-//     map_publisher_->publish(map_msg_);
-// }
-
-// void TaskPlanner::updateMap(const geometry_msgs::msg::Point &berm_point) {
-//     // TODO
-//     return;
-// }
-
-// void TaskPlanner::clearMap() {
-//     return;
-// }

@@ -29,7 +29,7 @@ class AutoNavHandler: public rclcpp::Node
         using GoalHandleAutoNav = rclcpp_action::ServerGoalHandle<AutoNav>;
         using NavigateThroughPoses = nav2_msgs::action::NavigateThroughPoses;
         using GoalHandleNavigateThroughPoses = rclcpp_action::ClientGoalHandle<NavigateThroughPoses>;
-        // Action blocking
+        // For action blocking
         bool action_blocking_ = false;
         bool action_server_responded_ = false;
         bool action_accepted_ = false;
@@ -40,7 +40,7 @@ class AutoNavHandler: public rclcpp::Node
         // Rover Current State
         nav_msgs::msg::Odometry rover_current_pose_;
         geometry_msgs::msg::Twist rover_cmd_vel_;
-        // Nav2 Action Feedback
+        // Nav2 Action Feedback Messages
         geometry_msgs::msg::PoseStamped nav2_current_pose_;
         builtin_interfaces::msg::Duration navigation_time_;
         builtin_interfaces::msg::Duration estimated_time_remaining_;
@@ -126,21 +126,40 @@ class AutoNavHandler: public rclcpp::Node
         * */
         void executeAutoNav(const std::shared_ptr<GoalHandleAutoNav> );
 
-        // Functions to handle Nav2 Navigate to Pose action
+        /*
+        * Call Nav2 NavigateThroughPoses action to navigate the robot while blocking
+        * the AutoNav action call till action is complete
+        */
         bool navigateThroughPoses();
 
+        /*
+        * Nav2 NavigateThroughPoses action call response
+        */
         void navigateThroughPosesResponseCallback(GoalHandleNavigateThroughPoses::SharedPtr );
 
+        /*
+        * Nav2 NavigateThroughPoses action feedback
+        */
         void navigateThroughPosesFeedbackCallback(GoalHandleNavigateThroughPoses::SharedPtr , const std::shared_ptr<const NavigateThroughPoses::Feedback> );
 
+        /*
+        * Nav2 NavigateThroughPoses action result
+        */
         void navigateThroughPosesResultCallback(const GoalHandleNavigateThroughPoses::WrappedResult& );
 
-        // Function to remap cmd_vel_nav to rover_cmd
+        /*
+        * Function to remap cmd_vel_nav to rover_cmd
+        */
         void cmdVelNavCallback(const geometry_msgs::msg::Twist::SharedPtr );
 
-        // Functions for rover state subscriber callbacks
+        /*
+        * Functions for rover state subscriber callbacks
+        */
         void roverCurrentPoseCallback(const nav_msgs::msg::Odometry::SharedPtr );
 
+        /*
+        * Functions for cmd_vel subscriber callback
+        */
         void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr );
 
     public:
@@ -157,7 +176,7 @@ class AutoNavHandler: public rclcpp::Node
 
         // Constants
         static constexpr double MAX_DURATION = 180.0; // seconds
-        static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.3; // meters
+        static constexpr double INTERMEDIATE_GOAL_DISTANCE = 0.3; // meters - NOT USED
 
         // PID Parameters for Yaw Control
         static constexpr double YAW_TOLERANCE = 2 * M_PI / 180; // radians

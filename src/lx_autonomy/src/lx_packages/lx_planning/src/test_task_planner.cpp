@@ -1,3 +1,8 @@
+/* Author: Hariharan Ravichandran
+ * - Summary
+ * Unit test task planner service with a curved berm
+ * */
+
 #include "rclcpp/rclcpp.hpp"
 #include "lx_msgs/srv/plan.hpp"
 #include "lx_msgs/msg/planned_task.hpp"
