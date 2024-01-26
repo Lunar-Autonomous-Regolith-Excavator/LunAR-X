@@ -1,19 +1,18 @@
 /* Author: Anish Senathi
  * Subscribers:
- *    - /topic: description
+ *    - /tool_height: [StdMsgs/Float64] Height of the tool wrt base link
+ *    - /camera/depth/color/points: [SensorMsgs/PointCloud2] Point cloud from the camera
  * Publishers:
- *    - /topic: description
+ *    - /mapping/transformed_pointcloud: [SensorMsgs/PointCloud2] Transformed point cloud
+ *    - /mapping/pcl_ground_height: [StdMsgs/Float64] Ground height
+ *    - /mapping/ground_pointcloud: [SensorMsgs/PointCloud2] Ground point cloud
  * Services:
- *    - /name (type): description
- * Actions:
- *    - /name (type): description
+ *    - /mapping/pcl_ground_height_srv: [LxMsgs/PclGroundHeight] Service to get the ground height from the tool for AutoDig control
  *
  * - Summary
- * 
- * TODO
- * - Add Documentation
- * - Test with rover
- * - Check compatibility with planner
+ * - Takes in the point cloud from the camera and transforms it to the base link frame
+ * - Crops the point cloud to the desired region and publishes it
+ * - Publishes the ground height and the ground point cloud if needed
  * */
 
 

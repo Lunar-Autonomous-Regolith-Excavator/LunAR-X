@@ -1,19 +1,19 @@
 /* Author: Anish Senathi
  * Subscribers:
- *    - /topic: description
+ *    - /mapping/global_map: [nav_msgs/OccupancyGrid.msg]: Global map published by the mapping node
  * Publishers:
- *    - /topic: description
+ *    - /mapping/berm_evaluation_array: [visualization_msgs/MarkerArray.msg]: Array of markers representing the berm
+ *    - /mapping/berm_peak_points: [visualization_msgs/Marker.msg]: Points on the berm peakline
  * Services:
  *    - /name (type): description
- * Actions:
- *    - /name (type): description
+ *    - /berm_evaluation/requested_berm_points (lx_msgs/BermService.srv): Service to receive requested berm points
+ *    - /berm_evaluation/berm_progress (lx_msgs/BermProgressEval.srv): Service to evaluate berm progress
  *
  * - Summary
- * 
- * TODO
- * - Add Documentation
- * - Test with rover
- * - Check compatibility with planner
+ *  Evaluates the berm progress based on the requested berm points and the global map
+ *  The berm progress height is evaluated by finding the average height of the berm in each section of length GLOBAL_BERM_LENGTH_M and width GLOBAL_BERM_HEIGHT_M
+ *  The berm progress length is also evaluated by finding the length of the peakline and the error in the peakline
+ *  The berm progress volume is evaluated by finding the volume of the berm in the region 0.3m to 0.4m away from the line joining the two berm points
  * */
 
 

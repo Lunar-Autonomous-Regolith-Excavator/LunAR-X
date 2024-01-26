@@ -1,20 +1,26 @@
 /* Author: Anish Senathi
  * Subscribers:
- *    - /topic: description
+ *    - /tool_height: [StdMsgs/Float64] Height of the tool wrt base link
+ *    - /camera/depth/color/points: [SensorMsgs/PointCloud2] Point cloud from the camera
  * Publishers:
- *    - /topic: description
+ *    - /mapping/visual_servo_error: [GeometryMsgs/Point] Visual servo error
+ *    - /mapping/C_peakline_marker: [VisualizationMsgs/Marker] Peak line marker
+ *    - /mapping/D_targetpoint_marker: [VisualizationMsgs/Marker] Target point marker    
+ *    - /mapping/D_transformed_berm_points: [VisualizationMsgs/Marker] Transformed berm points marker
+ *    - /mapping/E_projected_point_marker: [VisualizationMsgs/Marker] Projected point marker
+ *    - /mapping/B_peakpoints_marker: [VisualizationMsgs/Marker] Peak points marker
+ *    - /mapping/A_groundplane_marker: [VisualizationMsgs/Marker] Ground plane marker
+ *    - /mapping/A_bermplane_marker: [VisualizationMsgs/Marker] Berm plane marker
+ *    - /mapping/groundplane: [SensorMsgs/PointCloud2] Ground plane point cloud
+ *    - /mapping/bermplane: [SensorMsgs/PointCloud2] Berm plane point cloud
  * Services:
- *    - /name (type): description
- * Actions:
- *    - /name (type): description
+ *    - /mapping/visual_servo_switch: [LxMsgs/Switch] Service to start/stop visual servoing
  *
  * - Summary
- * 
- * TODO
- * - Add Documentation
- * - Test with rover
- * - Complete getVisualServoError
- * - Check compatibility with AutoDump
+ * - Performs visual servoing to align the tool with the berm using elevation thresholding
+ * - Detects peak line and projects it onto the ground plane
+ * - Calculates the error between the projected point and the target point for visual servoing
+ * - Publishes the error and the markers for visualization* 
  * */
 
 #include "lx_mapping/visual_servoing.hpp"

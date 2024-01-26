@@ -1,19 +1,8 @@
 /* Author: Anish Senathi
- * Subscribers:
- *    - /topic: description
- * Publishers:
- *    - /topic: description
- * Services:
- *    - /name (type): description
- * Actions:
- *    - /name (type): description
  *
- * - Summary
- * 
- * TODO
- * - Add Documentation
- * - Test with rover
- * - Check compatibility with planner
+ * - Implements the Bayes Filter for localization
+ * - Updates the elevation and variance of the cell
+ * - Returns the elevation and variance of the cell
  * */
 
 

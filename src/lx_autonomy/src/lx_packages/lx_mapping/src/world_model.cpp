@@ -1,20 +1,17 @@
 /* Author: Anish Senathi
- * Subscribers:
- *    - /topic: description
  * Publishers:
- *    - /topic: description
+ *    - /mapping/global_map: [NavMsgs/OccupancyGrid] Global map
+ *    - /mapping/world_model: [NavMsgs/OccupancyGrid] World model
+ *    - /mapping/filtered_global_map: [NavMsgs/OccupancyGrid] Filtered global map
+ *    - /map: [NavMsgs/OccupancyGrid] Traversibility costmap
  * Services:
- *    - /name (type): description
- * Actions:
- *    - /name (type): description
+ *    - /mapping/map_switch: [LxMsgs/Switch] Switch to turn on/off mapping
+ *    - /world_model/requested_points: [LxMsgs/RequestRoverService] Service to update the world model
  *
  * - Summary
- * 
- * TODO
- * - Add Documentation
- * - Add special zones from user input
- * - Test with rover
- * - Check compatibility with planner
+ * - Generates the elevation map from the point cloud 
+ * - Fuses the elevation map with the global map using a bayes filter
+ * - Generates the world model from the global map considering the restricted zones and berm zones
  * */
 
 
