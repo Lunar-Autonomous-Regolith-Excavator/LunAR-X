@@ -3,9 +3,9 @@ CMU Robotics Institute MRSD Capstone Project on proof-of-concept autonomy for lu
 
 Sponsors: Dr. Red Whittaker & Caterpillar Inc.
 
-<img src="./media/curved_berm.gif" width="49%" height="50%"/>
-<img src="./media/lunarx.gif" width="49%" height="50%"/>
 <img src="./media/depiction.png" width="100%" height="100%">
+<img src="./media/curved_berm.gif" width="100%" height="100%"/>
+<img src="./media/lunarx.gif" width="100%" height="100%"/>
 
 ## Links
 
